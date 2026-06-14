@@ -122,3 +122,7 @@ $RECYCLE.BIN/
 # Editor / tooling
 .idea/
 .vscode/
+
+# Roslyn analyzer DLLs pulled in by the Unity MCP bridge (re-installed with the package)
+/[Aa]ssets/Plugins/
+/[Aa]ssets/Plugins.meta
