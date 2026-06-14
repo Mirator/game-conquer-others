@@ -49,7 +49,8 @@ Add `-smokevictory` to:
 ## Current Verified Status
 
 - Live Unity compilation: passed.
-- Windows standalone build: passed.
+- Windows standalone build: passed (`Builds/Windows/ConquerOthers.exe`).
+- Editor smoke test: opening state correct (Blue=4, Red=4, Fighting); battle log shows stable group combat.
 - Directional block audit: passed.
 - Natural group battle: passed.
 - Forced victory and restart: passed.

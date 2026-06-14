@@ -5,11 +5,11 @@
 | Input | Action |
 |---|---|
 | W / A / S / D | Camera-relative movement |
-| Mouse movement | Rotate camera and select combat direction |
 | Left Shift | Sprint |
 | Space | Dodge |
-| Hold/release left mouse | Prepare/release directional attack |
-| Hold right mouse | Block in selected direction |
+| Hold left mouse + move mouse | Aim a directional attack |
+| Release left mouse | Strike in the aimed direction |
+| Hold right mouse + move mouse | Block in that direction |
 | Escape | Release cursor |
 | R | Restart battle |
 
@@ -30,6 +30,9 @@
 - Downward movement selects Thrust.
 - Mouse movement below the threshold preserves the previous direction.
 - The initial fallback direction is Right.
+- While holding left mouse during wind-up or hold, continued mouse movement
+  re-aims the attack. The direction commits when the button is released.
+- While holding right mouse, mouse movement updates the block direction live.
 
 ## Camera
 
@@ -39,6 +42,8 @@
 - Camera collision uses a sphere cast to avoid clipping through arena geometry.
 - Movement adds subtle bob and sway.
 - Impacts and dodges may add short camera shake.
+- Mouse look is damped to 28% of normal sensitivity while left mouse is held,
+  so direction flicks do not spin the camera. Damped to 55% while blocking.
 
 ## Camera Modes
 

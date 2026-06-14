@@ -8,7 +8,7 @@ the game's strategic scope.
 ## Near-Term Candidates
 
 - Tune directional combat timings, reach, movement penalties, and AI cadence.
-- Improve one-on-one readability and incoming attack telegraphing.
+- Add incoming attack telegraphing for the player to react to.
 - Replace primitive fighters with coherent animated character assets.
 - Replace synthesized audio with recorded weapon, armor, voice, and ambience.
 - Add simple ally commands: follow, charge, and hold.

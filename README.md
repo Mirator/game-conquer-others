@@ -20,11 +20,11 @@ Unity menu. The executable is written to `Builds/Windows/ConquerOthers.exe`.
 | Input | Action |
 |---|---|
 | W / A / S / D | Move |
-| Mouse | Rotate camera and select combat direction |
 | Left Shift | Sprint |
 | Space | Dodge |
-| Hold/release left mouse | Prepare/release directional attack |
-| Hold right mouse | Block in selected direction |
+| Hold left mouse + move mouse | Aim a directional attack |
+| Release left mouse | Strike in the aimed direction |
+| Hold right mouse + move mouse | Block in that direction |
 | Escape | Release cursor |
 | R | Restart battle |
 
@@ -32,10 +32,12 @@ Defeat all four red soldiers while fighting alongside the three blue allied
 soldiers. The battle ends in victory when the enemy force is eliminated or in
 defeat when the player dies.
 
-Combat follows `conquer_others_directional_combat_canvas.md`. Recent dominant
-mouse movement selects left slash, right slash, overhead, or thrust. A block
-stops all damage only when its direction matches the incoming attack and the
-attacker is inside the defender's front arc.
+While holding the left mouse button, move the mouse to choose left slash, right
+slash, overhead, or thrust. The four ticks around the crosshair show your live
+direction and fill gold as the swing charges. Release to strike.
+
+A block stops all damage only when its direction matches the incoming attack and
+the attacker is inside the defender's front arc.
 
 The camera uses a close over-the-shoulder combat view. Sprinting pulls it back
 slightly for awareness, while blocking tightens the view toward nearby threats.

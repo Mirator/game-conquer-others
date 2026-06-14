@@ -9,9 +9,8 @@ and implemented behavior by product area.
 ## Authority
 
 - Specs describe the intended current MVP unless a section is marked future.
-- Code is the source of truth for exact implementation details until a spec is
-  explicitly approved as a required change.
-- The original root documents remain as historical source material.
+- Code is the source of truth for exact numeric values and implementation details.
+- Specs and code are kept in sync; any divergence should be resolved before adding new features.
 
 ## Specifications
 
@@ -28,9 +27,6 @@ and implemented behavior by product area.
 | 09 | Verification and acceptance | [09-verification-and-acceptance.md](09-verification-and-acceptance.md) |
 | 10 | Roadmap and excluded scope | [10-roadmap-and-excluded-scope.md](10-roadmap-and-excluded-scope.md) |
 
-## Historical Sources
+## Related Files
 
-- `conquer_others_gdd.md`: original broad game design document.
-- `conquer_others_directional_combat_canvas.md`: original directional combat design.
 - `README.md`: player and build instructions.
-- `progress.md`: implementation and verification history.

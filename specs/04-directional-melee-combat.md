@@ -16,16 +16,17 @@ matching blocks, and maintaining useful range.
 
 ## Attack Input and Phases
 
-- Pressing left mouse begins attack preparation in the selected direction.
-- Holding left mouse allows the prepared attack to remain held.
+- Pressing left mouse begins attack preparation in the current direction.
+- While holding left mouse during wind-up or hold, moving the mouse re-aims
+  the attack. The direction commits when the button is released.
 - Releasing left mouse releases the attack.
 - Releasing during wind-up queues release as soon as wind-up completes.
 
 | Phase | Rule |
 |---|---|
-| AttackWindup | Readable preparation; movement slowed. |
-| AttackHold | Prepared pose remains until release. |
-| AttackRelease | Attack lunges forward and may deal damage once. |
+| AttackWindup | Readable preparation; direction still adjustable; movement slowed. |
+| AttackHold | Prepared pose remains until release; direction still adjustable. |
+| AttackRelease | Attack lunges forward and may deal damage once; direction locked. |
 | AttackRecovery | Fighter cannot start another attack. |
 
 ## Timing and Damage

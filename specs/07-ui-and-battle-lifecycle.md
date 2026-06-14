@@ -13,10 +13,15 @@ The ready screen communicates:
 
 - Bottom-left player panel with health and stamina bars.
 - Top-right count of living blue and red fighters.
-- Center crosshair.
-- Direction label beneath the crosshair:
-  - `ATTACK LEFT`, `ATTACK RIGHT`, `ATTACK HIGH`, or `ATTACK THRUST`.
-  - `BLOCK LEFT`, `BLOCK RIGHT`, `BLOCK HIGH`, or `BLOCK THRUST`.
+- Center crosshair with four directional tick marks:
+  - Ticks are always visible, dimmed when idle.
+  - The active direction tick brightens gold while attacking or aiming,
+    cyan while blocking.
+  - Ticks spread outward as an attack charges during wind-up and hold.
+- Direction label below the crosshair:
+  - `AIM LEFT/RIGHT/HIGH/THRUST` while no button is held.
+  - `ATTACK LEFT/RIGHT/HIGH/THRUST` while preparing or holding a swing.
+  - `BLOCK LEFT/RIGHT/HIGH/THRUST` while blocking.
 - Temporary battle and block messages.
 - World-space health bars for damaged non-player fighters.
 - Red screen flash when the player takes damage.
