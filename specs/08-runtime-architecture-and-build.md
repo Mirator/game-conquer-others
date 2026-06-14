@@ -2,30 +2,38 @@
 
 ## Runtime Construction
 
-The MVP requires no manual scene setup beyond loading `SampleScene.unity`.
-`BattleBootstrap` initializes after scene load and creates the complete battle:
+The game requires no manual scene setup beyond loading `SampleScene.unity`.
+`GameDirector` is the single entry point that initializes after scene load. It is
+a persistent singleton (`DontDestroyOnLoad`) that:
 
-- Battle root.
-- Manager and effects systems.
-- Lighting and arena.
-- Camera and camera rig.
-- Player and AI fighters.
-- Optional standalone smoke runner.
+- Disables the scene's default camera and light exactly once at startup.
+- Owns the persistent `CampaignState`.
+- Switches between two modes, each under its own root GameObject:
+  - `mapRoot` — the campaign map (`CampaignMapController`).
+  - `battleRoot` — a battle built by `BattleBootstrap`.
+- Opens on the campaign map.
 
-Restart destroys the battle root and repeats this construction.
+A battle root contains the manager and effects systems, lighting and arena,
+camera and camera rig, and the player and AI fighters. All mode changes go
+through one transition that destroys the current root, waits one frame, then
+builds the next — so there is never more than one active camera or audio
+listener. Each mode's camera carries the single active `AudioListener`.
 
 ## Main Runtime Components
 
 | Component | Responsibility |
 |---|---|
-| `BattleBootstrap` | Builds and resets the complete runtime battle. |
+| `GameDirector` | Entry point; owns campaign state and map/battle mode switching. |
+| `CampaignState` | Persistent territory graph and warband roster (plain C#). |
+| `CampaignMapController` | Builds and runs the campaign map view and UI. |
+| `BattleBootstrap` | Builds a battle (arena, fighters) under a supplied root. |
 | `BattleManager` | Owns battle rules, queries, lifecycle, and UI. |
 | `BattleFighter` | Shared fighter state, combat, health, and visuals. |
 | `PlayerFighter` | Player input, movement, dodge, and direction selection. |
 | `AIFighter` | Targeting, movement, attacks, and blocks. |
 | `ThirdPersonCamera` | Orbit, collision, framing, FOV, and shake. |
 | `BattleEffects` | Procedural audio and impact sparks. |
-| `BattleRuntimeSmoke` | Standalone automated battle verification. |
+| `BattleRuntimeSmoke` | Standalone automated campaign-step verification. |
 
 ## Rendering and Assets
 

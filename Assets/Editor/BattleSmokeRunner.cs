@@ -39,7 +39,18 @@ public static class BattleSmokeRunner
 
         BattleManager manager = Object.FindFirstObjectByType<BattleManager>();
         if (manager == null)
+        {
+            // The game now opens on the campaign map; launch a battle so the
+            // smoke test has something to drive.
+            GameDirector director = Object.FindFirstObjectByType<GameDirector>();
+            if (director != null && director.CurrentMode == GameDirector.Mode.Map)
+            {
+                Territory target = director.FirstAttackableTarget();
+                if (target != null)
+                    director.LaunchBattle(director.Campaign.BuildSetupFor(target), target);
+            }
             return;
+        }
 
         if (playStartedAt <= 0d)
         {

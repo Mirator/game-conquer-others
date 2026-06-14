@@ -29,9 +29,13 @@ the game's strategic scope.
 - Larger battles and varied arenas.
 - Castle battles and terrain variation.
 
-## Explicitly Excluded From MVP
+## Delivered Beyond The Original MVP
 
-- Campaign map.
+- Node-based campaign map with a persistent warband roster (see
+  [11-campaign-map-and-meta-loop.md](11-campaign-map-and-meta-loop.md)).
+
+## Explicitly Excluded From Current Scope
+
 - Economy and trading.
 - Recruitment and character progression.
 - Inventory and complex equipment.

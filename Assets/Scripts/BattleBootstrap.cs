@@ -1,42 +1,18 @@
 using UnityEngine;
 using UnityEngine.Rendering;
 
+// Builds a complete runtime battle (arena, lighting, camera, fighters) under a
+// root GameObject supplied by the GameDirector. No longer the app entry point;
+// the director owns lifecycle and mode switching.
 public sealed class BattleBootstrap : MonoBehaviour
 {
-    public static BattleBootstrap Instance { get; private set; }
-
     private GameObject battleRoot;
     private static Shader litShader;
-    private static bool smokeStarted;
 
-    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-    private static void Initialize()
+    public BattleManager Build(GameObject root, BattleSetup setup)
     {
-        if (FindFirstObjectByType<BattleBootstrap>() != null)
-            return;
+        battleRoot = root;
 
-        new GameObject("Battle Bootstrap").AddComponent<BattleBootstrap>();
-    }
-
-    private void Awake()
-    {
-        Instance = this;
-        Application.runInBackground = true;
-        BuildBattle();
-    }
-
-    public void ResetBattle()
-    {
-        Cursor.lockState = CursorLockMode.None;
-        Cursor.visible = true;
-        if (battleRoot != null)
-            Destroy(battleRoot);
-        BuildBattle();
-    }
-
-    private void BuildBattle()
-    {
-        battleRoot = new GameObject("Conquer Others MVP");
         BattleManager manager = battleRoot.AddComponent<BattleManager>();
         BattleEffects effects = battleRoot.AddComponent<BattleEffects>();
 
@@ -50,20 +26,9 @@ public sealed class BattleBootstrap : MonoBehaviour
         player.SetCamera(cameraRig);
         cameraRig.SetTarget(player.transform);
 
-        if (!smokeStarted && System.Array.Exists(System.Environment.GetCommandLineArgs(), argument => argument == "-smoketest"))
-        {
-            smokeStarted = true;
-            gameObject.AddComponent<BattleRuntimeSmoke>().Configure(manager);
-        }
-
-        SpawnAI(manager, Team.Allies, new Vector3(-3f, 0.05f, -9f));
-        SpawnAI(manager, Team.Allies, new Vector3(3f, 0.05f, -9f));
-        SpawnAI(manager, Team.Allies, new Vector3(0f, 0.05f, -7f));
-
-        SpawnAI(manager, Team.Enemies, new Vector3(-4.5f, 0.05f, 9f));
-        SpawnAI(manager, Team.Enemies, new Vector3(-1.5f, 0.05f, 10f));
-        SpawnAI(manager, Team.Enemies, new Vector3(1.5f, 0.05f, 10f));
-        SpawnAI(manager, Team.Enemies, new Vector3(4.5f, 0.05f, 9f));
+        SpawnTeam(manager, Team.Allies, Mathf.Clamp(setup.AllyCount, 0, 16), 1f);
+        SpawnTeam(manager, Team.Enemies, Mathf.Clamp(setup.EnemyCount, 1, 16), setup.EnemyHealthScale);
+        return manager;
     }
 
     private PlayerFighter SpawnPlayer(BattleManager manager, Vector3 position)
@@ -78,7 +43,27 @@ public sealed class BattleBootstrap : MonoBehaviour
         return fighter;
     }
 
-    private void SpawnAI(BattleManager manager, Team team, Vector3 position)
+    // Lays soldiers out in ranks centered on each team's spawn line, scaled to
+    // however many fighters the encounter calls for and clamped inside the walls.
+    private void SpawnTeam(BattleManager manager, Team team, int count, float healthScale)
+    {
+        const float spacing = 2.2f;
+        const int perRow = 6;
+        float baseZ = team == Team.Allies ? -8f : 9f;
+        float rowStep = team == Team.Allies ? -1.6f : 1.6f;
+
+        for (int i = 0; i < count; i++)
+        {
+            int row = i / perRow;
+            int col = i % perRow;
+            int rowCount = Mathf.Min(perRow, count - row * perRow);
+            float x = Mathf.Clamp((col - (rowCount - 1) * 0.5f) * spacing, -13f, 13f);
+            float z = baseZ + row * rowStep;
+            SpawnAI(manager, team, new Vector3(x, 0.05f, z), healthScale);
+        }
+    }
+
+    private void SpawnAI(BattleManager manager, Team team, Vector3 position, float healthScale)
     {
         GameObject go = new GameObject(team == Team.Allies ? "Allied Soldier" : "Enemy Soldier");
         go.transform.SetParent(battleRoot.transform);
@@ -87,15 +72,12 @@ public sealed class BattleBootstrap : MonoBehaviour
         if (team == Team.Enemies)
             go.transform.rotation = Quaternion.Euler(0f, 180f, 0f);
         AIFighter fighter = go.AddComponent<AIFighter>();
-        fighter.Configure(manager, team, false);
+        fighter.Configure(manager, team, false, healthScale);
         manager.Register(fighter);
     }
 
     private Camera CreateCamera()
     {
-        foreach (Camera existing in FindObjectsByType<Camera>(FindObjectsSortMode.None))
-            existing.gameObject.SetActive(false);
-
         GameObject go = new GameObject("Battle Camera");
         go.transform.SetParent(battleRoot.transform);
         go.tag = "MainCamera";
@@ -109,9 +91,6 @@ public sealed class BattleBootstrap : MonoBehaviour
 
     private void SetupLighting()
     {
-        foreach (Light existing in FindObjectsByType<Light>(FindObjectsSortMode.None))
-            existing.gameObject.SetActive(false);
-
         GameObject sunObject = new GameObject("Sun");
         sunObject.transform.SetParent(battleRoot.transform);
         sunObject.transform.rotation = Quaternion.Euler(35f, -28f, 0f);

@@ -9,8 +9,14 @@ The organized product and technical specification set starts at
 
 ## Play
 
-Open `Assets/Scenes/SampleScene.unity` in Unity 6.3 LTS and press Play. Press
-Enter or click on the title screen to begin the battle.
+Open `Assets/Scenes/SampleScene.unity` in Unity 6.3 LTS and press Play. The game
+opens on the **campaign map**: click a glowing enemy territory bordering your
+lands and press Enter to assault it. Each assault launches a courtyard battle;
+press Enter or click to begin the fight.
+
+Win to capture the territory — surviving soldiers carry over to your next battle.
+Conquer every territory to win the campaign; if your captain falls, the campaign
+is lost. See [`specs/11-campaign-map-and-meta-loop.md`](specs/11-campaign-map-and-meta-loop.md).
 
 Create a standalone build with `Conquer Others > Build Windows MVP` in the
 Unity menu. The executable is written to `Builds/Windows/ConquerOthers.exe`.

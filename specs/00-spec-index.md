@@ -26,6 +26,7 @@ and implemented behavior by product area.
 | 08 | Runtime architecture and build | [08-runtime-architecture-and-build.md](08-runtime-architecture-and-build.md) |
 | 09 | Verification and acceptance | [09-verification-and-acceptance.md](09-verification-and-acceptance.md) |
 | 10 | Roadmap and excluded scope | [10-roadmap-and-excluded-scope.md](10-roadmap-and-excluded-scope.md) |
+| 11 | Campaign map and meta loop | [11-campaign-map-and-meta-loop.md](11-campaign-map-and-meta-loop.md) |
 
 ## Related Files
 

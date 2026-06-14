@@ -28,11 +28,13 @@ Validate that:
 The player is a blue-team captain who personally influences a battle against a
 red force through movement, directional attacks, and directional blocks.
 
-## Current MVP Scope
+## Current Scope
 
-- One enclosed medieval courtyard arena.
-- One player fighter and three allied AI fighters.
-- Four enemy AI fighters.
+- A node-based campaign map of territories to conquer, with a persistent warband
+  roster carried between battles.
+- One enclosed medieval courtyard arena used to resolve each map encounter.
+- The player plus a roster of allied AI fighters versus a territory's garrison
+  (the opening encounter is four versus four).
 - Sword-and-shield directional melee combat.
 - Health, stamina, hit reactions, death, victory, defeat, and restart.
 - Close third-person combat camera.

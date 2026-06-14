@@ -9,6 +9,27 @@ public sealed class BattleManager : MonoBehaviour
     public bool IsBattleRunning => State == BattleState.Fighting;
     public BattleState State { get; private set; } = BattleState.Ready;
     public PlayerFighter Player { get; private set; }
+    public int AlliesAlive => CountAlive(Team.Allies);
+    public int EnemiesAlive => CountAlive(Team.Enemies);
+
+    // Living allied soldiers excluding the player — this is what carries to the
+    // campaign roster (the player/captain is tracked separately).
+    public int AlliedSoldiersAlive
+    {
+        get
+        {
+            int count = 0;
+            foreach (BattleFighter fighter in fighters)
+                if (fighter.IsAlive && fighter.Team == Team.Allies && !fighter.IsPlayer)
+                    count++;
+            return count;
+        }
+    }
+
+    // Raised when the player dismisses a result screen. The GameDirector listens
+    // and applies the outcome to the campaign.
+    public System.Action<BattleResult> OnBattleConcluded;
+    public string EncounterTitle = "THE OLD COURTYARD";
     public string DebugSummary => $"State={State}, Blue={CountAlive(Team.Allies)}, Red={CountAlive(Team.Enemies)}, Time={battleTime:0.0}";
 
     private readonly List<BattleFighter> fighters = new();
@@ -24,6 +45,7 @@ public sealed class BattleManager : MonoBehaviour
     private float impactFlash;
     private float messageTimer;
     private string message;
+    private bool concluded;
 
     public void Configure(BattleEffects battleEffects, ThirdPersonCamera rig)
     {
@@ -50,9 +72,15 @@ public sealed class BattleManager : MonoBehaviour
         if (Keyboard.current == null)
             return;
         if (Keyboard.current.rKey.wasPressedThisFrame)
-            BattleBootstrap.Instance.ResetBattle();
-        if (State == BattleState.Ready && (Keyboard.current.enterKey.wasPressedThisFrame || Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame))
+            GameDirector.Instance.RestartBattle();
+        bool confirm = Keyboard.current.enterKey.wasPressedThisFrame || Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame;
+        if (State == BattleState.Ready && confirm)
             BeginBattle();
+        if ((State == BattleState.Victory || State == BattleState.Defeat) && confirm)
+        {
+            ConfirmResult();
+            return;
+        }
         if (Keyboard.current.escapeKey.wasPressedThisFrame)
         {
             Cursor.lockState = CursorLockMode.None;
@@ -150,6 +178,20 @@ public sealed class BattleManager : MonoBehaviour
             effects?.PlayVictory();
             UnlockCursor();
         }
+    }
+
+    // Dismisses the result screen and reports the outcome to the GameDirector.
+    // Guarded so it fires once even if invoked across multiple frames.
+    public void ConfirmResult()
+    {
+        if (concluded || (State != BattleState.Victory && State != BattleState.Defeat))
+            return;
+        concluded = true;
+        OnBattleConcluded?.Invoke(new BattleResult
+        {
+            PlayerWon = State == BattleState.Victory,
+            AlliesSurvived = AlliedSoldiersAlive
+        });
     }
 
     public void DebugEliminateTeam(Team team)
@@ -278,9 +320,12 @@ public sealed class BattleManager : MonoBehaviour
             DrawPanel(new Rect(width * 0.5f - 285f, height * 0.5f - 205f, 570f, 410f), new Color(0.025f, 0.03f, 0.035f, 0.92f));
             string title = State == BattleState.Ready ? "CONQUER OTHERS" : State == BattleState.Victory ? "VICTORY" : "DEFEAT";
             GUI.Label(new Rect(width * 0.5f - 240f, height * 0.5f - 155f, 480f, 52f), title, titleStyle);
+            string outcomePrompt = State == BattleState.Victory
+                ? "PRESS ENTER TO CLAIM THE TERRITORY"
+                : "PRESS ENTER TO RETURN TO THE MAP       (R to retry)";
             string body = State == BattleState.Ready
-                ? "THE OLD COURTYARD\nLead the blue soldiers and break the red line.\n\nWASD  Move       Shift  Sprint       Space  Dodge\nHold LMB + move mouse  Aim a swing, release to strike\nHold RMB + move mouse  Raise your shield that way\n\nThe ticks around the crosshair show your direction.\nMatch the incoming attack direction to stop all damage.\n\nPRESS ENTER OR CLICK TO BEGIN"
-                : $"Battle time  {Mathf.FloorToInt(battleTime / 60f):00}:{Mathf.FloorToInt(battleTime % 60f):00}\nBlue remaining  {CountAlive(Team.Allies)}       Red remaining  {CountAlive(Team.Enemies)}\n\nPRESS R TO FIGHT AGAIN";
+                ? $"ASSAULT ON {EncounterTitle}\nLead the blue soldiers and break the red line.\n\nWASD  Move       Shift  Sprint       Space  Dodge\nHold LMB + move mouse  Aim a swing, release to strike\nHold RMB + move mouse  Raise your shield that way\n\nThe ticks around the crosshair show your direction.\nMatch the incoming attack direction to stop all damage.\n\nPRESS ENTER OR CLICK TO BEGIN"
+                : $"Battle time  {Mathf.FloorToInt(battleTime / 60f):00}:{Mathf.FloorToInt(battleTime % 60f):00}\nBlue remaining  {CountAlive(Team.Allies)}       Red remaining  {CountAlive(Team.Enemies)}\n\n{outcomePrompt}";
             GUI.Label(new Rect(width * 0.5f - 245f, height * 0.5f - 82f, 490f, 260f), body, centerStyle);
         }
         GUI.matrix = previous;

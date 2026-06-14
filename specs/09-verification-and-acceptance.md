@@ -22,6 +22,7 @@ Editor menu: `Conquer Others > Run Battle Smoke Test`.
 The editor smoke test:
 
 - Enters Play mode.
+- Launches a battle from the opening campaign map encounter.
 - Begins the battle.
 - Captures opening and battle screenshots.
 - Logs battle summaries.
@@ -33,6 +34,7 @@ Launch the executable with `-smoketest`.
 
 The standalone smoke test:
 
+- Starts on the campaign map and assaults the first attackable territory.
 - Begins the battle automatically.
 - Audits all four correct blocks.
 - Audits all four wrong blocks.
@@ -44,7 +46,8 @@ Add `-smokevictory` to:
 
 - Force enemy elimination.
 - Verify victory.
-- Verify restart creates a fresh Ready battle.
+- Verify the loop returns to the map with the territory captured and the roster
+  updated to the survivors.
 
 ## Current Verified Status
 

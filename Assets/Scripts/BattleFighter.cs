@@ -48,12 +48,14 @@ public abstract class BattleFighter : MonoBehaviour
     private Vector3 previousPosition;
     private Vector3 swordBasePosition;
 
-    public void Configure(BattleManager owner, Team team, bool player)
+    public void Configure(BattleManager owner, Team team, bool player, float healthScale = 1f)
     {
         battle = owner;
         Team = team;
         IsPlayer = player;
         maxHealth = player ? 125f : team == Team.Allies ? 110f : 100f;
+        if (!player && team == Team.Enemies)
+            maxHealth *= healthScale;
         health = maxHealth;
         name = player ? "Player" : team == Team.Allies ? "Allied Soldier" : "Enemy Soldier";
 
