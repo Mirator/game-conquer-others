@@ -38,8 +38,12 @@ public sealed class ThirdPersonCamera : MonoBehaviour
         if (Mouse.current != null && Cursor.lockState == CursorLockMode.Locked)
         {
             Vector2 delta = Mouse.current.delta.ReadValue();
-            yaw += delta.x * 0.11f;
-            pitch = Mathf.Clamp(pitch - delta.y * 0.085f, -12f, 36f);
+            // While attacking or blocking, mouse movement is mostly read as a
+            // direction choice, so the camera barely drifts during a flick.
+            float lookScale = Mouse.current.leftButton.isPressed ? 0.28f
+                : Mouse.current.rightButton.isPressed ? 0.55f : 1f;
+            yaw += delta.x * 0.11f * lookScale;
+            pitch = Mathf.Clamp(pitch - delta.y * 0.085f * lookScale, -12f, 36f);
         }
 
         Vector3 targetDelta = target.position - previousTargetPosition;

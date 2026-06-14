@@ -255,10 +255,11 @@ public sealed class BattleManager : MonoBehaviour
             GUI.Label(new Rect(width * 0.5f - 10f, height * 0.5f - 14f, 20f, 20f), "+", centerStyle);
             if (Player != null)
             {
-                string direction = Player.IsBlocking
-                    ? $"BLOCK  {DirectionLabel(Player.BlockDirection)}"
-                    : $"ATTACK  {DirectionLabel(Player.AttackDirection)}";
-                GUI.Label(new Rect(width * 0.5f - 100f, height * 0.5f + 12f, 200f, 24f), direction, smallCenterStyle);
+                DrawDirectionReticle(width * 0.5f, height * 0.5f);
+                string verb = Player.IsBlocking ? "BLOCK" : Player.IsChargingAttack ? "ATTACK" : "AIM";
+                CombatDirection shown = Player.IsBlocking ? Player.BlockDirection
+                    : Player.IsChargingAttack ? Player.AttackDirection : Player.SelectedDirection;
+                GUI.Label(new Rect(width * 0.5f - 100f, height * 0.5f + 44f, 200f, 24f), $"{verb}  {DirectionLabel(shown)}", smallCenterStyle);
             }
 
             if (messageTimer > 0f)
@@ -278,7 +279,7 @@ public sealed class BattleManager : MonoBehaviour
             string title = State == BattleState.Ready ? "CONQUER OTHERS" : State == BattleState.Victory ? "VICTORY" : "DEFEAT";
             GUI.Label(new Rect(width * 0.5f - 240f, height * 0.5f - 155f, 480f, 52f), title, titleStyle);
             string body = State == BattleState.Ready
-                ? "THE OLD COURTYARD\nLead the blue soldiers and break the red line.\n\nWASD  Move       Shift  Sprint       Space  Dodge\nMouse move  Choose direction       Hold/release LMB  Attack\nHold RMB  Block in selected direction\n\nMatch the incoming attack direction to stop all damage.\n\nPRESS ENTER OR CLICK TO BEGIN"
+                ? "THE OLD COURTYARD\nLead the blue soldiers and break the red line.\n\nWASD  Move       Shift  Sprint       Space  Dodge\nHold LMB + move mouse  Aim a swing, release to strike\nHold RMB + move mouse  Raise your shield that way\n\nThe ticks around the crosshair show your direction.\nMatch the incoming attack direction to stop all damage.\n\nPRESS ENTER OR CLICK TO BEGIN"
                 : $"Battle time  {Mathf.FloorToInt(battleTime / 60f):00}:{Mathf.FloorToInt(battleTime % 60f):00}\nBlue remaining  {CountAlive(Team.Allies)}       Red remaining  {CountAlive(Team.Enemies)}\n\nPRESS R TO FIGHT AGAIN";
             GUI.Label(new Rect(width * 0.5f - 245f, height * 0.5f - 82f, 490f, 260f), body, centerStyle);
         }
@@ -300,6 +301,40 @@ public sealed class BattleManager : MonoBehaviour
             DrawBar(new Rect(screen.x / scale - 34f, (Screen.height - screen.y) / scale, 68f, 6f), fighter.HealthNormalized,
                 fighter.Team == Team.Allies ? new Color(0.15f, 0.48f, 0.95f) : new Color(0.9f, 0.16f, 0.1f));
         }
+    }
+
+    private void DrawDirectionReticle(float cx, float cy)
+    {
+        if (Player == null)
+            return;
+
+        bool blocking = Player.IsBlocking;
+        bool charging = Player.IsChargingAttack;
+        float charge = Player.AttackChargeNormalized;
+        CombatDirection active = blocking ? Player.BlockDirection
+            : charging ? Player.AttackDirection : Player.SelectedDirection;
+
+        Color activeColor = blocking ? new Color(0.32f, 0.78f, 1f)
+            : charging ? Color.Lerp(new Color(1f, 0.86f, 0.42f), new Color(1f, 0.5f, 0.08f), charge)
+            : new Color(0.86f, 0.86f, 0.9f);
+        Color idleColor = new Color(0.5f, 0.52f, 0.55f, 0.55f);
+
+        float gap = 22f + (charging ? charge * 7f : 0f);
+        DrawReticleMarker(cx - gap, cy, true, active == CombatDirection.Left, activeColor, idleColor);
+        DrawReticleMarker(cx + gap, cy, true, active == CombatDirection.Right, activeColor, idleColor);
+        DrawReticleMarker(cx, cy - gap, false, active == CombatDirection.Up, activeColor, idleColor);
+        DrawReticleMarker(cx, cy + gap, false, active == CombatDirection.Thrust, activeColor, idleColor);
+        GUI.color = Color.white;
+    }
+
+    private void DrawReticleMarker(float x, float y, bool flank, bool active, Color activeColor, Color idleColor)
+    {
+        float lengthwise = active ? 22f : 13f;
+        float thickness = active ? 6f : 4f;
+        float w = flank ? thickness : lengthwise;
+        float h = flank ? lengthwise : thickness;
+        GUI.color = active ? activeColor : idleColor;
+        GUI.DrawTexture(new Rect(x - w * 0.5f, y - h * 0.5f, w, h), whiteTexture);
     }
 
     private void DrawBar(Rect rect, float amount, Color fill)

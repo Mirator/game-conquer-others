@@ -14,6 +14,10 @@ public abstract class BattleFighter : MonoBehaviour
     public float HealthNormalized => Mathf.Clamp01(health / maxHealth);
     public float StaminaNormalized => Mathf.Clamp01(stamina / MaxStamina);
     public float CurrentHealth => health;
+    public bool IsChargingAttack => Phase == CombatPhase.AttackWindup || Phase == CombatPhase.AttackHold;
+    public float AttackChargeNormalized => Phase == CombatPhase.AttackWindup
+        ? Mathf.Clamp01(1f - phaseTimer / Mathf.Max(phaseDuration, 0.0001f))
+        : Phase == CombatPhase.AttackHold ? 1f : 0f;
 
     protected CharacterController controller;
     protected BattleManager battle;
@@ -128,6 +132,14 @@ public abstract class BattleFighter : MonoBehaviour
             releaseQueued = true;
         else if (Phase == CombatPhase.AttackHold)
             EnterRelease();
+    }
+
+    // Mount & Blade style re-aim: while the swing is still being held back,
+    // the chosen direction tracks the player's current input.
+    protected void AimHeldAttack(CombatDirection direction)
+    {
+        if (Phase == CombatPhase.AttackWindup || Phase == CombatPhase.AttackHold)
+            AttackDirection = direction;
     }
 
     protected void SetBlock(bool active, CombatDirection direction)

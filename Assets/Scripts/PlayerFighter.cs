@@ -11,6 +11,8 @@ public sealed class PlayerFighter : BattleFighter
     private Vector3 smoothedMovement;
     private CombatDirection selectedDirection = CombatDirection.Right;
 
+    public CombatDirection SelectedDirection => selectedDirection;
+
     public void SetCamera(ThirdPersonCamera rig)
     {
         cameraRig = rig;
@@ -28,6 +30,8 @@ public sealed class PlayerFighter : BattleFighter
             SetBlock(Mouse.current.rightButton.isPressed, selectedDirection);
             if (Mouse.current.leftButton.wasPressedThisFrame)
                 PrepareAttack(selectedDirection);
+            else if (Mouse.current.leftButton.isPressed)
+                AimHeldAttack(selectedDirection);
             if (Mouse.current.leftButton.wasReleasedThisFrame)
                 ReleasePreparedAttack();
         }
