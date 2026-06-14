@@ -41,8 +41,12 @@ The standalone smoke test:
 - Audits rear-angle block bypass.
 - Audits gesture jitter rejection, diagonal hysteresis, deliberate direction
   selection, held-attack cancellation into block, and swept-target filtering.
+- Audits AI attack-permission limits and living enemy target assignments.
 - Captures opening, combat, and late-battle screenshots.
 - Exits after the run.
+
+Add `-smokelarge` to run a 6v6 encounter and verify coordination and spacing
+under a larger fighter count.
 
 Add `-smokevictory` to:
 
@@ -61,3 +65,8 @@ Add `-smokevictory` to:
 - Forced victory and restart: passed.
 - Managed exception scan: passed.
 - P0/P1 responsive combat audit: passed.
+- P2 tactical AI coordination audit: passed.
+- Repeated natural 4v4 battles: player attacker limit held at one; no central
+  fighter knot observed.
+- Large 6v6 battle: coordination audit passed; no close-pair cluster at seven
+  seconds; both teams remained active through the late-battle capture.

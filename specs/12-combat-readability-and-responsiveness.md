@@ -52,7 +52,7 @@ or central HUD.
 
 ## Required Improvements
 
-Implementation status: P0 and P1 are delivered. P2 and P3 remain the next
+Implementation status: P0, P1, and P2 are delivered. P3 remains the next
 combat-readability work.
 
 ### P0 - Restore Player Responsiveness
@@ -95,6 +95,11 @@ combat-readability work.
 5. Stagger initial and subsequent attack timers to prevent synchronized swings.
 6. Non-active attackers should hold roughly 2.5 to 3.5 units from the target,
    leaving a readable duel space.
+
+Delivered with tactical target distribution, stable target locks, engagement
+slots, attack permissions, staggered attacks, continuous separation, and
+obstacle avoidance. Runtime telemetry audits player/general attacker limits,
+minimum fighter distance, close pairs, and invalid target assignments.
 
 ### P3 - Improve Threat Readability
 

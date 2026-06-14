@@ -22,7 +22,15 @@ public sealed class BattleRuntimeSmoke : MonoBehaviour
             yield return null; // wait for the opening map transition to settle
         Territory target = director.FirstAttackableTarget();
         Debug.Log($"Runtime smoke map ready: target={(target != null ? target.Name : "none")}, mode={director.CurrentMode}");
-        director.LaunchBattle(director.Campaign.BuildSetupFor(target), target);
+        BattleSetup setup = director.Campaign.BuildSetupFor(target);
+        bool largeRun = System.Array.Exists(System.Environment.GetCommandLineArgs(), argument => argument == "-smokelarge");
+        if (largeRun)
+        {
+            setup.AllyCount = 5;
+            setup.EnemyCount = 6;
+        }
+        Debug.Log($"Runtime smoke encounter: allies={setup.AllyCount + 1}, enemies={setup.EnemyCount}, large={largeRun}");
+        director.LaunchBattle(setup, target);
 
         while (director.CurrentMode != GameDirector.Mode.Battle)
             yield return null; // wait for the battle to finish building
@@ -34,7 +42,7 @@ public sealed class BattleRuntimeSmoke : MonoBehaviour
         Debug.Log($"Runtime smoke responsive combat: passed={responsiveAudit}");
         yield return new WaitForSeconds(1.5f);
         Capture("smoke-opening.png");
-        Debug.Log($"Runtime smoke opening: {manager.DebugSummary}");
+        Debug.Log($"Runtime smoke opening: {manager.DebugSummary}, {manager.DebugAISummary}");
 
         bool victoryRun = System.Array.Exists(System.Environment.GetCommandLineArgs(), argument => argument == "-smokevictory");
         if (victoryRun)
@@ -55,10 +63,12 @@ public sealed class BattleRuntimeSmoke : MonoBehaviour
 
         yield return new WaitForSeconds(5.5f);
         Capture("smoke-combat.png");
-        Debug.Log($"Runtime smoke combat: {manager.DebugSummary}");
+        bool coordinationAudit = manager.DebugAuditAICoordination();
+        Debug.Log($"Runtime smoke AI coordination: passed={coordinationAudit}");
+        Debug.Log($"Runtime smoke combat: {manager.DebugSummary}, {manager.DebugAISummary}");
         yield return new WaitForSeconds(16.5f);
         Capture("smoke-battle.png");
-        Debug.Log($"Runtime smoke battle: {manager.DebugSummary}");
+        Debug.Log($"Runtime smoke battle: {manager.DebugSummary}, {manager.DebugAISummary}");
         yield return new WaitForSeconds(1f);
         Application.Quit();
     }

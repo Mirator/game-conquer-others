@@ -11,6 +11,7 @@ public sealed class BattleManager : MonoBehaviour
     public PlayerFighter Player { get; private set; }
     public int AlliesAlive => CountAlive(Team.Allies);
     public int EnemiesAlive => CountAlive(Team.Enemies);
+    public string DebugAISummary => $"MaxPlayerAttackers={maxPlayerAttackers}, MaxTargetAttackers={maxTargetAttackers}, MinFighterDistance={minimumFighterDistance:0.00}, MaxClosePairs={maxClosePairs}";
 
     // Living allied soldiers excluding the player — this is what carries to the
     // campaign roster (the player/captain is tracked separately).
@@ -33,6 +34,7 @@ public sealed class BattleManager : MonoBehaviour
     public string DebugSummary => $"State={State}, Blue={CountAlive(Team.Allies)}, Red={CountAlive(Team.Enemies)}, Time={battleTime:0.0}";
 
     private readonly List<BattleFighter> fighters = new();
+    private readonly Dictionary<BattleFighter, List<AIFighter>> attackPermissions = new();
     private BattleEffects effects;
     private ThirdPersonCamera cameraRig;
     private GUIStyle titleStyle;
@@ -55,6 +57,10 @@ public sealed class BattleManager : MonoBehaviour
     private int playerKills;
     private int initialAllies;
     private int initialEnemies;
+    private int maxPlayerAttackers;
+    private int maxTargetAttackers;
+    private int maxClosePairs;
+    private float minimumFighterDistance = float.MaxValue;
 
     public void Configure(BattleEffects battleEffects, ThirdPersonCamera rig)
     {
@@ -76,6 +82,7 @@ public sealed class BattleManager : MonoBehaviour
             battleTime += Time.deltaTime;
             impactFlash = Mathf.MoveTowards(impactFlash, 0f, Time.deltaTime * 3.5f);
             messageTimer -= Time.deltaTime;
+            UpdateTacticalTelemetry();
         }
 
         if (Keyboard.current == null)
@@ -116,6 +123,94 @@ public sealed class BattleManager : MonoBehaviour
         return best;
     }
 
+    public BattleFighter SelectTacticalTarget(AIFighter seeker, BattleFighter current)
+    {
+        if (seeker.Team == Team.Enemies && Player != null && Player.IsAlive && CountAssignedTo(Player, seeker) == 0)
+            return Player;
+        BattleFighter best = current != null && current.IsAlive ? current : null;
+        float bestScore = best != null ? ScoreTarget(seeker, best, true) : float.MaxValue;
+        foreach (BattleFighter fighter in fighters)
+        {
+            if (!fighter.IsAlive || fighter.Team == seeker.Team)
+                continue;
+            float score = ScoreTarget(seeker, fighter, fighter == current);
+            if (score < bestScore)
+            {
+                bestScore = score;
+                best = fighter;
+            }
+        }
+        return best;
+    }
+
+    public BattleFighter FindIncomingThreat(BattleFighter defender)
+    {
+        BattleFighter best = null;
+        float bestDistance = float.MaxValue;
+        foreach (BattleFighter fighter in fighters)
+        {
+            if (fighter is not AIFighter ai || !ai.IsAlive || ai.Team == defender.Team
+                || ai.CurrentTarget != defender || !ai.IsAttackThreatening)
+                continue;
+            float distance = ai.DistanceTo(defender);
+            if (distance < bestDistance)
+            {
+                bestDistance = distance;
+                best = ai;
+            }
+        }
+        return best;
+    }
+
+    public bool TryClaimAttackPermission(AIFighter attacker, BattleFighter target)
+    {
+        CleanupAttackPermissions();
+        if (target == null || !target.IsAlive)
+            return false;
+        if (!attackPermissions.TryGetValue(target, out List<AIFighter> attackers))
+        {
+            attackers = new List<AIFighter>();
+            attackPermissions[target] = attackers;
+        }
+        if (attackers.Contains(attacker))
+            return true;
+        int limit = target.IsPlayer ? 1 : 2;
+        if (attackers.Count >= limit)
+            return false;
+        attackers.Add(attacker);
+        return true;
+    }
+
+    public void ReleaseAttackPermission(AIFighter attacker)
+    {
+        foreach (List<AIFighter> attackers in attackPermissions.Values)
+            attackers.Remove(attacker);
+    }
+
+    public Vector3 GetEngagementPosition(AIFighter seeker, BattleFighter target, bool activeAttacker, float preferredRange)
+    {
+        Vector3 radial = seeker.transform.position - target.transform.position;
+        radial.y = 0f;
+        if (radial.sqrMagnitude < 0.01f)
+            radial = target.transform.forward;
+        radial.Normalize();
+
+        if (activeAttacker)
+            return target.transform.position + radial * preferredRange;
+
+        List<AIFighter> supporters = new();
+        foreach (BattleFighter fighter in fighters)
+            if (fighter is AIFighter ai && ai.IsAlive && ai != seeker && ai.CurrentTarget == target && !ai.HasAttackPermission)
+                supporters.Add(ai);
+        supporters.Add(seeker);
+        supporters.Sort((a, b) => a.GetInstanceID().CompareTo(b.GetInstanceID()));
+        int index = supporters.IndexOf(seeker);
+        float[] angles = { -72f, 72f, -138f, 138f, 180f, -105f, 105f };
+        float angle = angles[index % angles.Length] + index / angles.Length * 18f;
+        Vector3 slotDirection = Quaternion.AngleAxis(angle, Vector3.up) * target.transform.forward;
+        return target.transform.position + slotDirection.normalized * Mathf.Lerp(2.8f, 3.5f, index % 3 / 2f);
+    }
+
     public BattleFighter FindSweptStrikeTarget(BattleFighter attacker, Vector3 start, Vector3 end, float radius)
     {
         BattleFighter best = null;
@@ -144,10 +239,13 @@ public sealed class BattleManager : MonoBehaviour
                 continue;
             Vector3 offset = seeker.transform.position - fighter.transform.position;
             offset.y = 0f;
-            if (offset.sqrMagnitude < 3.2f && offset.sqrMagnitude > 0.001f)
-                result += offset.normalized * (1.8f - offset.magnitude);
+            if (offset.sqrMagnitude < 6.25f && offset.sqrMagnitude > 0.001f)
+            {
+                float distance = offset.magnitude;
+                result += offset.normalized * Mathf.Clamp01((2.5f - distance) / 1.8f);
+            }
         }
-        return result * 0.95f;
+        return Vector3.ClampMagnitude(result, 1.4f);
     }
 
     public void PlayAttackSound(Vector3 position, bool player) => effects?.PlaySwing(position, player);
@@ -287,6 +385,24 @@ public sealed class BattleManager : MonoBehaviour
         return passed;
     }
 
+    public bool DebugAuditAICoordination()
+    {
+        CleanupAttackPermissions();
+        int playerAttackers = Player != null && attackPermissions.TryGetValue(Player, out List<AIFighter> attackers)
+            ? attackers.Count : 0;
+        int largestGroup = 0;
+        foreach (List<AIFighter> group in attackPermissions.Values)
+            largestGroup = Mathf.Max(largestGroup, group.Count);
+        bool playerLimit = playerAttackers <= 1;
+        bool generalLimit = largestGroup <= 2;
+        bool stableTargets = true;
+        foreach (BattleFighter fighter in fighters)
+            if (fighter is AIFighter ai && ai.IsAlive && ai.CurrentTarget != null)
+                stableTargets &= ai.CurrentTarget.Team != ai.Team && ai.CurrentTarget.IsAlive;
+        Debug.Log($"AI coordination audit: playerAttackers={playerAttackers}, largestGroup={largestGroup}, playerLimit={playerLimit}, generalLimit={generalLimit}, stableTargets={stableTargets}, {DebugAISummary}");
+        return playerLimit && generalLimit && stableTargets;
+    }
+
     private int CountAlive(Team team)
     {
         int count = 0;
@@ -294,6 +410,72 @@ public sealed class BattleManager : MonoBehaviour
             if (fighter.IsAlive && fighter.Team == team)
                 count++;
         return count;
+    }
+
+    private float ScoreTarget(AIFighter seeker, BattleFighter target, bool current)
+    {
+        float distance = Vector3.Distance(seeker.transform.position, target.transform.position);
+        int assigned = 0;
+        foreach (BattleFighter fighter in fighters)
+            if (fighter is AIFighter ai && ai != seeker && ai.IsAlive && ai.CurrentTarget == target)
+                assigned++;
+        float score = distance + assigned * 3.1f;
+        if (target.IsPlayer)
+            score -= 0.65f;
+        if (current)
+            score -= 2.4f;
+        if (target.IsAttackThreatening)
+            score += 0.35f;
+        return score;
+    }
+
+    private int CountAssignedTo(BattleFighter target, AIFighter except)
+    {
+        int count = 0;
+        foreach (BattleFighter fighter in fighters)
+            if (fighter is AIFighter ai && ai != except && ai.IsAlive && ai.CurrentTarget == target)
+                count++;
+        return count;
+    }
+
+    private void CleanupAttackPermissions()
+    {
+        List<BattleFighter> empty = new();
+        foreach (KeyValuePair<BattleFighter, List<AIFighter>> pair in attackPermissions)
+        {
+            pair.Value.RemoveAll(ai => ai == null || !ai.IsAlive || ai.CurrentTarget != pair.Key);
+            if (pair.Key == null || !pair.Key.IsAlive || pair.Value.Count == 0)
+                empty.Add(pair.Key);
+        }
+        foreach (BattleFighter target in empty)
+            attackPermissions.Remove(target);
+    }
+
+    private void UpdateTacticalTelemetry()
+    {
+        CleanupAttackPermissions();
+        int closePairs = 0;
+        for (int i = 0; i < fighters.Count; i++)
+        {
+            if (!fighters[i].IsAlive)
+                continue;
+            for (int j = i + 1; j < fighters.Count; j++)
+            {
+                if (!fighters[j].IsAlive)
+                    continue;
+                float distance = Vector3.Distance(fighters[i].transform.position, fighters[j].transform.position);
+                minimumFighterDistance = Mathf.Min(minimumFighterDistance, distance);
+                if (distance < 1.05f)
+                    closePairs++;
+            }
+        }
+        maxClosePairs = Mathf.Max(maxClosePairs, closePairs);
+        foreach (KeyValuePair<BattleFighter, List<AIFighter>> pair in attackPermissions)
+        {
+            maxTargetAttackers = Mathf.Max(maxTargetAttackers, pair.Value.Count);
+            if (pair.Key != null && pair.Key.IsPlayer)
+                maxPlayerAttackers = Mathf.Max(maxPlayerAttackers, pair.Value.Count);
+        }
     }
 
     private static float SqrDistanceToSegment(Vector3 point, Vector3 start, Vector3 end)
