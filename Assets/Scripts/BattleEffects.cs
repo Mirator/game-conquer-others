@@ -10,6 +10,7 @@ public sealed class BattleEffects : MonoBehaviour
     private AudioClip hitClip;
     private AudioClip blockClip;
     private AudioClip swingClip;
+    private AudioClip whiffClip;
     private AudioClip footstepClip;
     private AudioClip victoryClip;
 
@@ -42,6 +43,7 @@ public sealed class BattleEffects : MonoBehaviour
         hitClip = CreateTone("Hit", 115f, 0.12f, true);
         blockClip = CreateTone("Block", 620f, 0.13f, true);
         swingClip = CreateTone("Swing", 240f, 0.11f, false);
+        whiffClip = CreateTone("Whiff", 150f, 0.16f, true);
         footstepClip = CreateTone("Footstep", 72f, 0.09f, true);
         victoryClip = CreateTone("Victory", 440f, 0.55f, false);
     }
@@ -54,6 +56,11 @@ public sealed class BattleEffects : MonoBehaviour
     public void PlayFootstep(Vector3 position, bool player)
     {
         PlaySpatial(footstepClip, position, player ? 0.18f : 0.07f, Random.Range(0.82f, 1.12f), player ? 7f : 4f);
+    }
+
+    public void PlayWhiff(Vector3 position, bool player)
+    {
+        PlaySpatial(whiffClip, position + Vector3.up, player ? 0.38f : 0.12f, player ? 0.9f : Random.Range(0.75f, 0.9f), 9f);
     }
 
     public void PlayImpact(Vector3 position, bool blocked)

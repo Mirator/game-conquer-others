@@ -14,6 +14,7 @@ public abstract class BattleFighter : MonoBehaviour
     public float HealthNormalized => Mathf.Clamp01(health / maxHealth);
     public float StaminaNormalized => Mathf.Clamp01(stamina / MaxStamina);
     public float CurrentHealth => health;
+    public bool IsInHitStop => hitStopTimer > 0f;
     public bool IsChargingAttack => Phase == CombatPhase.AttackWindup || Phase == CombatPhase.AttackHold;
     public float AttackChargeNormalized => Phase == CombatPhase.AttackWindup
         ? Mathf.Clamp01(1f - phaseTimer / Mathf.Max(phaseDuration, 0.0001f))
@@ -31,11 +32,13 @@ public abstract class BattleFighter : MonoBehaviour
     private float phaseTimer;
     private float phaseDuration;
     private float hitFlashTimer;
+    private float hitStopTimer;
     private float staggerTimer;
     private float walkCycle;
     private float previousWalkCycle;
     private bool releaseQueued;
     private bool dealtAttackDamage;
+    private bool whiffRecovery;
     private Transform modelRoot;
     private Transform swordPivot;
     private Transform shieldPivot;
@@ -47,6 +50,7 @@ public abstract class BattleFighter : MonoBehaviour
     private Color[] baseColors;
     private Vector3 previousPosition;
     private Vector3 swordBasePosition;
+    private Vector3 previousStrikePoint;
 
     public void Configure(BattleManager owner, Team team, bool player, float healthScale = 1f)
     {
@@ -74,6 +78,13 @@ public abstract class BattleFighter : MonoBehaviour
     {
         if (!IsAlive || battle == null)
             return;
+
+        hitStopTimer = Mathf.Max(0f, hitStopTimer - Time.unscaledDeltaTime);
+        if (hitStopTimer > 0f)
+        {
+            UpdateVisuals();
+            return;
+        }
 
         if (battle.IsBattleRunning)
         {
@@ -124,14 +135,18 @@ public abstract class BattleFighter : MonoBehaviour
         phaseTimer = phaseDuration;
         releaseQueued = false;
         dealtAttackDamage = false;
-        battle.PlayAttackSound(transform.position, IsPlayer);
+        whiffRecovery = false;
         return true;
     }
 
-    protected void ReleasePreparedAttack()
+    protected void ReleasePreparedAttack(bool expediteQueuedRelease = false)
     {
         if (Phase == CombatPhase.AttackWindup)
+        {
             releaseQueued = true;
+            if (expediteQueuedRelease)
+                phaseTimer = Mathf.Min(phaseTimer, 0.12f);
+        }
         else if (Phase == CombatPhase.AttackHold)
             EnterRelease();
     }
@@ -144,12 +159,15 @@ public abstract class BattleFighter : MonoBehaviour
             AttackDirection = direction;
     }
 
-    protected void SetBlock(bool active, CombatDirection direction)
+    protected bool SetBlock(bool active, CombatDirection direction)
     {
+        if (active && IsChargingAttack)
+            CancelPreparedAttack();
         bool canBlock = CanAct && !IsAttacking;
         IsBlocking = active && canBlock;
         if (active)
             BlockDirection = direction;
+        return IsBlocking;
     }
 
     protected bool TrySpendStamina(float amount)
@@ -189,7 +207,7 @@ public abstract class BattleFighter : MonoBehaviour
         }
 
         hitFlashTimer = guarded ? 0.1f : 0.2f;
-        battle.ReportImpact(this, guarded, damage);
+        battle.ReportImpact(this, attacker, guarded);
         if (!guarded)
             battle.RecordDamage(attacker, this, appliedDamage, health <= 0f);
 
@@ -211,14 +229,18 @@ public abstract class BattleFighter : MonoBehaviour
 
         if (Phase == CombatPhase.AttackRelease)
         {
-            controller.Move(transform.forward * 1.7f * Time.deltaTime);
-            if (!dealtAttackDamage && phaseTimer <= phaseDuration * 0.55f)
+            float progress = 1f - phaseTimer / Mathf.Max(phaseDuration, 0.0001f);
+            Vector3 strikePoint = GetStrikePoint(AttackDirection, progress);
+            if (!dealtAttackDamage)
             {
-                dealtAttackDamage = true;
-                BattleFighter target = battle.FindBestTarget(this, AttackRange, 100f);
+                BattleFighter target = battle.FindSweptStrikeTarget(this, previousStrikePoint, strikePoint, 0.72f);
                 if (target != null)
+                {
+                    dealtAttackDamage = true;
                     target.ReceiveHit(GetDamage(AttackDirection), this, AttackDirection);
+                }
             }
+            previousStrikePoint = strikePoint;
         }
 
         if (phaseTimer > 0f)
@@ -232,9 +254,19 @@ public abstract class BattleFighter : MonoBehaviour
                 Phase = CombatPhase.AttackHold;
         }
         else if (Phase == CombatPhase.AttackRelease)
+        {
+            if (!dealtAttackDamage)
+            {
+                whiffRecovery = true;
+                battle.ReportWhiff(this);
+            }
             EnterRecovery();
+        }
         else if (Phase == CombatPhase.AttackRecovery)
+        {
             Phase = CombatPhase.Idle;
+            whiffRecovery = false;
+        }
     }
 
     private void UpdateVisuals()
@@ -254,7 +286,8 @@ public abstract class BattleFighter : MonoBehaviour
         leftLeg.localRotation = Quaternion.Euler(legSwing, 0f, 0f);
         rightLeg.localRotation = Quaternion.Euler(-legSwing, 0f, 0f);
         modelRoot.localPosition = Vector3.up * (Mathf.Abs(Mathf.Sin(walkCycle)) * 0.035f * movement);
-        modelRoot.localRotation = Quaternion.Euler(staggerTimer > 0f ? -7f : 0f, 0f, IsBlocking ? 5f : 0f);
+        float whiffLean = whiffRecovery && Phase == CombatPhase.AttackRecovery ? 8f : 0f;
+        modelRoot.localRotation = Quaternion.Euler(staggerTimer > 0f ? -7f : whiffLean, 0f, IsBlocking ? 5f : 0f);
 
         hitFlashTimer = Mathf.Max(0f, hitFlashTimer - Time.deltaTime);
         for (int i = 0; i < renderers.Length; i++)
@@ -328,6 +361,8 @@ public abstract class BattleFighter : MonoBehaviour
         phaseDuration = GetRelease(AttackDirection);
         phaseTimer = phaseDuration;
         releaseQueued = false;
+        previousStrikePoint = GetStrikePoint(AttackDirection, 0f);
+        battle.PlayAttackSound(transform.position, IsPlayer);
     }
 
     private void EnterRecovery()
@@ -344,6 +379,35 @@ public abstract class BattleFighter : MonoBehaviour
         Phase = CombatPhase.AttackRecovery;
         phaseDuration = GetRecovery(AttackDirection) + 0.22f;
         phaseTimer = phaseDuration;
+    }
+
+    private void CancelPreparedAttack()
+    {
+        Phase = CombatPhase.Idle;
+        phaseTimer = 0f;
+        phaseDuration = 0f;
+        releaseQueued = false;
+    }
+
+    private Vector3 GetStrikePoint(CombatDirection direction, float progress)
+    {
+        progress = Mathf.Clamp01(progress);
+        Vector3 start = direction switch
+        {
+            CombatDirection.Left => new Vector3(-1.35f, 1.25f, 0.75f),
+            CombatDirection.Right => new Vector3(1.35f, 1.25f, 0.75f),
+            CombatDirection.Up => new Vector3(0f, 2.25f, 0.65f),
+            _ => new Vector3(0.35f, 1.2f, 0.7f)
+        };
+        Vector3 end = direction switch
+        {
+            CombatDirection.Left => new Vector3(1.35f, 1.2f, 1.2f),
+            CombatDirection.Right => new Vector3(-1.35f, 1.2f, 1.2f),
+            CombatDirection.Up => new Vector3(0f, 0.8f, 1.45f),
+            _ => new Vector3(0.35f, 1.2f, AttackRange)
+        };
+        float eased = Mathf.SmoothStep(0f, 1f, progress);
+        return transform.TransformPoint(Vector3.Lerp(start, end, eased));
     }
 
     private void ApplyWeaponPose()
@@ -377,7 +441,10 @@ public abstract class BattleFighter : MonoBehaviour
                 swordPivot.localPosition = swordBasePosition + Vector3.forward * Mathf.Sin(progress * Mathf.PI) * 0.7f;
         }
         else if (Phase == CombatPhase.AttackRecovery)
-            swordEuler = Vector3.Lerp(released, new Vector3(-18f, 0f, 0f), progress);
+        {
+            Vector3 recoveryStart = whiffRecovery ? released + new Vector3(18f, 0f, 0f) : released;
+            swordEuler = Vector3.Lerp(recoveryStart, new Vector3(-18f, 0f, 0f), progress);
+        }
 
         swordPivot.localRotation = Quaternion.Euler(swordEuler);
         Vector3 shieldEuler = IsBlocking ? GetBlockPose(BlockDirection) : new Vector3(8f, 0f, 0f);
@@ -401,6 +468,15 @@ public abstract class BattleFighter : MonoBehaviour
 
     public void DebugSetBlock(bool active, CombatDirection direction) => SetBlock(active, direction);
 
+    public bool DebugPrepareAttack(CombatDirection direction) => PrepareAttack(direction);
+
+    public void DebugApplyHitStop(float duration) => ApplyHitStop(duration);
+
+    public void ApplyHitStop(float duration)
+    {
+        hitStopTimer = Mathf.Max(hitStopTimer, duration);
+    }
+
     public void DebugRestoreHealth(float value)
     {
         health = Mathf.Clamp(value, 0f, maxHealth);
@@ -408,6 +484,8 @@ public abstract class BattleFighter : MonoBehaviour
         if (health > 0f && Phase == CombatPhase.HitReaction)
             Phase = CombatPhase.Idle;
     }
+
+    public void DebugRestoreStamina() => stamina = MaxStamina;
 
     private static GameObject CreatePart(string partName, PrimitiveType type, Transform parent, Vector3 position, Vector3 scale, Color color, Vector3? rotation = null)
     {

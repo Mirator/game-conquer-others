@@ -20,7 +20,10 @@ matching blocks, and maintaining useful range.
 - While holding left mouse during wind-up or hold, moving the mouse re-aims
   the attack. The direction commits when the button is released.
 - Releasing left mouse releases the attack.
-- Releasing during wind-up queues release as soon as wind-up completes.
+- Releasing during wind-up queues release and caps the player's remaining
+  preparation delay at 0.12 seconds.
+- Right mouse may cancel wind-up or hold into a block. Release and recovery stay
+  committed.
 
 | Phase | Rule |
 |---|---|
@@ -42,9 +45,12 @@ matching blocks, and maintaining useful range.
 
 - Starting an attack costs 18 stamina.
 - A fighter cannot attack while blocking, staggered, dead, or already attacking.
-- Attacks use a 2.2-unit reach and a 100-degree target cone.
-- Damage is attempted once during release.
+- Attacks sweep a direction-specific weapon path throughout release.
+- The path follows the visible left slash, right slash, overhead, or thrust.
 - One swing can damage at most one living opposing fighter.
+- A swing that does not cross an opponent produces distinct whiff audio and an
+  overextended recovery pose.
+- Attacks do not automatically lunge forward when no target is in the path.
 
 ## Blocking
 
@@ -73,10 +79,12 @@ Wrong-direction, late, absent, or rear-angle block:
 - All four blocks use distinct shield poses.
 - HUD displays the selected attack or active block direction.
 - Hits and blocks use different sound, spark color, reaction, and camera shake.
+- Swing audio begins on release rather than preparation.
+- A landed player hit briefly freezes the attacker and defender for impact.
+- Distant AI impacts do not shake the player's camera.
 - Dead fighters cannot be hit.
 
 ## Future Combat Features
 
 Feints, partial blocks, parries, armor, additional weapons, mounted attacks, and
 friendly fire are outside the current MVP.
-

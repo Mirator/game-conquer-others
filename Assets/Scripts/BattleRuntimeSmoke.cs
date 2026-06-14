@@ -30,6 +30,8 @@ public sealed class BattleRuntimeSmoke : MonoBehaviour
         manager.BeginBattle();
         bool directionalAudit = manager.DebugAuditDirectionalBlock();
         Debug.Log($"Runtime smoke directional combat: passed={directionalAudit}");
+        bool responsiveAudit = manager.DebugAuditResponsiveCombat();
+        Debug.Log($"Runtime smoke responsive combat: passed={responsiveAudit}");
         yield return new WaitForSeconds(1.5f);
         Capture("smoke-opening.png");
         Debug.Log($"Runtime smoke opening: {manager.DebugSummary}");

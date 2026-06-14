@@ -3,6 +3,8 @@ using UnityEngine.InputSystem;
 
 public sealed class PlayerFighter : BattleFighter
 {
+    private const float ActionBufferDuration = 0.15f;
+
     private ThirdPersonCamera cameraRig;
     private float verticalVelocity;
     private float dodgeTimer;
@@ -10,6 +12,12 @@ public sealed class PlayerFighter : BattleFighter
     private Vector3 dodgeDirection;
     private Vector3 smoothedMovement;
     private CombatDirection selectedDirection = CombatDirection.Right;
+    private Vector2 gestureDelta;
+    private float gestureTimer;
+    private float attackBufferTimer;
+    private bool bufferedAttackReleased;
+    private float blockBufferTimer;
+    private float blockLatchTimer;
 
     public CombatDirection SelectedDirection => selectedDirection;
 
@@ -21,19 +29,46 @@ public sealed class PlayerFighter : BattleFighter
     protected override void Update()
     {
         base.Update();
-        if (!IsAlive || battle == null || !battle.IsBattleRunning || Keyboard.current == null)
+        if (!IsAlive || IsInHitStop || battle == null || !battle.IsBattleRunning || Keyboard.current == null)
             return;
 
         if (Mouse.current != null)
         {
-            selectedDirection = ReadDirection(Mouse.current.delta.ReadValue(), selectedDirection);
-            SetBlock(Mouse.current.rightButton.isPressed, selectedDirection);
+            bool combatGestureActive = Mouse.current.leftButton.isPressed || Mouse.current.rightButton.isPressed;
+            UpdateCombatGesture(combatGestureActive ? Mouse.current.delta.ReadValue() : Vector2.zero, combatGestureActive);
+
+            bool blockHeld = Mouse.current.rightButton.isPressed;
+            if (Mouse.current.rightButton.wasPressedThisFrame)
+                blockBufferTimer = ActionBufferDuration;
+            blockBufferTimer = Mathf.Max(0f, blockBufferTimer - Time.unscaledDeltaTime);
+            blockLatchTimer = Mathf.Max(0f, blockLatchTimer - Time.unscaledDeltaTime);
+            bool wantsBlock = blockHeld || blockBufferTimer > 0f || blockLatchTimer > 0f;
+            if (SetBlock(wantsBlock, selectedDirection) && blockBufferTimer > 0f)
+            {
+                blockBufferTimer = 0f;
+                if (!blockHeld)
+                    blockLatchTimer = 0.1f;
+            }
             if (Mouse.current.leftButton.wasPressedThisFrame)
-                PrepareAttack(selectedDirection);
-            else if (Mouse.current.leftButton.isPressed)
-                AimHeldAttack(selectedDirection);
+            {
+                attackBufferTimer = ActionBufferDuration;
+                bufferedAttackReleased = false;
+            }
             if (Mouse.current.leftButton.wasReleasedThisFrame)
-                ReleasePreparedAttack();
+            {
+                bufferedAttackReleased = true;
+                ReleasePreparedAttack(true);
+            }
+            if (Mouse.current.leftButton.isPressed)
+                AimHeldAttack(selectedDirection);
+
+            attackBufferTimer = Mathf.Max(0f, attackBufferTimer - Time.unscaledDeltaTime);
+            if (attackBufferTimer > 0f && !wantsBlock && PrepareAttack(selectedDirection))
+            {
+                attackBufferTimer = 0f;
+                if (bufferedAttackReleased)
+                    ReleasePreparedAttack(true);
+            }
         }
 
         Vector2 input = Vector2.zero;
@@ -81,12 +116,27 @@ public sealed class PlayerFighter : BattleFighter
             FaceDirection(movement);
     }
 
-    private static CombatDirection ReadDirection(Vector2 delta, CombatDirection fallback)
+    private void UpdateCombatGesture(Vector2 delta, bool active)
     {
-        if (delta.sqrMagnitude < 4f)
-            return fallback;
-        if (Mathf.Abs(delta.x) > Mathf.Abs(delta.y))
-            return delta.x < 0f ? CombatDirection.Left : CombatDirection.Right;
-        return delta.y > 0f ? CombatDirection.Up : CombatDirection.Thrust;
+        if (!active)
+        {
+            gestureDelta = Vector2.zero;
+            gestureTimer = 0f;
+            return;
+        }
+
+        gestureDelta += delta;
+        gestureTimer += Time.unscaledDeltaTime;
+        if (CombatGesture.TryResolve(gestureDelta, out CombatDirection resolved))
+        {
+            selectedDirection = resolved;
+            gestureDelta = Vector2.zero;
+            gestureTimer = 0f;
+        }
+        else if (gestureTimer >= CombatGesture.Window)
+        {
+            gestureDelta = Vector2.zero;
+            gestureTimer = 0f;
+        }
     }
 }

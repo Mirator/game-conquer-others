@@ -39,6 +39,8 @@ The standalone smoke test:
 - Audits all four correct blocks.
 - Audits all four wrong blocks.
 - Audits rear-angle block bypass.
+- Audits gesture jitter rejection, diagonal hysteresis, deliberate direction
+  selection, held-attack cancellation into block, and swept-target filtering.
 - Captures opening, combat, and late-battle screenshots.
 - Exits after the run.
 
@@ -58,4 +60,4 @@ Add `-smokevictory` to:
 - Natural group battle: passed.
 - Forced victory and restart: passed.
 - Managed exception scan: passed.
-
+- P0/P1 responsive combat audit: passed.

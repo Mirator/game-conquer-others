@@ -27,6 +27,7 @@ and implemented behavior by product area.
 | 09 | Verification and acceptance | [09-verification-and-acceptance.md](09-verification-and-acceptance.md) |
 | 10 | Roadmap and excluded scope | [10-roadmap-and-excluded-scope.md](10-roadmap-and-excluded-scope.md) |
 | 11 | Campaign map and meta loop | [11-campaign-map-and-meta-loop.md](11-campaign-map-and-meta-loop.md) |
+| 12 | Combat readability and responsiveness | [12-combat-readability-and-responsiveness.md](12-combat-readability-and-responsiveness.md) |
 
 ## Related Files
 

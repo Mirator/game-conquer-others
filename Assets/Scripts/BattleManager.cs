@@ -116,20 +116,17 @@ public sealed class BattleManager : MonoBehaviour
         return best;
     }
 
-    public BattleFighter FindBestTarget(BattleFighter attacker, float range, float coneAngle)
+    public BattleFighter FindSweptStrikeTarget(BattleFighter attacker, Vector3 start, Vector3 end, float radius)
     {
         BattleFighter best = null;
-        float bestDistance = float.MaxValue;
+        float bestDistance = radius * radius;
         foreach (BattleFighter fighter in fighters)
         {
             if (!fighter.IsAlive || fighter.Team == attacker.Team)
                 continue;
-            Vector3 offset = fighter.transform.position - attacker.transform.position;
-            offset.y = 0f;
-            float distance = offset.magnitude;
-            if (distance > range || Vector3.Angle(attacker.transform.forward, offset) > coneAngle * 0.5f)
-                continue;
-            if (distance < bestDistance)
+            Vector3 center = fighter.transform.position + Vector3.up * 1.05f;
+            float distance = SqrDistanceToSegment(center, start, end);
+            if (distance <= bestDistance)
             {
                 bestDistance = distance;
                 best = fighter;
@@ -157,10 +154,19 @@ public sealed class BattleManager : MonoBehaviour
 
     public void PlayFootstep(Vector3 position, bool player) => effects?.PlayFootstep(position, player);
 
-    public void ReportImpact(BattleFighter target, bool blocked, float damage)
+    public void ReportWhiff(BattleFighter attacker) => effects?.PlayWhiff(attacker.transform.position, attacker.IsPlayer);
+
+    public void ReportImpact(BattleFighter target, BattleFighter attacker, bool blocked)
     {
         effects?.PlayImpact(target.transform.position, blocked);
-        cameraRig?.AddShake(target.IsPlayer ? 0.13f : 0.06f);
+        bool playerInvolved = target.IsPlayer || attacker != null && attacker.IsPlayer;
+        if (playerInvolved)
+            cameraRig?.AddShake(target.IsPlayer ? 0.11f : blocked ? 0.065f : 0.045f);
+        if (!blocked && attacker != null && attacker.IsPlayer)
+        {
+            attacker.ApplyHitStop(0.055f);
+            target.ApplyHitStop(0.055f);
+        }
         if (target.IsPlayer)
             impactFlash = blocked ? 0.1f : 0.28f;
         if (blocked && target.IsPlayer)
@@ -251,6 +257,36 @@ public sealed class BattleManager : MonoBehaviour
         return allCorrectBlocksStoppedDamage && allWrongBlocksTookDamage && rearAttackBypassedBlock;
     }
 
+    public bool DebugAuditResponsiveCombat()
+    {
+        bool jitterIgnored = !CombatGesture.TryResolve(new Vector2(4f, 3f), out _);
+        bool diagonalIgnored = !CombatGesture.TryResolve(new Vector2(10f, 9f), out _);
+        bool deliberateLeft = CombatGesture.TryResolve(new Vector2(-12f, 0f), out CombatDirection direction)
+            && direction == CombatDirection.Left;
+
+        Player.DebugSetBlock(false, CombatDirection.Right);
+        bool prepared = Player.DebugPrepareAttack(CombatDirection.Up);
+        Player.DebugSetBlock(true, CombatDirection.Left);
+        bool heldAttackCancelledIntoBlock = prepared && Player.Phase == CombatPhase.Idle
+            && Player.IsBlocking && Player.BlockDirection == CombatDirection.Left;
+        Player.DebugSetBlock(false, CombatDirection.Right);
+        Player.DebugRestoreStamina();
+
+        BattleFighter enemy = FindNearestOpponent(Player);
+        bool sweptTargetFound = false;
+        if (enemy != null)
+        {
+            Vector3 center = enemy.transform.position + Vector3.up * 1.05f;
+            sweptTargetFound = FindSweptStrikeTarget(Player, center + Vector3.left * 0.5f,
+                center + Vector3.right * 0.5f, 0.72f) == enemy;
+        }
+
+        bool passed = jitterIgnored && diagonalIgnored && deliberateLeft
+            && heldAttackCancelledIntoBlock && sweptTargetFound;
+        Debug.Log($"Responsive combat audit: jitterIgnored={jitterIgnored}, diagonalIgnored={diagonalIgnored}, deliberateLeft={deliberateLeft}, cancelToBlock={heldAttackCancelledIntoBlock}, sweptTarget={sweptTargetFound}");
+        return passed;
+    }
+
     private int CountAlive(Team team)
     {
         int count = 0;
@@ -258,6 +294,16 @@ public sealed class BattleManager : MonoBehaviour
             if (fighter.IsAlive && fighter.Team == team)
                 count++;
         return count;
+    }
+
+    private static float SqrDistanceToSegment(Vector3 point, Vector3 start, Vector3 end)
+    {
+        Vector3 segment = end - start;
+        float lengthSquared = segment.sqrMagnitude;
+        if (lengthSquared < 0.0001f)
+            return (point - start).sqrMagnitude;
+        float t = Mathf.Clamp01(Vector3.Dot(point - start, segment) / lengthSquared);
+        return (point - (start + segment * t)).sqrMagnitude;
     }
 
     public void BeginBattle()

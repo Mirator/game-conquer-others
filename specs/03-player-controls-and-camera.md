@@ -24,15 +24,20 @@
 
 ## Combat Direction Input
 
-- The latest dominant mouse delta chooses Left, Right, Up, or Thrust.
+- Mouse delta is accumulated across an 80 millisecond gesture window.
+- A gesture must travel at least 10 pixels before it can change direction.
+- Axis hysteresis rejects ambiguous diagonal movement and prevents jitter.
 - Horizontal movement selects Left or Right.
 - Upward movement selects Up.
 - Downward movement selects Thrust.
-- Mouse movement below the threshold preserves the previous direction.
+- Mouse movement below the threshold or without a dominant axis preserves the
+  previous direction.
 - The initial fallback direction is Right.
 - While holding left mouse during wind-up or hold, continued mouse movement
   re-aims the attack. The direction commits when the button is released.
 - While holding right mouse, mouse movement updates the block direction live.
+- Attack and block requests are buffered for 150 milliseconds.
+- Right mouse cancels AttackWindup or AttackHold directly into a block.
 
 ## Camera
 
@@ -42,8 +47,8 @@
 - Camera collision uses a sphere cast to avoid clipping through arena geometry.
 - Movement adds subtle bob and sway.
 - Impacts and dodges may add short camera shake.
-- Mouse look is damped to 28% of normal sensitivity while left mouse is held,
-  so direction flicks do not spin the camera. Damped to 55% while blocking.
+- Mouse look pauses while either combat mouse button is held, so direction
+  gestures do not rotate the camera. Normal look resumes immediately on release.
 
 ## Camera Modes
 
@@ -52,4 +57,3 @@
 | Normal | 5.95 | 59 |
 | Sprinting | 6.6 | 64 |
 | Blocking | 5.45 | 56 |
-

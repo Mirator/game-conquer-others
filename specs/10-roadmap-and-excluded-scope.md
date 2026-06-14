@@ -3,7 +3,8 @@
 ## Current Priority
 
 Improve the feel and readability of the existing small battle before expanding
-the game's strategic scope.
+the game's strategic scope. The ordered remediation plan is defined in
+[12-combat-readability-and-responsiveness.md](12-combat-readability-and-responsiveness.md).
 
 ## Near-Term Candidates
 
@@ -47,4 +48,3 @@ the game's strategic scope.
 
 Future work should only enter implementation after the current directional
 combat and small-group battle remain stable, readable, and enjoyable.
-

@@ -20,7 +20,7 @@ public sealed class AIFighter : BattleFighter
     protected override void Update()
     {
         base.Update();
-        if (!IsAlive || battle == null || !battle.IsBattleRunning)
+        if (!IsAlive || IsInHitStop || battle == null || !battle.IsBattleRunning)
             return;
 
         decisionTimer -= Time.deltaTime;
