@@ -40,12 +40,21 @@ public sealed class BattleManager : MonoBehaviour
     private GUIStyle centerStyle;
     private GUIStyle smallStyle;
     private GUIStyle smallCenterStyle;
+    private GUIStyle buttonStyle;
+    private GUIStyle bodyTopStyle;
     private Texture2D whiteTexture;
     private float battleTime;
     private float impactFlash;
     private float messageTimer;
     private string message;
     private bool concluded;
+    private float playerDamageDealt;
+    private float alliesDamageDealt;
+    private float enemiesDamageDealt;
+    private float playerDamageTaken;
+    private int playerKills;
+    private int initialAllies;
+    private int initialEnemies;
 
     public void Configure(BattleEffects battleEffects, ThirdPersonCamera rig)
     {
@@ -73,14 +82,11 @@ public sealed class BattleManager : MonoBehaviour
             return;
         if (Keyboard.current.rKey.wasPressedThisFrame)
             GameDirector.Instance.RestartBattle();
-        bool confirm = Keyboard.current.enterKey.wasPressedThisFrame || Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame;
-        if (State == BattleState.Ready && confirm)
+        // Battle starts on Enter/click; the result screen is dismissed only via
+        // its on-screen button (see OnGUI) so the statistics are not skipped.
+        if (State == BattleState.Ready && (Keyboard.current.enterKey.wasPressedThisFrame
+            || Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame))
             BeginBattle();
-        if ((State == BattleState.Victory || State == BattleState.Defeat) && confirm)
-        {
-            ConfirmResult();
-            return;
-        }
         if (Keyboard.current.escapeKey.wasPressedThisFrame)
         {
             Cursor.lockState = CursorLockMode.None;
@@ -258,9 +264,29 @@ public sealed class BattleManager : MonoBehaviour
     {
         State = BattleState.Fighting;
         battleTime = 0f;
+        initialAllies = CountAlive(Team.Allies);
+        initialEnemies = CountAlive(Team.Enemies);
         message = "BREAK THE RED LINE";
         messageTimer = 2.2f;
         LockCursor();
+    }
+
+    // Attributes applied (unguarded) damage to its source and victim for the
+    // end-of-battle scoreboard.
+    public void RecordDamage(BattleFighter attacker, BattleFighter victim, float amount, bool killed)
+    {
+        if (attacker == null || amount <= 0f)
+            return;
+        if (attacker.IsPlayer)
+            playerDamageDealt += amount;
+        else if (attacker.Team == Team.Allies)
+            alliesDamageDealt += amount;
+        else
+            enemiesDamageDealt += amount;
+        if (victim.IsPlayer)
+            playerDamageTaken += amount;
+        if (killed && attacker.IsPlayer && victim.Team != attacker.Team)
+            playerKills++;
     }
 
     private static void LockCursor()
@@ -319,14 +345,23 @@ public sealed class BattleManager : MonoBehaviour
         {
             DrawPanel(new Rect(width * 0.5f - 285f, height * 0.5f - 205f, 570f, 410f), new Color(0.025f, 0.03f, 0.035f, 0.92f));
             string title = State == BattleState.Ready ? "CONQUER OTHERS" : State == BattleState.Victory ? "VICTORY" : "DEFEAT";
-            GUI.Label(new Rect(width * 0.5f - 240f, height * 0.5f - 155f, 480f, 52f), title, titleStyle);
-            string outcomePrompt = State == BattleState.Victory
-                ? "PRESS ENTER TO CLAIM THE TERRITORY"
-                : "PRESS ENTER TO RETURN TO THE MAP       (R to retry)";
-            string body = State == BattleState.Ready
-                ? $"ASSAULT ON {EncounterTitle}\nLead the blue soldiers and break the red line.\n\nWASD  Move       Shift  Sprint       Space  Dodge\nHold LMB + move mouse  Aim a swing, release to strike\nHold RMB + move mouse  Raise your shield that way\n\nThe ticks around the crosshair show your direction.\nMatch the incoming attack direction to stop all damage.\n\nPRESS ENTER OR CLICK TO BEGIN"
-                : $"Battle time  {Mathf.FloorToInt(battleTime / 60f):00}:{Mathf.FloorToInt(battleTime % 60f):00}\nBlue remaining  {CountAlive(Team.Allies)}       Red remaining  {CountAlive(Team.Enemies)}\n\n{outcomePrompt}";
-            GUI.Label(new Rect(width * 0.5f - 245f, height * 0.5f - 82f, 490f, 260f), body, centerStyle);
+            GUI.Label(new Rect(width * 0.5f - 240f, height * 0.5f - 184f, 480f, 50f), title, titleStyle);
+
+            if (State == BattleState.Ready)
+            {
+                string body = $"ASSAULT ON {EncounterTitle}\nLead the blue soldiers and break the red line.\n\nWASD  Move       Shift  Sprint       Space  Dodge\nHold LMB + move mouse  Aim a swing, release to strike\nHold RMB + move mouse  Raise your shield that way\n\nThe ticks around the crosshair show your direction.\nMatch the incoming attack direction to stop all damage.\n\nPRESS ENTER OR CLICK TO BEGIN";
+                GUI.Label(new Rect(width * 0.5f - 235f, height * 0.5f - 126f, 470f, 320f), body, bodyTopStyle);
+            }
+            else
+            {
+                string body = $"Battle time  {Mathf.FloorToInt(battleTime / 60f):00}:{Mathf.FloorToInt(battleTime % 60f):00}\n\nYOUR DAMAGE  {playerDamageDealt:0}        ALLIES  {alliesDamageDealt:0}\nYOUR KILLS  {playerKills}        DAMAGE TAKEN  {playerDamageTaken:0}\nBLUE LOSSES  {initialAllies - CountAlive(Team.Allies)} / {initialAllies}        RED LOSSES  {initialEnemies - CountAlive(Team.Enemies)} / {initialEnemies}";
+                GUI.Label(new Rect(width * 0.5f - 245f, height * 0.5f - 118f, 490f, 150f), body, bodyTopStyle);
+
+                string buttonLabel = State == BattleState.Victory ? "CLAIM THE TERRITORY" : "RETURN TO THE MAP";
+                if (GUI.Button(new Rect(width * 0.5f - 140f, height * 0.5f + 70f, 280f, 40f), buttonLabel, buttonStyle))
+                    ConfirmResult();
+                GUI.Label(new Rect(width * 0.5f - 140f, height * 0.5f + 116f, 280f, 20f), "or press R to retry the battle", smallCenterStyle);
+            }
         }
         GUI.matrix = previous;
     }
@@ -423,6 +458,12 @@ public sealed class BattleManager : MonoBehaviour
             fontSize = 10, normal = { textColor = new Color(0.78f, 0.8f, 0.82f) }
         };
         smallCenterStyle = new GUIStyle(smallStyle) { alignment = TextAnchor.MiddleCenter };
+        buttonStyle = new GUIStyle(GUI.skin.button)
+        {
+            alignment = TextAnchor.MiddleCenter, fontSize = 17, fontStyle = FontStyle.Bold,
+            normal = { textColor = Color.white }
+        };
+        bodyTopStyle = new GUIStyle(centerStyle) { alignment = TextAnchor.UpperCenter };
     }
 
     private static string DirectionLabel(CombatDirection direction) => direction switch

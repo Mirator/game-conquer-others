@@ -170,6 +170,7 @@ public abstract class BattleFighter : MonoBehaviour
         bool facingAttack = toAttacker.sqrMagnitude < 0.01f || Vector3.Dot(transform.forward, toAttacker.normalized) >= 0.707f;
         bool guarded = IsBlocking && facingAttack && BlockDirection == incomingDirection;
 
+        float appliedDamage = 0f;
         if (guarded)
         {
             staggerTimer = 0.08f;
@@ -177,7 +178,9 @@ public abstract class BattleFighter : MonoBehaviour
         }
         else
         {
+            float before = health;
             health = Mathf.Max(0f, health - damage);
+            appliedDamage = before - health;
             staggerTimer = 0.24f;
             Phase = CombatPhase.HitReaction;
             IsBlocking = false;
@@ -187,6 +190,8 @@ public abstract class BattleFighter : MonoBehaviour
 
         hitFlashTimer = guarded ? 0.1f : 0.2f;
         battle.ReportImpact(this, guarded, damage);
+        if (!guarded)
+            battle.RecordDamage(attacker, this, appliedDamage, health <= 0f);
 
         if (health <= 0f)
             Die();

@@ -18,6 +18,9 @@ public sealed class CampaignMapController : MonoBehaviour
     private GUIStyle titleStyle;
     private GUIStyle labelCenter;
     private GUIStyle smallCenter;
+    private GUIStyle buttonStyle;
+    private Rect actionPanelScreenRect;
+    private bool actionPanelShown;
 
     private struct NodeView
     {
@@ -136,8 +139,10 @@ public sealed class CampaignMapController : MonoBehaviour
 
         if (Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame)
         {
-            Ray ray = cam.ScreenPointToRay(Mouse.current.position.ReadValue());
-            if (Physics.Raycast(ray, out RaycastHit hit, 200f))
+            Vector2 mouse = Mouse.current.position.ReadValue();
+            Vector2 topLeft = new Vector2(mouse.x, Screen.height - mouse.y);
+            bool overActionPanel = actionPanelShown && actionPanelScreenRect.Contains(topLeft);
+            if (!overActionPanel && Physics.Raycast(cam.ScreenPointToRay(mouse), out RaycastHit hit, 200f))
                 foreach (NodeView n in nodes)
                     if (n.Go == hit.collider.gameObject)
                     {
@@ -145,10 +150,6 @@ public sealed class CampaignMapController : MonoBehaviour
                         break;
                     }
         }
-
-        if (Keyboard.current != null && Keyboard.current.enterKey.wasPressedThisFrame
-            && selected != null && campaign.IsAttackable(selected))
-            director.LaunchBattle(campaign.BuildSetupFor(selected), selected);
 
         float pulse = 0.35f + 0.25f * Mathf.Sin(Time.unscaledTime * 4f);
         foreach (NodeView n in nodes)
@@ -180,12 +181,12 @@ public sealed class CampaignMapController : MonoBehaviour
             DrawEndScreen(width, height, "THE CAMPAIGN IS LOST",
                 "Your captain has fallen on the field.\n\nPRESS R TO BEGIN A NEW CAMPAIGN");
         else
-            DrawMapHud(width, height);
+            DrawMapHud(width, height, scale);
 
         GUI.matrix = previous;
     }
 
-    private void DrawMapHud(float width, float height)
+    private void DrawMapHud(float width, float height, float scale)
     {
         DrawPanel(new Rect(width * 0.5f - 270f, 18f, 540f, 56f), new Color(0.03f, 0.04f, 0.05f, 0.88f));
         GUI.Label(new Rect(width * 0.5f - 260f, 24f, 520f, 24f), "CONQUER OTHERS — PLAN YOUR NEXT ASSAULT", labelCenter);
@@ -194,12 +195,17 @@ public sealed class CampaignMapController : MonoBehaviour
 
         if (selected == null)
         {
+            actionPanelShown = false;
             GUI.Label(new Rect(width * 0.5f - 240f, height - 64f, 480f, 24f),
                 "Click a glowing enemy territory to select it.", smallCenter);
             return;
         }
 
-        DrawPanel(new Rect(width * 0.5f - 240f, height - 122f, 480f, 100f), new Color(0.03f, 0.04f, 0.05f, 0.9f));
+        Rect panel = new Rect(width * 0.5f - 240f, height - 122f, 480f, 100f);
+        DrawPanel(panel, new Color(0.03f, 0.04f, 0.05f, 0.9f));
+        actionPanelScreenRect = new Rect(panel.x * scale, panel.y * scale, panel.width * scale, panel.height * scale);
+        actionPanelShown = true;
+
         string owner = selected.Owner == TerritoryOwner.Player ? "YOURS"
             : selected.Owner == TerritoryOwner.Enemy ? "ENEMY" : "NEUTRAL";
         GUI.Label(new Rect(width * 0.5f - 225f, height - 114f, 450f, 24f),
@@ -207,9 +213,10 @@ public sealed class CampaignMapController : MonoBehaviour
 
         if (campaign.IsAttackable(selected))
         {
-            GUI.Label(new Rect(width * 0.5f - 225f, height - 86f, 450f, 22f),
+            GUI.Label(new Rect(width * 0.5f - 225f, height - 88f, 450f, 22f),
                 $"Lead {Mathf.Clamp(campaign.Roster, 0, 12)} soldiers against {selected.Garrison} defenders.", smallCenter);
-            GUI.Label(new Rect(width * 0.5f - 225f, height - 60f, 450f, 26f), "PRESS ENTER TO ASSAULT", titleStyle);
+            if (GUI.Button(new Rect(width * 0.5f - 120f, height - 62f, 240f, 34f), $"ASSAULT {selected.Name.ToUpperInvariant()}", buttonStyle))
+                director.LaunchBattle(campaign.BuildSetupFor(selected), selected);
         }
         else
         {
@@ -255,6 +262,11 @@ public sealed class CampaignMapController : MonoBehaviour
         {
             alignment = TextAnchor.MiddleCenter, fontSize = 13, wordWrap = true,
             normal = { textColor = new Color(0.82f, 0.84f, 0.86f) }
+        };
+        buttonStyle = new GUIStyle(GUI.skin.button)
+        {
+            alignment = TextAnchor.MiddleCenter, fontSize = 16, fontStyle = FontStyle.Bold,
+            normal = { textColor = Color.white }
         };
     }
 }

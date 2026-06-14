@@ -32,8 +32,12 @@ Victory and defeat screens show:
 
 - Outcome title.
 - Battle time.
-- Remaining blue and red fighter counts.
-- R restart prompt.
+- Battle statistics:
+  - Damage dealt by the player versus damage dealt by allied soldiers.
+  - Damage the player took.
+  - Player kills.
+  - Blue and red losses (fallen / starting count).
+- Return-to-map / restart prompt.
 
 ## Cursor Rules
 
