@@ -1,0 +1,36 @@
+# 00 - Conquer Others Specification Index
+
+## Purpose
+
+This folder is the numbered specification set for the current Conquer Others MVP.
+It reorganizes the original GDD, directional combat canvas, README, progress log,
+and implemented behavior by product area.
+
+## Authority
+
+- Specs describe the intended current MVP unless a section is marked future.
+- Code is the source of truth for exact implementation details until a spec is
+  explicitly approved as a required change.
+- The original root documents remain as historical source material.
+
+## Specifications
+
+| Number | Area | Document |
+|---:|---|---|
+| 01 | Product vision and scope | [01-product-vision-and-scope.md](01-product-vision-and-scope.md) |
+| 02 | Battle loop and game rules | [02-battle-loop-and-rules.md](02-battle-loop-and-rules.md) |
+| 03 | Player controls and camera | [03-player-controls-and-camera.md](03-player-controls-and-camera.md) |
+| 04 | Directional melee combat | [04-directional-melee-combat.md](04-directional-melee-combat.md) |
+| 05 | Fighters, teams, and AI | [05-fighters-teams-and-ai.md](05-fighters-teams-and-ai.md) |
+| 06 | Battlefield and presentation | [06-battlefield-and-presentation.md](06-battlefield-and-presentation.md) |
+| 07 | UI and battle lifecycle | [07-ui-and-battle-lifecycle.md](07-ui-and-battle-lifecycle.md) |
+| 08 | Runtime architecture and build | [08-runtime-architecture-and-build.md](08-runtime-architecture-and-build.md) |
+| 09 | Verification and acceptance | [09-verification-and-acceptance.md](09-verification-and-acceptance.md) |
+| 10 | Roadmap and excluded scope | [10-roadmap-and-excluded-scope.md](10-roadmap-and-excluded-scope.md) |
+
+## Historical Sources
+
+- `conquer_others_gdd.md`: original broad game design document.
+- `conquer_others_directional_combat_canvas.md`: original directional combat design.
+- `README.md`: player and build instructions.
+- `progress.md`: implementation and verification history.
