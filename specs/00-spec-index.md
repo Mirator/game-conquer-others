@@ -28,6 +28,7 @@ and implemented behavior by product area.
 | 10 | Roadmap and excluded scope | [10-roadmap-and-excluded-scope.md](10-roadmap-and-excluded-scope.md) |
 | 11 | Campaign map and meta loop | [11-campaign-map-and-meta-loop.md](11-campaign-map-and-meta-loop.md) |
 | 12 | Combat readability and responsiveness | [12-combat-readability-and-responsiveness.md](12-combat-readability-and-responsiveness.md) |
+| 13 | Campaign economy, units, and regions | [13-campaign-economy-units-and-regions.md](13-campaign-economy-units-and-regions.md) |
 
 ## Related Files
 

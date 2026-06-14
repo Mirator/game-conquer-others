@@ -30,9 +30,9 @@ red force through movement, directional attacks, and directional blocks.
 
 ## Current Scope
 
-- A node-based campaign map of territories to conquer, with a persistent warband
-  roster carried between battles.
-- One enclosed medieval courtyard arena used to resolve each map encounter.
+- A node-based campaign map with gold, territorial income, escalating threats,
+  and a persistent mixed-unit warband.
+- Four runtime-generated regional battlefields selected by territory.
 - The player plus a roster of allied AI fighters versus a territory's garrison
   (the opening encounter is four versus four).
 - Sword-and-shield directional melee combat.
@@ -47,4 +47,3 @@ red force through movement, directional attacks, and directional blocks.
 - The player can identify attack and block direction.
 - A battle with eight fighters remains functional.
 - Victory, defeat, and restart work reliably.
-

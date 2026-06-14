@@ -7,9 +7,14 @@ using UnityEngine;
 public sealed class CampaignState
 {
     public readonly List<Territory> Territories = new();
-    public int Roster;        // available allied soldiers, carried between battles
+    public readonly UnitRoster Units = new();
+    public int Roster => Units.Total;
+    public int Gold;
     public int Seed;
     public bool CampaignOver; // set when the player is defeated
+    public string LastReport = "Choose a border territory or strengthen your warband.";
+
+    public const int WarbandCap = 12;
 
     private static readonly string[] Names =
     {
@@ -19,9 +24,10 @@ public sealed class CampaignState
     public static CampaignState CreateDefault(int seed)
     {
         System.Random rng = new System.Random(seed);
-        CampaignState state = new CampaignState { Seed = seed, Roster = 3 };
+        CampaignState state = new CampaignState { Seed = seed, Gold = 150 };
+        state.Units.Militia = 3;
 
-        const int count = 6;
+        const int count = 8;
         List<Vector2> positions = new List<Vector2>();
         int guard = 0;
         while (positions.Count < count && guard++ < 2000)
@@ -46,11 +52,46 @@ public sealed class CampaignState
                 Name = Names[i % Names.Length],
                 MapPosition = positions[i],
                 Owner = i == homeIndex ? TerritoryOwner.Player : TerritoryOwner.Enemy,
-                Garrison = 2 + rng.Next(0, 3) // 2-4 defenders
+                Garrison = i == homeIndex ? 2 : 2 + rng.Next(0, 5),
+                Arena = (ArenaType)(i % 4),
+                RewardGold = i == homeIndex ? 0 : 55 + rng.Next(0, 6) * 10,
+                Income = i == homeIndex ? 20 : 8 + rng.Next(0, 4) * 4,
+                Threat = i == homeIndex ? 1 : 1 + rng.Next(0, 3)
             });
 
         state.ConnectGraph(homeIndex);
+        state.ScaleThreatFromHome(homeIndex);
         return state;
+    }
+
+    private void ScaleThreatFromHome(int homeIndex)
+    {
+        Queue<int> frontier = new Queue<int>();
+        Dictionary<int, int> distance = new Dictionary<int, int> { [homeIndex] = 0 };
+        frontier.Enqueue(homeIndex);
+        while (frontier.Count > 0)
+        {
+            int id = frontier.Dequeue();
+            foreach (int adjacent in Territories[id].AdjacentIds)
+            {
+                if (distance.ContainsKey(adjacent))
+                    continue;
+                distance[adjacent] = distance[id] + 1;
+                frontier.Enqueue(adjacent);
+            }
+        }
+
+        foreach (Territory territory in Territories)
+        {
+            int depth = distance.TryGetValue(territory.Id, out int value) ? value : 1;
+            territory.Threat = Mathf.Clamp(territory.Threat + depth - 1, 1, 5);
+            if (territory.Owner != TerritoryOwner.Player)
+            {
+                territory.Garrison = Mathf.Clamp(territory.Garrison + depth / 2, 2, 10);
+                territory.DifficultyScale = 1f + (territory.Threat - 1) * 0.08f;
+                territory.RewardGold += depth * 12;
+            }
+        }
     }
 
     // Prim-style minimum spanning tree from the home node guarantees the whole
@@ -134,19 +175,57 @@ public sealed class CampaignState
         return count;
     }
 
+    public int IncomePerVictory()
+    {
+        int total = 0;
+        foreach (Territory territory in Territories)
+            if (territory.Owner == TerritoryOwner.Player)
+                total += territory.Income;
+        return total;
+    }
+
     public BattleSetup BuildSetupFor(Territory t) => new BattleSetup
     {
         AllyCount = Mathf.Clamp(Roster, 0, 12),
+        AllyMilitia = Units.Militia,
+        AllyVeterans = Units.Veterans,
+        AllyGuards = Units.Guards,
         EnemyCount = Mathf.Clamp(t.Garrison, 1, 12),
+        EnemyVeterans = Mathf.Clamp((t.Threat - 1) / 2, 0, t.Garrison),
+        EnemyGuards = t.Threat >= 4 ? 1 : 0,
         EnemyHealthScale = t.DifficultyScale,
-        TargetName = t.Name.ToUpperInvariant()
+        TargetName = t.Name.ToUpperInvariant(),
+        Arena = t.Arena
     };
 
-    public void ApplyVictory(Territory t, int alliesSurvived)
+    public bool CanRecruit(UnitType type) => Roster < WarbandCap && Gold >= UnitCatalog.Cost(type);
+
+    public bool Recruit(UnitType type)
     {
-        t.Owner = TerritoryOwner.Player;
-        Roster = Mathf.Max(0, alliesSurvived); // survivors persist, deaths are permanent
+        int cost = UnitCatalog.Cost(type);
+        if (!CanRecruit(type))
+            return false;
+        Gold -= cost;
+        Units.Add(type);
+        LastReport = $"{UnitCatalog.Label(type)} recruited for {cost} gold.";
+        return true;
     }
 
-    public void ApplyDefeat() => CampaignOver = true;
+    public void ApplyVictory(Territory t, BattleResult result)
+    {
+        int reward = t.RewardGold;
+        t.Owner = TerritoryOwner.Player;
+        Units.Militia = Mathf.Max(0, result.MilitiaSurvived);
+        Units.Veterans = Mathf.Max(0, result.VeteransSurvived);
+        Units.Guards = Mathf.Max(0, result.GuardsSurvived);
+        int income = IncomePerVictory();
+        Gold += reward + income;
+        LastReport = $"{t.Name} captured. Earned {reward} conquest gold and {income} income.";
+    }
+
+    public void ApplyDefeat()
+    {
+        CampaignOver = true;
+        LastReport = "The captain fell. The campaign is lost.";
+    }
 }

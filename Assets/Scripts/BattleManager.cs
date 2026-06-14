@@ -27,6 +27,15 @@ public sealed class BattleManager : MonoBehaviour
         }
     }
 
+    public int CountAlliedSurvivors(UnitType type)
+    {
+        int count = 0;
+        foreach (BattleFighter fighter in fighters)
+            if (fighter.IsAlive && fighter.Team == Team.Allies && !fighter.IsPlayer && fighter.UnitType == type)
+                count++;
+        return count;
+    }
+
     // Raised when the player dismisses a result screen. The GameDirector listens
     // and applies the outcome to the campaign.
     public System.Action<BattleResult> OnBattleConcluded;
@@ -300,7 +309,10 @@ public sealed class BattleManager : MonoBehaviour
         OnBattleConcluded?.Invoke(new BattleResult
         {
             PlayerWon = State == BattleState.Victory,
-            AlliesSurvived = AlliedSoldiersAlive
+            AlliesSurvived = AlliedSoldiersAlive,
+            MilitiaSurvived = CountAlliedSurvivors(UnitType.Militia),
+            VeteransSurvived = CountAlliedSurvivors(UnitType.Veteran),
+            GuardsSurvived = CountAlliedSurvivors(UnitType.Guard)
         });
     }
 

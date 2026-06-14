@@ -11,12 +11,17 @@ The organized product and technical specification set starts at
 
 Open `Assets/Scenes/SampleScene.unity` in Unity 6.3 LTS and press Play. The game
 opens on the **campaign map**: click a glowing enemy territory bordering your
-lands and press Enter to assault it. Each assault launches a courtyard battle;
-press Enter or click to begin the fight.
+lands, compare its threat, reward, income, and arena, then click its assault
+button. Each assault launches that territory's regional battle; press Enter or
+click to begin the fight.
 
-Win to capture the territory — surviving soldiers carry over to your next battle.
 Conquer every territory to win the campaign; if your captain falls, the campaign
-is lost. See [`specs/11-campaign-map-and-meta-loop.md`](specs/11-campaign-map-and-meta-loop.md).
+is lost.
+
+Spend gold on militia, veterans, and guards from the recruitment panel. Victory
+earns conquest gold and income, while surviving unit types carry into the next
+battle. See
+[`specs/13-campaign-economy-units-and-regions.md`](specs/13-campaign-economy-units-and-regions.md).
 
 Create a standalone build with `Conquer Others > Build Windows MVP` in the
 Unity menu. The executable is written to `Builds/Windows/ConquerOthers.exe`.
@@ -34,9 +39,9 @@ Unity menu. The executable is written to `Builds/Windows/ConquerOthers.exe`.
 | Escape | Release cursor |
 | R | Restart battle |
 
-Defeat all four red soldiers while fighting alongside the three blue allied
-soldiers. The battle ends in victory when the enemy force is eliminated or in
-defeat when the player dies.
+The battle ends in victory when the enemy force is eliminated or in defeat when
+the player dies. Army size, enemy quality, and battlefield layout depend on the
+campaign territory.
 
 While holding the left mouse button, move the mouse to choose left slash, right
 slash, overhead, or thrust. The four ticks around the crosshair show your live

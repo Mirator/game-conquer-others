@@ -24,7 +24,8 @@ listener. Each mode's camera carries the single active `AudioListener`.
 | Component | Responsibility |
 |---|---|
 | `GameDirector` | Entry point; owns campaign state and map/battle mode switching. |
-| `CampaignState` | Persistent territory graph and warband roster (plain C#). |
+| `CampaignState` | Persistent territory graph, economy, mixed-unit warband, and progression rules. |
+| `CampaignTypes` | Unit catalog, unit roster, and arena-type definitions. |
 | `CampaignMapController` | Builds and runs the campaign map view and UI. |
 | `BattleBootstrap` | Builds a battle (arena, fighters) under a supplied root. |
 | `BattleManager` | Owns battle rules, queries, lifecycle, and UI. |
@@ -53,4 +54,3 @@ listener. Each mode's camera carries the single active `AudioListener`.
 
 New MVP systems should preserve the runtime-bootstrap approach unless a
 deliberate migration to authored scenes and imported assets is approved.
-

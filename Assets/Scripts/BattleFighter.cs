@@ -3,6 +3,7 @@ using UnityEngine;
 public abstract class BattleFighter : MonoBehaviour
 {
     public Team Team { get; private set; }
+    public UnitType UnitType { get; private set; }
     public bool IsPlayer { get; private set; }
     public bool IsAlive => health > 0f;
     public bool IsBlocking { get; private set; }
@@ -27,6 +28,7 @@ public abstract class BattleFighter : MonoBehaviour
     private const float MaxStamina = 100f;
 
     private float maxHealth;
+    private float damageScale = 1f;
     private float health;
     private float stamina = MaxStamina;
     private float phaseTimer;
@@ -52,16 +54,20 @@ public abstract class BattleFighter : MonoBehaviour
     private Vector3 swordBasePosition;
     private Vector3 previousStrikePoint;
 
-    public void Configure(BattleManager owner, Team team, bool player, float healthScale = 1f)
+    public void Configure(BattleManager owner, Team team, bool player, float healthScale = 1f, UnitType unitType = UnitType.Militia)
     {
         battle = owner;
         Team = team;
         IsPlayer = player;
+        UnitType = unitType;
         maxHealth = player ? 125f : team == Team.Allies ? 110f : 100f;
-        if (!player && team == Team.Enemies)
-            maxHealth *= healthScale;
+        if (!player)
+        {
+            maxHealth *= healthScale * UnitCatalog.HealthScale(unitType);
+            damageScale = UnitCatalog.DamageScale(unitType);
+        }
         health = maxHealth;
-        name = player ? "Player" : team == Team.Allies ? "Allied Soldier" : "Enemy Soldier";
+        name = player ? "Player" : $"{team} {UnitCatalog.Label(unitType)}";
 
         controller = gameObject.AddComponent<CharacterController>();
         controller.height = 1.85f;
@@ -237,7 +243,7 @@ public abstract class BattleFighter : MonoBehaviour
                 if (target != null)
                 {
                     dealtAttackDamage = true;
-                    target.ReceiveHit(GetDamage(AttackDirection), this, AttackDirection);
+                    target.ReceiveHit(GetDamage(AttackDirection) * damageScale, this, AttackDirection);
                 }
             }
             previousStrikePoint = strikePoint;
@@ -312,6 +318,8 @@ public abstract class BattleFighter : MonoBehaviour
         Color cloth = Team == Team.Allies ? new Color(0.08f, 0.17f, 0.32f) : new Color(0.32f, 0.07f, 0.05f);
         Color metal = new Color(0.55f, 0.6f, 0.65f);
         Color leather = new Color(0.2f, 0.1f, 0.04f);
+        Color rankColor = UnitType == UnitType.Guard ? new Color(0.92f, 0.72f, 0.18f)
+            : UnitType == UnitType.Veteran ? metal : leather;
 
         modelRoot = new GameObject("Animated Model").transform;
         modelRoot.SetParent(transform, false);
@@ -319,7 +327,8 @@ public abstract class BattleFighter : MonoBehaviour
         CreatePart("Tabard", PrimitiveType.Cube, modelRoot, new Vector3(0f, 0.95f, 0.22f), new Vector3(0.5f, 0.72f, 0.08f), teamColor);
         CreatePart("Head", PrimitiveType.Sphere, modelRoot, new Vector3(0f, 1.76f, 0f), Vector3.one * 0.4f, new Color(0.72f, 0.5f, 0.32f));
         CreatePart("Helmet", PrimitiveType.Sphere, modelRoot, new Vector3(0f, 1.88f, 0f), new Vector3(0.47f, 0.27f, 0.47f), metal);
-        CreatePart("Helmet Ridge", PrimitiveType.Cube, modelRoot, new Vector3(0f, 2.02f, 0f), new Vector3(0.1f, 0.2f, 0.55f), teamColor);
+        CreatePart("Helmet Ridge", PrimitiveType.Cube, modelRoot, new Vector3(0f, 2.02f, 0f),
+            UnitType == UnitType.Guard ? new Vector3(0.16f, 0.32f, 0.6f) : new Vector3(0.1f, 0.2f, 0.55f), rankColor);
         CreatePart("Belt", PrimitiveType.Cube, modelRoot, new Vector3(0f, 0.91f, 0f), new Vector3(0.7f, 0.11f, 0.52f), leather);
 
         leftLeg = NewPivot("Left Leg", modelRoot, new Vector3(-0.2f, 0.78f, 0f));

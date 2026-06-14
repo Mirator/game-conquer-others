@@ -19,8 +19,11 @@ public sealed class CampaignMapController : MonoBehaviour
     private GUIStyle labelCenter;
     private GUIStyle smallCenter;
     private GUIStyle buttonStyle;
+    private GUIStyle recruitButtonStyle;
     private Rect actionPanelScreenRect;
     private bool actionPanelShown;
+    private Rect recruitmentPanelScreenRect;
+    private bool recruitmentPanelShown;
 
     private struct NodeView
     {
@@ -98,6 +101,18 @@ public sealed class CampaignMapController : MonoBehaviour
         keep.transform.localScale = new Vector3(0.5f, 2.2f, 0.5f);
         keep.GetComponent<Renderer>().material = BattleBootstrap.CreateMaterial(ColorFor(t));
 
+        PrimitiveType markerType = t.Arena == ArenaType.Forest ? PrimitiveType.Sphere
+            : t.Arena == ArenaType.Marsh ? PrimitiveType.Cylinder : PrimitiveType.Cube;
+        GameObject marker = GameObject.CreatePrimitive(markerType);
+        marker.name = $"{t.Arena} Marker";
+        Destroy(marker.GetComponent<Collider>());
+        marker.transform.SetParent(go.transform, false);
+        marker.transform.localPosition = new Vector3(0.7f, 0.75f, 0.3f);
+        marker.transform.localScale = t.Arena == ArenaType.Forest ? new Vector3(0.45f, 0.7f, 0.45f)
+            : t.Arena == ArenaType.Marsh ? new Vector3(0.55f, 0.08f, 0.55f)
+            : t.Arena == ArenaType.Highlands ? new Vector3(0.38f, 0.85f, 0.38f) : new Vector3(0.45f, 0.45f, 0.45f);
+        marker.GetComponent<Renderer>().material = BattleBootstrap.CreateMaterial(ArenaColor(t.Arena));
+
         nodes.Add(new NodeView { Go = go, Territory = t, Renderer = r });
     }
 
@@ -124,6 +139,14 @@ public sealed class CampaignMapController : MonoBehaviour
         _ => new Color(0.6f, 0.6f, 0.62f)
     };
 
+    private static Color ArenaColor(ArenaType arena) => arena switch
+    {
+        ArenaType.Forest => new Color(0.16f, 0.48f, 0.16f),
+        ArenaType.Marsh => new Color(0.15f, 0.48f, 0.52f),
+        ArenaType.Highlands => new Color(0.58f, 0.56f, 0.52f),
+        _ => new Color(0.65f, 0.5f, 0.3f)
+    };
+
     private void Update()
     {
         if (campaign == null || cam == null)
@@ -141,8 +164,9 @@ public sealed class CampaignMapController : MonoBehaviour
         {
             Vector2 mouse = Mouse.current.position.ReadValue();
             Vector2 topLeft = new Vector2(mouse.x, Screen.height - mouse.y);
-            bool overActionPanel = actionPanelShown && actionPanelScreenRect.Contains(topLeft);
-            if (!overActionPanel && Physics.Raycast(cam.ScreenPointToRay(mouse), out RaycastHit hit, 200f))
+            bool overUi = actionPanelShown && actionPanelScreenRect.Contains(topLeft)
+                || recruitmentPanelShown && recruitmentPanelScreenRect.Contains(topLeft);
+            if (!overUi && Physics.Raycast(cam.ScreenPointToRay(mouse), out RaycastHit hit, 200f))
                 foreach (NodeView n in nodes)
                     if (n.Go == hit.collider.gameObject)
                     {
@@ -188,10 +212,12 @@ public sealed class CampaignMapController : MonoBehaviour
 
     private void DrawMapHud(float width, float height, float scale)
     {
+        DrawRecruitment(scale);
         DrawPanel(new Rect(width * 0.5f - 270f, 18f, 540f, 56f), new Color(0.03f, 0.04f, 0.05f, 0.88f));
         GUI.Label(new Rect(width * 0.5f - 260f, 24f, 520f, 24f), "CONQUER OTHERS — PLAN YOUR NEXT ASSAULT", labelCenter);
         GUI.Label(new Rect(width * 0.5f - 260f, 47f, 520f, 20f),
-            $"WARBAND  {campaign.Roster} soldiers        TERRITORIES  {campaign.PlayerTerritoryCount()} / {campaign.Territories.Count}", smallCenter);
+            $"GOLD {campaign.Gold}    INCOME +{campaign.IncomePerVictory()}    WARBAND {campaign.Roster}/{CampaignState.WarbandCap}    LANDS {campaign.PlayerTerritoryCount()}/{campaign.Territories.Count}", smallCenter);
+        GUI.Label(new Rect(width * 0.5f - 300f, 76f, 600f, 20f), campaign.LastReport, smallCenter);
 
         if (selected == null)
         {
@@ -201,21 +227,23 @@ public sealed class CampaignMapController : MonoBehaviour
             return;
         }
 
-        Rect panel = new Rect(width * 0.5f - 240f, height - 122f, 480f, 100f);
+        Rect panel = new Rect(width * 0.5f - 310f, height - 158f, 620f, 136f);
         DrawPanel(panel, new Color(0.03f, 0.04f, 0.05f, 0.9f));
         actionPanelScreenRect = new Rect(panel.x * scale, panel.y * scale, panel.width * scale, panel.height * scale);
         actionPanelShown = true;
 
         string owner = selected.Owner == TerritoryOwner.Player ? "YOURS"
             : selected.Owner == TerritoryOwner.Enemy ? "ENEMY" : "NEUTRAL";
-        GUI.Label(new Rect(width * 0.5f - 225f, height - 114f, 450f, 24f),
-            $"{selected.Name.ToUpperInvariant()}    [{owner}]    GARRISON  {selected.Garrison}", labelCenter);
+        GUI.Label(new Rect(width * 0.5f - 295f, height - 150f, 590f, 24f),
+            $"{selected.Name.ToUpperInvariant()}    [{owner}]    {ArenaLabel(selected.Arena)}", labelCenter);
+        GUI.Label(new Rect(width * 0.5f - 295f, height - 126f, 590f, 22f),
+            $"THREAT {ThreatLabel(selected.Threat)}    GARRISON {selected.Garrison}    REWARD {selected.RewardGold} GOLD    INCOME +{selected.Income}", smallCenter);
 
         if (campaign.IsAttackable(selected))
         {
-            GUI.Label(new Rect(width * 0.5f - 225f, height - 88f, 450f, 22f),
-                $"Lead {Mathf.Clamp(campaign.Roster, 0, 12)} soldiers against {selected.Garrison} defenders.", smallCenter);
-            if (GUI.Button(new Rect(width * 0.5f - 120f, height - 62f, 240f, 34f), $"ASSAULT {selected.Name.ToUpperInvariant()}", buttonStyle))
+            GUI.Label(new Rect(width * 0.5f - 295f, height - 102f, 590f, 22f),
+                $"Deploy {campaign.Units.Militia} militia, {campaign.Units.Veterans} veterans, {campaign.Units.Guards} guards against {selected.Garrison} defenders.", smallCenter);
+            if (GUI.Button(new Rect(width * 0.5f - 130f, height - 72f, 260f, 38f), $"ASSAULT {selected.Name.ToUpperInvariant()}", buttonStyle))
                 director.LaunchBattle(campaign.BuildSetupFor(selected), selected);
         }
         else
@@ -226,6 +254,42 @@ public sealed class CampaignMapController : MonoBehaviour
                     : "Not bordering your lands — capture a path to it first.", smallCenter);
         }
     }
+
+    private void DrawRecruitment(float scale)
+    {
+        Rect panel = new Rect(16f, 112f, 314f, 250f);
+        DrawPanel(panel, new Color(0.03f, 0.04f, 0.05f, 0.92f));
+        recruitmentPanelScreenRect = new Rect(panel.x * scale, panel.y * scale, panel.width * scale, panel.height * scale);
+        recruitmentPanelShown = true;
+
+        GUI.Label(new Rect(28f, 122f, 290f, 25f), "RECRUIT WARBAND", labelCenter);
+        GUI.Label(new Rect(28f, 148f, 290f, 38f),
+            $"Capacity {campaign.Roster} / {CampaignState.WarbandCap}\nDeaths are permanent. Choose quality or numbers.", smallCenter);
+        DrawRecruitButton(UnitType.Militia, 28f, 192f, "Affordable line fighter");
+        DrawRecruitButton(UnitType.Veteran, 28f, 243f, "Tougher and more dangerous");
+        DrawRecruitButton(UnitType.Guard, 28f, 294f, "Elite armor and damage");
+    }
+
+    private void DrawRecruitButton(UnitType type, float x, float y, string description)
+    {
+        bool previous = GUI.enabled;
+        GUI.enabled = campaign.CanRecruit(type);
+        if (GUI.Button(new Rect(x, y, 290f, 29f),
+            $"+ {UnitCatalog.Label(type)}    {UnitCatalog.Cost(type)} GOLD    OWNED {campaign.Units.Get(type)}", recruitButtonStyle))
+            campaign.Recruit(type);
+        GUI.enabled = previous;
+        GUI.Label(new Rect(x, y + 28f, 290f, 18f), description, smallCenter);
+    }
+
+    private static string ArenaLabel(ArenaType arena) => arena switch
+    {
+        ArenaType.Forest => "DEEP FOREST",
+        ArenaType.Marsh => "FOGGY MARSH",
+        ArenaType.Highlands => "ROCKY HIGHLANDS",
+        _ => "FORTIFIED COURTYARD"
+    };
+
+    private static string ThreatLabel(int threat) => new string('*', Mathf.Clamp(threat, 1, 5));
 
     private void DrawEndScreen(float width, float height, string title, string body)
     {
@@ -268,5 +332,6 @@ public sealed class CampaignMapController : MonoBehaviour
             alignment = TextAnchor.MiddleCenter, fontSize = 16, fontStyle = FontStyle.Bold,
             normal = { textColor = Color.white }
         };
+        recruitButtonStyle = new GUIStyle(buttonStyle) { fontSize = 13 };
     }
 }

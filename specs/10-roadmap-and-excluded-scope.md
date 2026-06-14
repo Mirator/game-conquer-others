@@ -34,11 +34,14 @@ the game's strategic scope. The ordered remediation plan is defined in
 
 - Node-based campaign map with a persistent warband roster (see
   [11-campaign-map-and-meta-loop.md](11-campaign-map-and-meta-loop.md)).
+- Gold, territorial income, three recruitable unit tiers, escalating territory
+  threats, and four regional battlefields (see
+  [13-campaign-economy-units-and-regions.md](13-campaign-economy-units-and-regions.md)).
 
 ## Explicitly Excluded From Current Scope
 
-- Economy and trading.
-- Recruitment and character progression.
+- Trading and settlement management.
+- Individual character progression.
 - Inventory and complex equipment.
 - Diplomacy, quests, and settlements.
 - Multiplayer.

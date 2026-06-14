@@ -55,6 +55,11 @@ Add `-smokevictory` to:
 - Verify the loop returns to the map with the territory captured and the roster
   updated to the survivors.
 
+Add `-smokearena=<Courtyard|Forest|Marsh|Highlands>` to force a specific arena.
+
+Combine `-smokevictory -smokecampaign` to verify several consecutive
+conquests and persistent campaign progression.
+
 ## Current Verified Status
 
 - Live Unity compilation: passed.
@@ -70,3 +75,9 @@ Add `-smokevictory` to:
   fighter knot observed.
 - Large 6v6 battle: coordination audit passed; no close-pair cluster at seven
   seconds; both teams remained active through the late-battle capture.
+- Campaign economy audit: recruitment, gold spending, conquest reward, income,
+  and typed survivor persistence passed.
+- Arena matrix: courtyard, forest, marsh, and highlands natural-combat runs
+  passed.
+- Multi-conquest campaign: three consecutive captures preserved state and grew
+  the realm to four territories, the warband to six, and the treasury to 401.

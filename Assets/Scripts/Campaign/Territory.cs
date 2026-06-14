@@ -13,5 +13,9 @@ public sealed class Territory
     public TerritoryOwner Owner;
     public int Garrison;            // defenders spawned when this node is assaulted
     public float DifficultyScale = 1f;
+    public ArenaType Arena;
+    public int RewardGold;
+    public int Income;
+    public int Threat;
     public readonly List<int> AdjacentIds = new();
 }

@@ -9,13 +9,13 @@ repeat.
 
 ## Campaign Model
 
-- The map is a graph of 5 to 8 procedurally-placed `Territory` nodes.
-- Each territory has an owner (Player, Enemy, or Neutral) and a garrison size.
+- The map is a graph of 8 procedurally-placed `Territory` nodes.
+- Each territory has an owner, garrison, threat, reward, income, and arena type.
 - Territories are connected by adjacency edges. The graph is always fully
   connected, so every territory is eventually reachable.
 - One territory starts owned by the player; the rest start enemy-owned.
-- The player keeps a persistent warband **roster**: the count of allied soldiers
-  carried between battles. It starts at 3.
+- The player keeps a persistent mixed-unit warband carried between battles. It
+  starts with 3 militia and can grow to 12 soldiers through recruitment.
 
 ## Map Rules
 
@@ -25,12 +25,14 @@ repeat.
 - The battle is parameterized by the encounter:
   - Allied soldiers spawned = the current roster (clamped to the arena cap).
   - Enemy soldiers spawned = the target's garrison.
-  - Enemy health scale = the target's difficulty scale (1.0 in the first slice).
+  - Enemy quality and health scale = the target's threat.
+  - Arena layout = the target's regional arena type.
 
 ## Battle Outcome
 
-- **Victory**: the target territory becomes player-owned. Surviving allied
-  soldiers persist back to the roster; allied deaths are permanent.
+- **Victory**: the target territory becomes player-owned. Surviving allied unit
+  types persist back to the roster; allied deaths are permanent. The player
+  earns conquest gold plus income from all owned lands.
 - **Defeat** (player dies): the campaign is lost.
 - The player dismisses the result screen with Enter to apply the outcome and
   return to the map.
@@ -56,11 +58,10 @@ repeat.
 - Overhead camera over a table-like ground plane.
 - Territory nodes are colored by owner (blue / red / grey); attackable enemy
   nodes pulse. Adjacency edges are drawn between nodes.
-- An IMGUI HUD shows the roster, conquered count, the selected territory, and the
-  assault prompt, matching the battle HUD style.
+- An IMGUI HUD shows gold, income, typed roster, conquered count, latest report,
+  recruitment controls, target risk/reward, and the assault prompt.
 
 ## Future Campaign Features
 
-Recruitment and roster growth, garrison and difficulty escalation by distance,
-neutral territories, enemy counter-attacks, pre-battle events, and saving the
-campaign are outside the current slice.
+Neutral territories, enemy counter-attacks, pre-battle events, settlement
+upgrades, trading, and saving the campaign are outside the current slice.

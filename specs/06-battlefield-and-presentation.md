@@ -1,8 +1,12 @@
 # 06 - Battlefield and Presentation
 
-## Battlefield
+## Battlefields
 
-The MVP uses one runtime-generated enclosed courtyard:
+The campaign uses four runtime-generated arenas. Every arena preserves the
+shared combat footprint and team spawn lanes while changing terrain, cover,
+atmosphere, and movement routes.
+
+### Fortified Courtyard
 
 - 34 by 34 ground area.
 - Stone boundary walls and battlements.
@@ -11,6 +15,21 @@ The MVP uses one runtime-generated enclosed courtyard:
 - Blue banners at the blue side and red banners at the red side.
 - Supply crates near outer lanes.
 - Four lit torches.
+
+### Deep Forest
+
+- Dense tree lines, a central dirt track, and fallen-log cover.
+- Darker green ambient lighting and forest fog.
+
+### Foggy Marsh
+
+- Shallow-water visuals, reeds, a raised causeway, wreckage, and stone cover.
+- Cool lighting and heavier fog.
+
+### Rocky Highlands
+
+- Tall side ridges, boulders, standing stones, and narrow central approaches.
+- Open, exposed terrain with strong stone silhouettes.
 
 ## Spawn Layout
 
@@ -49,4 +68,3 @@ All current audio is procedurally generated:
 
 Replace primitive fighters, procedural animation, and synthesized audio with
 production assets only after combat behavior is approved.
-

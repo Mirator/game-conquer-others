@@ -123,7 +123,7 @@ public sealed class GameDirector : MonoBehaviour
     private void HandleBattleConcluded(BattleResult result)
     {
         if (result.PlayerWon && pendingTarget != null)
-            campaign.ApplyVictory(pendingTarget, result.AlliesSurvived);
+            campaign.ApplyVictory(pendingTarget, result);
         else if (!result.PlayerWon)
             campaign.ApplyDefeat();
         pendingTarget = null;
