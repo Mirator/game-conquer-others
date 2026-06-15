@@ -67,6 +67,18 @@ Successful block:
 - Briefly reacts the defender.
 - Forces the attacker into extended recovery.
 
+### Perfect Block and Counter
+
+- Raising the correct block direction within 0.20 seconds of impact produces a
+  perfect block.
+- Changing direction while holding block starts a fresh perfect-block timing
+  window, rewarding last-moment reads.
+- A perfect block creates a 0.65-second counter window.
+- A counter attack costs less stamina, winds up 38% faster, and deals 45% bonus
+  damage.
+- Perfect blocks and counters use distinct audio, sparks, hit-stop, camera
+  response, HUD color, and messages.
+
 Wrong-direction, late, absent, or rear-angle block:
 
 - Deals full attack damage.
@@ -83,8 +95,10 @@ Wrong-direction, late, absent, or rear-angle block:
 - A landed player hit briefly freezes the attacker and defender for impact.
 - Distant AI impacts do not shake the player's camera.
 - Dead fighters cannot be hit.
+- The player's primary incoming threat displays its attack direction near the
+  reticle without placing text or UI markers on enemies.
 
 ## Future Combat Features
 
-Feints, partial blocks, parries, armor, additional weapons, mounted attacks, and
-friendly fire are outside the current MVP.
+Feints, partial blocks, armor, additional weapons, mounted attacks, and friendly
+fire are outside the current MVP.

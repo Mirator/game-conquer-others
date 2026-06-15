@@ -34,6 +34,7 @@ public sealed class BattleRuntimeSmoke : MonoBehaviour
         Debug.Log($"Runtime smoke campaign progression: passed={campaignAudit}, recruited={recruited}, gold={director.Campaign.Gold}, roster={director.Campaign.Roster}, variedArenas={variedArenas}");
         BattleSetup setup = director.Campaign.BuildSetupFor(target);
         bool largeRun = System.Array.Exists(System.Environment.GetCommandLineArgs(), argument => argument == "-smokelarge");
+        bool duelRun = System.Array.Exists(System.Environment.GetCommandLineArgs(), argument => argument == "-smokeduel");
         if (largeRun)
         {
             setup.AllyCount = 5;
@@ -42,8 +43,18 @@ public sealed class BattleRuntimeSmoke : MonoBehaviour
             setup.AllyGuards = 0;
             setup.EnemyCount = 6;
         }
+        else if (duelRun)
+        {
+            setup.AllyCount = 0;
+            setup.AllyMilitia = 0;
+            setup.AllyVeterans = 0;
+            setup.AllyGuards = 0;
+            setup.EnemyCount = 1;
+            setup.EnemyVeterans = 0;
+            setup.EnemyGuards = 0;
+        }
         setup.Arena = ArenaOverride(setup.Arena);
-        Debug.Log($"Runtime smoke encounter: allies={setup.AllyCount + 1}, enemies={setup.EnemyCount}, arena={setup.Arena}, large={largeRun}");
+        Debug.Log($"Runtime smoke encounter: allies={setup.AllyCount + 1}, enemies={setup.EnemyCount}, arena={setup.Arena}, large={largeRun}, duel={duelRun}");
         director.LaunchBattle(setup, target);
 
         while (director.CurrentMode != GameDirector.Mode.Battle)
@@ -54,6 +65,20 @@ public sealed class BattleRuntimeSmoke : MonoBehaviour
         Debug.Log($"Runtime smoke directional combat: passed={directionalAudit}");
         bool responsiveAudit = manager.DebugAuditResponsiveCombat();
         Debug.Log($"Runtime smoke responsive combat: passed={responsiveAudit}");
+        bool excellenceAudit = manager.DebugAuditCombatExcellence();
+        Debug.Log($"Runtime smoke combat excellence: passed={excellenceAudit}");
+        if (duelRun)
+        {
+            yield return new WaitForSeconds(0.15f);
+            manager.Player.DebugResetCombatFeedback();
+            manager.DebugClearCombatMessage();
+            BattleFighter duelThreat = manager.FindNearestOpponent(manager.Player);
+            bool forcedTelegraph = duelThreat != null && duelThreat.DebugForceAttackTelegraph(CombatDirection.Right);
+            yield return new WaitForSeconds(0.12f);
+            bool primaryThreatVisible = manager.FindIncomingThreat(manager.Player) == duelThreat;
+            Capture("smoke-telegraph.png");
+            Debug.Log($"Runtime smoke threat telegraph: passed={forcedTelegraph && primaryThreatVisible}, forced={forcedTelegraph}, primary={primaryThreatVisible}");
+        }
         yield return new WaitForSeconds(1.5f);
         Capture("smoke-opening.png");
         Debug.Log($"Runtime smoke opening: {manager.DebugSummary}, {manager.DebugAISummary}");

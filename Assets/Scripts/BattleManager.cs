@@ -56,6 +56,7 @@ public sealed class BattleManager : MonoBehaviour
     private Texture2D whiteTexture;
     private float battleTime;
     private float impactFlash;
+    private Color impactFlashColor = new Color(0.7f, 0.02f, 0.01f);
     private float messageTimer;
     private string message;
     private bool concluded;
@@ -64,6 +65,8 @@ public sealed class BattleManager : MonoBehaviour
     private float enemiesDamageDealt;
     private float playerDamageTaken;
     private int playerKills;
+    private int playerPerfectBlocks;
+    private int playerCounterHits;
     private int initialAllies;
     private int initialEnemies;
     private int maxPlayerAttackers;
@@ -263,23 +266,41 @@ public sealed class BattleManager : MonoBehaviour
 
     public void ReportWhiff(BattleFighter attacker) => effects?.PlayWhiff(attacker.transform.position, attacker.IsPlayer);
 
-    public void ReportImpact(BattleFighter target, BattleFighter attacker, bool blocked)
+    public void ReportImpact(BattleFighter target, BattleFighter attacker, bool blocked, bool perfectBlock, bool counterStrike)
     {
-        effects?.PlayImpact(target.transform.position, blocked);
+        effects?.PlayImpact(target.transform.position, blocked, perfectBlock, counterStrike);
         bool playerInvolved = target.IsPlayer || attacker != null && attacker.IsPlayer;
         if (playerInvolved)
-            cameraRig?.AddShake(target.IsPlayer ? 0.11f : blocked ? 0.065f : 0.045f);
-        if (!blocked && attacker != null && attacker.IsPlayer)
+            cameraRig?.AddShake(perfectBlock ? 0.13f : counterStrike ? 0.095f : target.IsPlayer ? 0.11f : blocked ? 0.065f : 0.045f);
+        if (perfectBlock)
         {
-            attacker.ApplyHitStop(0.055f);
-            target.ApplyHitStop(0.055f);
+            target.ApplyHitStop(0.075f);
+            attacker?.ApplyHitStop(0.075f);
+        }
+        else if (!blocked && attacker != null && attacker.IsPlayer)
+        {
+            float duration = counterStrike ? 0.085f : 0.055f;
+            attacker.ApplyHitStop(duration);
+            target.ApplyHitStop(duration);
         }
         if (target.IsPlayer)
-            impactFlash = blocked ? 0.1f : 0.28f;
+        {
+            impactFlash = perfectBlock ? 0.16f : blocked ? 0.1f : 0.28f;
+            impactFlashColor = perfectBlock ? new Color(0.28f, 0.82f, 1f)
+                : blocked ? new Color(0.9f, 0.68f, 0.18f) : new Color(0.7f, 0.02f, 0.01f);
+        }
         if (blocked && target.IsPlayer)
         {
-            message = "DIRECTIONAL BLOCK";
-            messageTimer = 0.5f;
+            message = perfectBlock ? "PERFECT BLOCK - COUNTER READY" : "DIRECTIONAL BLOCK";
+            messageTimer = perfectBlock ? 0.9f : 0.5f;
+            if (perfectBlock)
+                playerPerfectBlocks++;
+        }
+        if (counterStrike && attacker != null && attacker.IsPlayer && !blocked)
+        {
+            message = "COUNTER STRIKE";
+            messageTimer = 0.7f;
+            playerCounterHits++;
         }
     }
 
@@ -397,6 +418,60 @@ public sealed class BattleManager : MonoBehaviour
         return passed;
     }
 
+    public bool DebugAuditCombatExcellence()
+    {
+        if (Player == null)
+            return false;
+        BattleFighter attacker = FindNearestOpponent(Player);
+        if (attacker == null)
+            return false;
+
+        Quaternion startingRotation = Player.transform.rotation;
+        Vector3 towardAttacker = attacker.transform.position - Player.transform.position;
+        towardAttacker.y = 0f;
+        Player.transform.rotation = Quaternion.LookRotation(towardAttacker.normalized);
+        float health = Player.CurrentHealth;
+
+        Player.DebugSetBlock(false, CombatDirection.Right);
+        Player.DebugSetBlock(true, CombatDirection.Right);
+        Player.ReceiveHit(25f, attacker, CombatDirection.Right);
+        bool perfectGrantedCounter = Player.IsCounterReady && Mathf.Approximately(Player.CurrentHealth, health);
+
+        Player.DebugClearCombatReaction();
+        Player.DebugSetBlock(false, CombatDirection.Right);
+        bool counterPrepared = Player.DebugPrepareAttack(CombatDirection.Up) && Player.IsCounterAttack
+            && Mathf.Approximately(Player.CurrentAttackDamageMultiplier, 1.45f);
+        Player.DebugSetBlock(true, CombatDirection.Left);
+        Player.DebugSetBlock(false, CombatDirection.Left);
+
+        Player.DebugSetBlock(true, CombatDirection.Right);
+        Player.DebugExpirePerfectBlock();
+        Player.ReceiveHit(25f, attacker, CombatDirection.Right);
+        bool normalBlockNoCounter = !Player.IsCounterReady && Mathf.Approximately(Player.CurrentHealth, health);
+
+        Player.DebugClearCombatReaction();
+        Player.DebugSetBlock(true, CombatDirection.Left);
+        Player.DebugExpirePerfectBlock();
+        Player.DebugSetBlock(true, CombatDirection.Right);
+        Player.ReceiveHit(25f, attacker, CombatDirection.Right);
+        bool correctedDirectionPerfect = Player.IsCounterReady && Mathf.Approximately(Player.CurrentHealth, health);
+
+        Player.DebugSetBlock(false, CombatDirection.Right);
+        Player.DebugRestoreHealth(health);
+        Player.DebugRestoreStamina();
+        Player.transform.rotation = startingRotation;
+        bool passed = perfectGrantedCounter && counterPrepared && normalBlockNoCounter && correctedDirectionPerfect;
+        Debug.Log($"Combat excellence audit: perfectCounter={perfectGrantedCounter}, counterPrepared={counterPrepared}, normalNoCounter={normalBlockNoCounter}, correctedPerfect={correctedDirectionPerfect}");
+        return passed;
+    }
+
+    public void DebugClearCombatMessage()
+    {
+        message = null;
+        messageTimer = 0f;
+        impactFlash = 0f;
+    }
+
     public bool DebugAuditAICoordination()
     {
         CleanupAttackPermissions();
@@ -434,6 +509,8 @@ public sealed class BattleManager : MonoBehaviour
         float score = distance + assigned * 3.1f;
         if (target.IsPlayer)
             score -= 0.65f;
+        if (seeker.Team == Team.Allies && target is AIFighter enemy && enemy.CurrentTarget == Player)
+            score += 4.5f;
         if (current)
             score -= 2.4f;
         if (target.IsAttackThreatening)
@@ -568,15 +645,18 @@ public sealed class BattleManager : MonoBehaviour
                 CombatDirection shown = Player.IsBlocking ? Player.BlockDirection
                     : Player.IsChargingAttack ? Player.AttackDirection : Player.SelectedDirection;
                 GUI.Label(new Rect(width * 0.5f - 100f, height * 0.5f + 44f, 200f, 24f), $"{verb}  {DirectionLabel(shown)}", smallCenterStyle);
+                if (Player.IsCounterReady)
+                    GUI.Label(new Rect(width * 0.5f - 120f, height * 0.5f + 66f, 240f, 24f), "COUNTER READY - STRIKE NOW", smallCenterStyle);
+                DrawPrimaryThreatCue(width, height);
             }
 
             if (messageTimer > 0f)
-                GUI.Label(new Rect(width * 0.5f - 220f, 82f, 440f, 36f), message, titleStyle);
+                GUI.Label(new Rect(width * 0.5f - 350f, 78f, 700f, 48f), message, titleStyle);
             DrawWorldHealthBars(scale);
 
             if (impactFlash > 0f)
             {
-                GUI.color = new Color(0.7f, 0.02f, 0.01f, impactFlash);
+                GUI.color = new Color(impactFlashColor.r, impactFlashColor.g, impactFlashColor.b, impactFlash);
                 GUI.DrawTexture(new Rect(0f, 0f, width, height), whiteTexture);
                 GUI.color = Color.white;
             }
@@ -589,12 +669,12 @@ public sealed class BattleManager : MonoBehaviour
 
             if (State == BattleState.Ready)
             {
-                string body = $"ASSAULT ON {EncounterTitle}\nLead the blue soldiers and break the red line.\n\nWASD  Move       Shift  Sprint       Space  Dodge\nHold LMB + move mouse  Aim a swing, release to strike\nHold RMB + move mouse  Raise your shield that way\n\nThe ticks around the crosshair show your direction.\nMatch the incoming attack direction to stop all damage.\n\nPRESS ENTER OR CLICK TO BEGIN";
+                string body = $"ASSAULT ON {EncounterTitle}\nLead the blue soldiers and break the red line.\n\nWASD  Move       Shift  Sprint       Space  Dodge\nHold LMB + move mouse  Aim a swing, release to strike\nHold RMB + move mouse  Raise your shield that way\n\nMatch the incoming direction to block all damage.\nRaise the correct block at the last moment for a perfect block,\nthen strike during the counter window for bonus damage.\n\nPRESS ENTER OR CLICK TO BEGIN";
                 GUI.Label(new Rect(width * 0.5f - 235f, height * 0.5f - 126f, 470f, 320f), body, bodyTopStyle);
             }
             else
             {
-                string body = $"Battle time  {Mathf.FloorToInt(battleTime / 60f):00}:{Mathf.FloorToInt(battleTime % 60f):00}\n\nYOUR DAMAGE  {playerDamageDealt:0}        ALLIES  {alliesDamageDealt:0}\nYOUR KILLS  {playerKills}        DAMAGE TAKEN  {playerDamageTaken:0}\nBLUE LOSSES  {initialAllies - CountAlive(Team.Allies)} / {initialAllies}        RED LOSSES  {initialEnemies - CountAlive(Team.Enemies)} / {initialEnemies}";
+                string body = $"Battle time  {Mathf.FloorToInt(battleTime / 60f):00}:{Mathf.FloorToInt(battleTime % 60f):00}\n\nYOUR DAMAGE  {playerDamageDealt:0}        ALLIES  {alliesDamageDealt:0}\nYOUR KILLS  {playerKills}        DAMAGE TAKEN  {playerDamageTaken:0}\nPERFECT BLOCKS  {playerPerfectBlocks}        COUNTERS  {playerCounterHits}\nBLUE LOSSES  {initialAllies - CountAlive(Team.Allies)} / {initialAllies}        RED LOSSES  {initialEnemies - CountAlive(Team.Enemies)} / {initialEnemies}";
                 GUI.Label(new Rect(width * 0.5f - 245f, height * 0.5f - 118f, 490f, 150f), body, bodyTopStyle);
 
                 string buttonLabel = State == BattleState.Victory ? "CLAIM THE TERRITORY" : "RETURN TO THE MAP";
@@ -611,9 +691,10 @@ public sealed class BattleManager : MonoBehaviour
         Camera camera = Camera.main;
         if (camera == null)
             return;
+        BattleFighter primaryThreat = Player != null ? FindIncomingThreat(Player) : null;
         foreach (BattleFighter fighter in fighters)
         {
-            if (!fighter.IsAlive || fighter.IsPlayer || fighter.HealthNormalized >= 0.995f)
+            if (!fighter.IsAlive || fighter.IsPlayer || !fighter.ShouldShowHealthBar && fighter != primaryThreat)
                 continue;
             Vector3 screen = camera.WorldToScreenPoint(fighter.transform.position + Vector3.up * 2.25f);
             if (screen.z <= 0f)
@@ -621,6 +702,22 @@ public sealed class BattleManager : MonoBehaviour
             DrawBar(new Rect(screen.x / scale - 34f, (Screen.height - screen.y) / scale, 68f, 6f), fighter.HealthNormalized,
                 fighter.Team == Team.Allies ? new Color(0.15f, 0.48f, 0.95f) : new Color(0.9f, 0.16f, 0.1f));
         }
+    }
+
+    private void DrawPrimaryThreatCue(float width, float height)
+    {
+        BattleFighter threat = FindIncomingThreat(Player);
+        if (threat == null)
+            return;
+
+        float progress = threat.AttackTelegraphProgress;
+        Color cue = threat.Phase == CombatPhase.AttackRelease
+            ? new Color(1f, 0.18f, 0.08f) : Color.Lerp(new Color(1f, 0.82f, 0.18f), new Color(1f, 0.35f, 0.08f), progress);
+        string direction = DirectionLabel(threat.AttackDirection);
+        GUI.color = cue;
+        GUI.Label(new Rect(width * 0.5f - 110f, height * 0.5f - 82f, 220f, 26f), $"INCOMING  {direction}", smallCenterStyle);
+        GUI.color = Color.white;
+
     }
 
     private void DrawDirectionReticle(float cx, float cy)
@@ -634,7 +731,8 @@ public sealed class BattleManager : MonoBehaviour
         CombatDirection active = blocking ? Player.BlockDirection
             : charging ? Player.AttackDirection : Player.SelectedDirection;
 
-        Color activeColor = blocking ? new Color(0.32f, 0.78f, 1f)
+        Color activeColor = Player.IsCounterReady ? new Color(1f, 0.82f, 0.18f)
+            : blocking ? new Color(0.32f, 0.78f, 1f)
             : charging ? Color.Lerp(new Color(1f, 0.86f, 0.42f), new Color(1f, 0.5f, 0.08f), charge)
             : new Color(0.86f, 0.86f, 0.9f);
         Color idleColor = new Color(0.5f, 0.52f, 0.55f, 0.55f);

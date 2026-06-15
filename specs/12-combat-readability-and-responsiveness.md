@@ -52,8 +52,7 @@ or central HUD.
 
 ## Required Improvements
 
-Implementation status: P0, P1, and P2 are delivered. P3 remains the next
-combat-readability work.
+Implementation status: P0, P1, P2, and P3 are delivered.
 
 ### P0 - Restore Player Responsiveness
 
@@ -108,6 +107,10 @@ minimum fighter distance, close pairs, and invalid target assignments.
 3. Reduce or hide health bars inside dense clusters unless recently damaged.
 4. Keep the primary opponent visible; avoid allies fully occluding the duel.
 5. Add a brief post-block counter window through longer attacker recovery.
+
+Delivered with one primary-threat direction/progress cue, damage-gated health
+bars, allies avoiding the player's active opponent, longer blocked-attacker
+recovery, and a timed perfect-block/counter system.
 
 ## Initial Tuning Targets
 

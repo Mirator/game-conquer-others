@@ -48,6 +48,10 @@ The standalone smoke test:
 Add `-smokelarge` to run a 6v6 encounter and verify coordination and spacing
 under a larger fighter count.
 
+Add `-smokeduel` to run a one-on-one readability scenario. It audits fresh and
+corrected-direction perfect blocks, ordinary blocks, the counter damage state,
+and captures a deterministic primary-threat telegraph.
+
 Add `-smokevictory` to:
 
 - Force enemy elimination.
@@ -71,6 +75,11 @@ conquests and persistent campaign progression.
 - Managed exception scan: passed.
 - P0/P1 responsive combat audit: passed.
 - P2 tactical AI coordination audit: passed.
+- P3 threat readability and perfect-block/counter audit: passed.
+- Deterministic duel telegraph capture: passed; one primary threat displays one
+  incoming-direction cue near the reticle without enemy-attached text.
+- Three repeated natural battles and a 6v6 stress battle passed with the new
+  combat feedback and counter systems.
 - Repeated natural 4v4 battles: player attacker limit held at one; no central
   fighter knot observed.
 - Large 6v6 battle: coordination audit passed; no close-pair cluster at seven

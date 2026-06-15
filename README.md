@@ -48,7 +48,9 @@ slash, overhead, or thrust. The four ticks around the crosshair show your live
 direction and fill gold as the swing charges. Release to strike.
 
 A block stops all damage only when its direction matches the incoming attack and
-the attacker is inside the defender's front arc.
+the attacker is inside the defender's front arc. Raise or correct the matching
+block at the last moment for a perfect block, then strike while the reticle is
+gold to land a faster, stronger counter.
 
 The camera uses a close over-the-shoulder combat view. Sprinting pulls it back
 slightly for awareness, while blocking tightens the view toward nearby threats.

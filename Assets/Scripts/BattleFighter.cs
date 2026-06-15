@@ -17,15 +17,24 @@ public abstract class BattleFighter : MonoBehaviour
     public float CurrentHealth => health;
     public bool IsInHitStop => hitStopTimer > 0f;
     public bool IsChargingAttack => Phase == CombatPhase.AttackWindup || Phase == CombatPhase.AttackHold;
+    public bool IsCounterReady => counterWindowTimer > 0f;
+    public bool IsCounterAttack => counterAttack;
+    public float CurrentAttackDamageMultiplier => counterAttack ? 1.45f : 1f;
+    public bool ShouldShowHealthBar => damageDisplayTimer > 0f;
     public float AttackChargeNormalized => Phase == CombatPhase.AttackWindup
         ? Mathf.Clamp01(1f - phaseTimer / Mathf.Max(phaseDuration, 0.0001f))
         : Phase == CombatPhase.AttackHold ? 1f : 0f;
+    public float AttackTelegraphProgress => Phase == CombatPhase.AttackWindup
+        ? Mathf.Clamp01(1f - phaseTimer / Mathf.Max(phaseDuration, 0.0001f))
+        : Phase == CombatPhase.AttackHold || Phase == CombatPhase.AttackRelease ? 1f : 0f;
 
     protected CharacterController controller;
     protected BattleManager battle;
 
     private const float AttackRange = 2.2f;
     private const float MaxStamina = 100f;
+    private const float PerfectBlockWindow = 0.2f;
+    private const float CounterWindow = 0.65f;
 
     private float maxHealth;
     private float damageScale = 1f;
@@ -36,11 +45,15 @@ public abstract class BattleFighter : MonoBehaviour
     private float hitFlashTimer;
     private float hitStopTimer;
     private float staggerTimer;
+    private float blockAge;
+    private float counterWindowTimer;
+    private float damageDisplayTimer;
     private float walkCycle;
     private float previousWalkCycle;
     private bool releaseQueued;
     private bool dealtAttackDamage;
     private bool whiffRecovery;
+    private bool counterAttack;
     private Transform modelRoot;
     private Transform swordPivot;
     private Transform shieldPivot;
@@ -94,6 +107,10 @@ public abstract class BattleFighter : MonoBehaviour
 
         if (battle.IsBattleRunning)
         {
+            counterWindowTimer = Mathf.Max(0f, counterWindowTimer - Time.unscaledDeltaTime);
+            damageDisplayTimer = Mathf.Max(0f, damageDisplayTimer - Time.unscaledDeltaTime);
+            if (IsBlocking)
+                blockAge += Time.unscaledDeltaTime;
             stamina = Mathf.Min(MaxStamina, stamina + (IsBlocking ? 12f : 25f) * Time.deltaTime);
             staggerTimer = Mathf.Max(0f, staggerTimer - Time.deltaTime);
             UpdateAttack();
@@ -131,13 +148,17 @@ public abstract class BattleFighter : MonoBehaviour
 
     protected bool PrepareAttack(CombatDirection direction)
     {
-        if (!CanAct || IsAttacking || IsBlocking || stamina < 18f)
+        bool useCounter = counterWindowTimer > 0f;
+        float staminaCost = useCounter ? 10f : 18f;
+        if (!CanAct || IsAttacking || IsBlocking || stamina < staminaCost)
             return false;
 
-        stamina -= 18f;
+        stamina -= staminaCost;
+        counterAttack = useCounter;
+        counterWindowTimer = 0f;
         AttackDirection = direction;
         Phase = CombatPhase.AttackWindup;
-        phaseDuration = GetWindup(direction);
+        phaseDuration = GetWindup(direction) * (counterAttack ? 0.62f : 1f);
         phaseTimer = phaseDuration;
         releaseQueued = false;
         dealtAttackDamage = false;
@@ -170,7 +191,11 @@ public abstract class BattleFighter : MonoBehaviour
         if (active && IsChargingAttack)
             CancelPreparedAttack();
         bool canBlock = CanAct && !IsAttacking;
+        bool wasBlocking = IsBlocking;
+        bool changedDirection = direction != BlockDirection;
         IsBlocking = active && canBlock;
+        if (IsBlocking && (!wasBlocking || changedDirection))
+            blockAge = 0f;
         if (active)
             BlockDirection = direction;
         return IsBlocking;
@@ -193,12 +218,15 @@ public abstract class BattleFighter : MonoBehaviour
         toAttacker.y = 0f;
         bool facingAttack = toAttacker.sqrMagnitude < 0.01f || Vector3.Dot(transform.forward, toAttacker.normalized) >= 0.707f;
         bool guarded = IsBlocking && facingAttack && BlockDirection == incomingDirection;
+        bool perfectBlock = guarded && blockAge <= PerfectBlockWindow;
 
         float appliedDamage = 0f;
         if (guarded)
         {
-            staggerTimer = 0.08f;
-            attacker.OnAttackBlocked();
+            staggerTimer = perfectBlock ? 0.025f : 0.08f;
+            if (perfectBlock)
+                counterWindowTimer = CounterWindow;
+            attacker.OnAttackBlocked(perfectBlock);
         }
         else
         {
@@ -208,12 +236,14 @@ public abstract class BattleFighter : MonoBehaviour
             staggerTimer = 0.24f;
             Phase = CombatPhase.HitReaction;
             IsBlocking = false;
+            counterWindowTimer = 0f;
             if (controller.enabled && toAttacker.sqrMagnitude > 0.01f)
                 controller.Move(-toAttacker.normalized * 0.32f);
         }
 
-        hitFlashTimer = guarded ? 0.1f : 0.2f;
-        battle.ReportImpact(this, attacker, guarded);
+        damageDisplayTimer = 4f;
+        hitFlashTimer = perfectBlock ? 0.18f : guarded ? 0.1f : 0.2f;
+        battle.ReportImpact(this, attacker, guarded, perfectBlock, attacker != null && attacker.IsCounterAttack);
         if (!guarded)
             battle.RecordDamage(attacker, this, appliedDamage, health <= 0f);
 
@@ -243,7 +273,7 @@ public abstract class BattleFighter : MonoBehaviour
                 if (target != null)
                 {
                     dealtAttackDamage = true;
-                    target.ReceiveHit(GetDamage(AttackDirection) * damageScale, this, AttackDirection);
+                    target.ReceiveHit(GetDamage(AttackDirection) * damageScale * CurrentAttackDamageMultiplier, this, AttackDirection);
                 }
             }
             previousStrikePoint = strikePoint;
@@ -272,6 +302,7 @@ public abstract class BattleFighter : MonoBehaviour
         {
             Phase = CombatPhase.Idle;
             whiffRecovery = false;
+            counterAttack = false;
         }
     }
 
@@ -381,12 +412,12 @@ public abstract class BattleFighter : MonoBehaviour
         phaseTimer = phaseDuration;
     }
 
-    private void OnAttackBlocked()
+    private void OnAttackBlocked(bool perfect)
     {
         if (!IsAttacking)
             return;
         Phase = CombatPhase.AttackRecovery;
-        phaseDuration = GetRecovery(AttackDirection) + 0.22f;
+        phaseDuration = GetRecovery(AttackDirection) + (perfect ? 0.48f : 0.22f);
         phaseTimer = phaseDuration;
     }
 
@@ -396,6 +427,7 @@ public abstract class BattleFighter : MonoBehaviour
         phaseTimer = 0f;
         phaseDuration = 0f;
         releaseQueued = false;
+        counterAttack = false;
     }
 
     private Vector3 GetStrikePoint(CombatDirection direction, float progress)
@@ -477,13 +509,46 @@ public abstract class BattleFighter : MonoBehaviour
 
     public void DebugSetBlock(bool active, CombatDirection direction) => SetBlock(active, direction);
 
+    public void DebugExpirePerfectBlock() => blockAge = PerfectBlockWindow + 0.1f;
+
     public bool DebugPrepareAttack(CombatDirection direction) => PrepareAttack(direction);
+
+    public bool DebugForceAttackTelegraph(CombatDirection direction)
+    {
+        DebugClearCombatReaction();
+        Phase = CombatPhase.Idle;
+        IsBlocking = false;
+        counterAttack = false;
+        stamina = MaxStamina;
+        bool prepared = PrepareAttack(direction);
+        if (prepared)
+            ReleasePreparedAttack();
+        return prepared;
+    }
 
     public void DebugApplyHitStop(float duration) => ApplyHitStop(duration);
 
     public void ApplyHitStop(float duration)
     {
         hitStopTimer = Mathf.Max(hitStopTimer, duration);
+    }
+
+    public void DebugClearCombatReaction()
+    {
+        hitStopTimer = 0f;
+        staggerTimer = 0f;
+        if (Phase == CombatPhase.HitReaction)
+            Phase = CombatPhase.Idle;
+    }
+
+    public void DebugResetCombatFeedback()
+    {
+        DebugClearCombatReaction();
+        IsBlocking = false;
+        counterWindowTimer = 0f;
+        counterAttack = false;
+        damageDisplayTimer = 0f;
+        hitFlashTimer = 0f;
     }
 
     public void DebugRestoreHealth(float value)

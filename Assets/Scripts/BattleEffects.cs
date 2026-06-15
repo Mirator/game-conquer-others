@@ -9,6 +9,8 @@ public sealed class BattleEffects : MonoBehaviour
     private AudioSource drumSource;
     private AudioClip hitClip;
     private AudioClip blockClip;
+    private AudioClip perfectBlockClip;
+    private AudioClip counterClip;
     private AudioClip swingClip;
     private AudioClip whiffClip;
     private AudioClip footstepClip;
@@ -42,6 +44,8 @@ public sealed class BattleEffects : MonoBehaviour
 
         hitClip = CreateTone("Hit", 115f, 0.12f, true);
         blockClip = CreateTone("Block", 620f, 0.13f, true);
+        perfectBlockClip = CreateTone("Perfect Block", 920f, 0.2f, true);
+        counterClip = CreateTone("Counter Strike", 360f, 0.18f, false);
         swingClip = CreateTone("Swing", 240f, 0.11f, false);
         whiffClip = CreateTone("Whiff", 150f, 0.16f, true);
         footstepClip = CreateTone("Footstep", 72f, 0.09f, true);
@@ -63,10 +67,15 @@ public sealed class BattleEffects : MonoBehaviour
         PlaySpatial(whiffClip, position + Vector3.up, player ? 0.38f : 0.12f, player ? 0.9f : Random.Range(0.75f, 0.9f), 9f);
     }
 
-    public void PlayImpact(Vector3 position, bool blocked)
+    public void PlayImpact(Vector3 position, bool blocked, bool perfectBlock, bool counterStrike)
     {
-        PlaySpatial(blocked ? blockClip : hitClip, position + Vector3.up * 1.2f, blocked ? 0.9f : 0.82f, Random.Range(0.92f, 1.08f), 18f);
-        SpawnSparks(position + Vector3.up * 1.2f, blocked ? new Color(1f, 0.78f, 0.25f) : new Color(0.85f, 0.12f, 0.05f), blocked ? 9 : 7);
+        AudioClip clip = perfectBlock ? perfectBlockClip : counterStrike ? counterClip : blocked ? blockClip : hitClip;
+        PlaySpatial(clip, position + Vector3.up * 1.2f, perfectBlock ? 1f : blocked ? 0.9f : 0.82f,
+            perfectBlock ? 1f : Random.Range(0.92f, 1.08f), 18f);
+        Color color = perfectBlock ? new Color(0.7f, 0.95f, 1f)
+            : counterStrike ? new Color(1f, 0.82f, 0.18f)
+            : blocked ? new Color(1f, 0.78f, 0.25f) : new Color(0.85f, 0.12f, 0.05f);
+        SpawnSparks(position + Vector3.up * 1.2f, color, perfectBlock ? 16 : counterStrike ? 12 : blocked ? 9 : 7);
     }
 
     public void PlayVictory()

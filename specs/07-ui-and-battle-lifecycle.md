@@ -23,8 +23,12 @@ The ready screen communicates:
   - `ATTACK LEFT/RIGHT/HIGH/THRUST` while preparing or holding a swing.
   - `BLOCK LEFT/RIGHT/HIGH/THRUST` while blocking.
 - Temporary battle and block messages.
-- World-space health bars for damaged non-player fighters.
-- Red screen flash when the player takes damage.
+- A single primary-threat cue showing the incoming direction near the reticle.
+- No directional text or telegraph bars are drawn above enemies.
+- A gold counter-ready reticle and counter prompt after a perfect block.
+- World-space health bars only for recently damaged fighters and the current
+  primary threat.
+- Red damage, gold block, and cyan perfect-block screen flashes.
 
 ## Result Screens
 
@@ -36,6 +40,7 @@ Victory and defeat screens show:
   - Damage dealt by the player versus damage dealt by allied soldiers.
   - Damage the player took.
   - Player kills.
+  - Perfect blocks and landed counter strikes.
   - Blue and red losses (fallen / starting count).
 - Return-to-map / restart prompt.
 
@@ -50,4 +55,3 @@ Victory and defeat screens show:
 
 `BattleManager` owns state, battle timer, counts, outcomes, UI rendering, cursor
 state, target queries, and combat feedback routing.
-

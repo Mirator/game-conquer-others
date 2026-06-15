@@ -61,7 +61,9 @@ not attacking.
 ## Team Behavior
 
 Allied and enemy AI use the same behavior and combat rules. Their only
-functional difference is which team they target and their health value.
+functional difference is which team they target and their health value. Allied
+target scoring avoids the enemy currently threatening the player, preserving a
+readable primary duel unless no better opponent is available.
 
 ## Future AI Features
 
