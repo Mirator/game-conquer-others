@@ -56,8 +56,8 @@ listener. Each mode's camera carries the single active `AudioListener`.
 - Target: Windows 64-bit standalone.
 - Scene: `Assets/Scenes/SampleScene.unity`.
 - Output: `Builds/Windows/ConquerOthers.exe`.
-- GitHub Actions invokes the same `MvpBuilder.BuildWindows` method, then runs
-  the built player on a Windows runner through both required standalone smokes.
+- Build and standalone smoke verification run locally because Unity batch
+  builds and tests require an activated editor license.
 
 ## Design Constraint
 

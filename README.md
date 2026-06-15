@@ -79,8 +79,8 @@ reuse an existing build or `-UnityEditorPath <path>` when Unity is installed
 elsewhere.
 
 Run `.\Tools\RunStandaloneSmokes.ps1` to verify an existing Windows build
-without launching Unity. GitHub Actions uses the same custom build method and
-standalone smoke script as the local gate.
+without launching Unity. Verification is local-only because Unity batch builds
+and tests require an activated editor license.
 
 Standalone smoke screenshots are captured in interactive runs. Add
 `-smokescreenshots` to explicitly request them in batch mode.

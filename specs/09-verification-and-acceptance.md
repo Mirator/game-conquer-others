@@ -97,9 +97,9 @@ Deterministic PlayMode tests cover directional combat diagnostics, perfect
 blocks and counters, attack-permission limits, engagement-slot distribution,
 separation steering, and battle-result lifecycle behavior.
 
-GitHub Actions runs the Unity test suites, invokes the same
-`MvpBuilder.BuildWindows` shipping build, and executes the resulting player on a
-Windows runner through all three standalone smokes.
+Verification runs locally because Unity batch builds and tests require an
+activated editor license. The repository does not run a GitHub Actions
+verification workflow.
 
 ## Current Verified Status
 
