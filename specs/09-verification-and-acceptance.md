@@ -21,6 +21,7 @@ Editor menu: `Conquer Others > Run Battle Smoke Test`.
 
 The editor smoke test:
 
+- Can only be requested while the editor is outside Play mode.
 - Enters Play mode.
 - Launches a battle from the opening campaign map encounter.
 - Begins the battle.
@@ -46,6 +47,13 @@ The standalone smoke test:
 - Exits with code 0 only when every audit passes; failed audits and transition
   timeouts exit with code 1.
 
+Combat diagnostics run in a disposable duel before the natural-combat battle,
+so their hits, blocks, counters, statistics, and recovery state cannot affect
+the natural-combat verification.
+
+Batch-mode smoke runs skip screenshots by default so functional verification
+works headlessly. Add `-smokescreenshots` to explicitly capture them.
+
 Add `-smokelarge` to run a 6v6 encounter and verify coordination and spacing
 under a larger fighter count.
 
@@ -64,6 +72,21 @@ Add `-smokearena=<Courtyard|Forest|Marsh|Highlands>` to force a specific arena.
 
 Combine `-smokevictory -smokecampaign` to verify several consecutive
 conquests and persistent campaign progression.
+
+## Automated Verification
+
+Run `.\Tools\Verify.ps1` from PowerShell to execute EditMode tests, PlayMode
+tests, the custom Windows shipping build, a headless standalone victory smoke,
+and a headless 6v6 natural-combat smoke. `.\Tools\RunStandaloneSmokes.ps1`
+re-runs both smokes against an existing build.
+
+Deterministic PlayMode tests cover directional combat diagnostics, perfect
+blocks and counters, attack-permission limits, engagement-slot distribution,
+separation steering, and battle-result lifecycle behavior.
+
+GitHub Actions runs the Unity test suites, invokes the same
+`MvpBuilder.BuildWindows` shipping build, and executes the resulting player on a
+Windows runner through both standalone smokes.
 
 ## Current Verified Status
 

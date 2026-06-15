@@ -53,5 +53,6 @@ Victory and defeat screens show:
 
 ## Lifecycle Ownership
 
-`BattleManager` owns state, battle timer, counts, outcomes, UI rendering, cursor
-state, target queries, and combat feedback routing.
+`BattleManager` owns state, battle timer, counts, outcomes, cursor state, target
+queries, statistics, and combat feedback routing. `BattleHud` owns battle UI
+rendering and delegates result confirmation back to `BattleManager`.

@@ -1,0 +1,12 @@
+{
+  "name": "ConquerOthers.EditModeTests",
+  "references": [
+    "ConquerOthers.Runtime"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ]
+}

@@ -9,6 +9,9 @@ public sealed class BattleTactics
     private readonly List<BattleFighter> fighters;
     private readonly Func<PlayerFighter> player;
     private readonly Dictionary<BattleFighter, List<AIFighter>> attackPermissions = new();
+    private readonly Dictionary<BattleFighter, Vector3> separationByFighter = new();
+    private readonly List<BattleFighter> emptyPermissionTargets = new();
+    private int separationFrame = -1;
     private int maxPlayerAttackers;
     private int maxTargetAttackers;
     private int maxClosePairs;
@@ -78,35 +81,55 @@ public sealed class BattleTactics
         if (activeAttacker)
             return target.transform.position + radial * preferredRange;
 
-        List<AIFighter> supporters = new();
+        int index = 0;
+        int seekerId = seeker.GetInstanceID();
         foreach (BattleFighter fighter in fighters)
-            if (fighter is AIFighter ai && ai.IsAlive && ai != seeker && ai.CurrentTarget == target && !ai.HasAttackPermission)
-                supporters.Add(ai);
-        supporters.Add(seeker);
-        supporters.Sort((a, b) => a.GetInstanceID().CompareTo(b.GetInstanceID()));
-        int index = supporters.IndexOf(seeker);
-        float[] angles = { -72f, 72f, -138f, 138f, 180f, -105f, 105f };
-        float angle = angles[index % angles.Length] + index / angles.Length * 18f;
+            if (fighter is AIFighter ai && ai.IsAlive && ai != seeker && ai.CurrentTarget == target
+                && !ai.HasAttackPermission && ai.GetInstanceID() < seekerId)
+                index++;
+        float angle = SupportAngles[index % SupportAngles.Length] + index / SupportAngles.Length * 18f;
         Vector3 slotDirection = Quaternion.AngleAxis(angle, Vector3.up) * target.transform.forward;
         return target.transform.position + slotDirection.normalized * Mathf.Lerp(2.8f, 3.5f, index % 3 / 2f);
     }
 
     public Vector3 GetSeparation(BattleFighter seeker)
     {
-        Vector3 result = Vector3.zero;
+        if (separationFrame != Time.frameCount)
+            RebuildSeparationCache();
+        return separationByFighter.TryGetValue(seeker, out Vector3 result) ? result : Vector3.zero;
+    }
+
+    private void RebuildSeparationCache()
+    {
+        separationFrame = Time.frameCount;
+        separationByFighter.Clear();
         foreach (BattleFighter fighter in fighters)
+            if (fighter.IsAlive)
+                separationByFighter[fighter] = Vector3.zero;
+        for (int i = 0; i < fighters.Count; i++)
         {
-            if (fighter == seeker || !fighter.IsAlive)
+            BattleFighter first = fighters[i];
+            if (!first.IsAlive)
                 continue;
-            Vector3 offset = seeker.transform.position - fighter.transform.position;
-            offset.y = 0f;
-            if (offset.sqrMagnitude < 6.25f && offset.sqrMagnitude > 0.001f)
+            for (int j = i + 1; j < fighters.Count; j++)
             {
-                float distance = offset.magnitude;
-                result += offset.normalized * Mathf.Clamp01((2.5f - distance) / 1.8f);
+                BattleFighter second = fighters[j];
+                if (!second.IsAlive)
+                    continue;
+                Vector3 offset = first.transform.position - second.transform.position;
+                offset.y = 0f;
+                float distanceSquared = offset.sqrMagnitude;
+                if (distanceSquared >= 6.25f || distanceSquared <= 0.001f)
+                    continue;
+                float distance = Mathf.Sqrt(distanceSquared);
+                Vector3 force = offset / distance * Mathf.Clamp01((2.5f - distance) / 1.8f);
+                separationByFighter[first] += force;
+                separationByFighter[second] -= force;
             }
         }
-        return Vector3.ClampMagnitude(result, 1.4f);
+        foreach (BattleFighter fighter in fighters)
+            if (fighter.IsAlive && separationByFighter.TryGetValue(fighter, out Vector3 result))
+                separationByFighter[fighter] = Vector3.ClampMagnitude(result, 1.4f);
     }
 
     public void UpdateTelemetry()
@@ -182,14 +205,21 @@ public sealed class BattleTactics
 
     private void CleanupAttackPermissions()
     {
-        List<BattleFighter> empty = new();
+        emptyPermissionTargets.Clear();
         foreach (KeyValuePair<BattleFighter, List<AIFighter>> pair in attackPermissions)
         {
-            pair.Value.RemoveAll(ai => ai == null || !ai.IsAlive || ai.CurrentTarget != pair.Key);
+            for (int i = pair.Value.Count - 1; i >= 0; i--)
+            {
+                AIFighter ai = pair.Value[i];
+                if (ai == null || !ai.IsAlive || ai.CurrentTarget != pair.Key)
+                    pair.Value.RemoveAt(i);
+            }
             if (pair.Key == null || !pair.Key.IsAlive || pair.Value.Count == 0)
-                empty.Add(pair.Key);
+                emptyPermissionTargets.Add(pair.Key);
         }
-        foreach (BattleFighter target in empty)
+        foreach (BattleFighter target in emptyPermissionTargets)
             attackPermissions.Remove(target);
     }
+
+    private static readonly float[] SupportAngles = { -72f, 72f, -138f, 138f, 180f, -105f, 105f };
 }

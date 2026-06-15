@@ -56,3 +56,23 @@ slightly for awareness, while blocking tightens the view toward nearby threats.
 
 The `Conquer Others` Unity menu also includes a battle smoke test that launches
 the match and captures representative gameplay states.
+
+## Verification
+
+Run the complete local verification gate from PowerShell:
+
+```powershell
+.\Tools\Verify.ps1
+```
+
+It runs EditMode and PlayMode tests, creates a Windows build, and runs headless
+victory and 6v6 natural-combat standalone smoke tests. Pass `-SkipBuild` to
+reuse an existing build or `-UnityEditorPath <path>` when Unity is installed
+elsewhere.
+
+Run `.\Tools\RunStandaloneSmokes.ps1` to verify an existing Windows build
+without launching Unity. GitHub Actions uses the same custom build method and
+standalone smoke script as the local gate.
+
+Standalone smoke screenshots are captured in interactive runs. Add
+`-smokescreenshots` to explicitly request them in batch mode.

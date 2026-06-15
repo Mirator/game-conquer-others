@@ -12,6 +12,10 @@ public static class BattleSmokeRunner
     private static bool commandLineRun;
     private static double requestedAt;
     private static bool completing;
+    private static bool diagnosticsComplete;
+    private static BattleManager diagnosticManager;
+    private static Territory target;
+    private static BattleSetup setup;
 
     static BattleSmokeRunner()
     {
@@ -26,17 +30,29 @@ public static class BattleSmokeRunner
     [MenuItem("Conquer Others/Run Battle Smoke Test")]
     public static void Request()
     {
+        if (EditorApplication.isPlayingOrWillChangePlaymode)
+        {
+            Debug.LogWarning("Exit Play mode before starting the editor smoke test.");
+            return;
+        }
         File.WriteAllText(RequestPath, "requested");
         playStartedAt = 0d;
         capturedOpening = false;
         capturedBattle = false;
         requestedAt = EditorApplication.timeSinceStartup;
         completing = false;
+        diagnosticsComplete = false;
+        diagnosticManager = null;
+        target = null;
+        setup = null;
         Application.logMessageReceived -= OnLogMessage;
         Application.logMessageReceived += OnLogMessage;
         EditorApplication.update -= Run;
         EditorApplication.update += Run;
     }
+
+    [MenuItem("Conquer Others/Run Battle Smoke Test", true)]
+    private static bool CanRequest() => !EditorApplication.isPlayingOrWillChangePlaymode;
 
     private static void Run()
     {
@@ -62,16 +78,30 @@ public static class BattleSmokeRunner
             GameDirector director = Object.FindFirstObjectByType<GameDirector>();
             if (director != null && director.CurrentMode == GameDirector.Mode.Map)
             {
-                Territory target = director.FirstAttackableTarget();
+                target = director.FirstAttackableTarget();
                 if (target != null)
-                    director.LaunchBattle(director.Campaign.BuildSetupFor(target), target);
+                {
+                    setup = director.Campaign.BuildSetupFor(target);
+                    BattleSetup diagnosticSetup = BattleSetup.Default();
+                    diagnosticSetup.AllyCount = 0;
+                    diagnosticSetup.EnemyCount = 1;
+                    diagnosticSetup.Arena = setup.Arena;
+                    diagnosticSetup.TargetName = "COMBAT DIAGNOSTICS";
+                    director.LaunchBattle(diagnosticSetup);
+                }
             }
             return;
         }
 
-        if (playStartedAt <= 0d)
+        if (!diagnosticsComplete)
         {
-            playStartedAt = EditorApplication.timeSinceStartup;
+            GameDirector director = Object.FindFirstObjectByType<GameDirector>();
+            if (setup == null || director == null)
+            {
+                Complete(false, "Editor smoke did not initialize from the campaign map.");
+                return;
+            }
+            diagnosticManager = manager;
             manager.BeginBattle();
             bool auditsPassed = BattleDiagnostics.AuditDirectionalBlock(manager)
                 && BattleDiagnostics.AuditResponsiveCombat(manager)
@@ -81,12 +111,24 @@ public static class BattleSmokeRunner
                 Complete(false, "Editor smoke combat audits failed.");
                 return;
             }
+            diagnosticsComplete = true;
+            director.LaunchBattle(setup, target);
+            return;
+        }
+
+        if (manager == diagnosticManager)
+            return;
+
+        if (playStartedAt <= 0d)
+        {
+            playStartedAt = EditorApplication.timeSinceStartup;
+            manager.BeginBattle();
         }
 
         double elapsed = EditorApplication.timeSinceStartup - playStartedAt;
         if (!capturedOpening && elapsed > 1.5d)
         {
-            ScreenCapture.CaptureScreenshot("smoke-opening.png");
+            Capture("smoke-opening.png");
             Debug.Log($"Smoke opening: {manager.DebugSummary}");
             capturedOpening = true;
         }
@@ -97,7 +139,7 @@ public static class BattleSmokeRunner
                 Complete(false, "Editor smoke AI coordination audit failed.");
                 return;
             }
-            ScreenCapture.CaptureScreenshot("smoke-battle.png");
+            Capture("smoke-battle.png");
             Debug.Log($"Smoke battle: {manager.DebugSummary}");
             capturedBattle = true;
             Complete(true, "Editor smoke passed.");
@@ -125,5 +167,13 @@ public static class BattleSmokeRunner
     {
         if (!completing && (type == LogType.Exception || type == LogType.Assert || type == LogType.Error))
             Complete(false, $"Editor smoke encountered managed {type}: {condition}");
+    }
+
+    private static void Capture(string filename)
+    {
+        bool requestedInBatch = System.Array.Exists(System.Environment.GetCommandLineArgs(),
+            argument => argument == "-smokescreenshots");
+        if (!Application.isBatchMode || requestedInBatch)
+            ScreenCapture.CaptureScreenshot(filename);
     }
 }

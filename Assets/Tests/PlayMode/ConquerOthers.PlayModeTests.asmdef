@@ -1,0 +1,9 @@
+{
+  "name": "ConquerOthers.PlayModeTests",
+  "references": [
+    "ConquerOthers.Runtime"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ]
+}

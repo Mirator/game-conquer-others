@@ -12,10 +12,12 @@ public sealed class BattleRuntimeSmoke : MonoBehaviour
     private readonly List<string> failures = new();
     private GameDirector director;
     private bool finishing;
+    private bool captureScreenshots;
 
     public void Configure(GameDirector gameDirector)
     {
         director = gameDirector;
+        captureScreenshots = HasArgument("-smokescreenshots") || !Application.isBatchMode;
         Application.logMessageReceived += OnLogMessage;
         StartCoroutine(Run());
     }
@@ -71,11 +73,16 @@ public sealed class BattleRuntimeSmoke : MonoBehaviour
             setup.EnemyGuards = 0;
         }
         setup.Arena = ArenaOverride(setup.Arena);
-        director.LaunchBattle(setup, target);
+        BattleSetup diagnosticSetup = BattleSetup.Default();
+        diagnosticSetup.AllyCount = 0;
+        diagnosticSetup.EnemyCount = 1;
+        diagnosticSetup.Arena = setup.Arena;
+        diagnosticSetup.TargetName = "COMBAT DIAGNOSTICS";
+        director.LaunchBattle(diagnosticSetup);
 
-        yield return WaitForMode(GameDirector.Mode.Battle, "battle launch");
+        yield return WaitForMode(GameDirector.Mode.Battle, "diagnostic battle launch");
         BattleManager manager = Object.FindFirstObjectByType<BattleManager>();
-        Require(manager != null, "battle manager exists");
+        Require(manager != null, "diagnostic battle manager exists");
         if (manager == null)
         {
             Finish();
@@ -86,6 +93,17 @@ public sealed class BattleRuntimeSmoke : MonoBehaviour
         Require(BattleDiagnostics.AuditDirectionalBlock(manager), "directional combat");
         Require(BattleDiagnostics.AuditResponsiveCombat(manager), "responsive combat");
         Require(BattleDiagnostics.AuditCombatExcellence(manager), "combat excellence");
+
+        director.LaunchBattle(setup, target);
+        yield return WaitForMode(GameDirector.Mode.Battle, "natural battle launch");
+        manager = Object.FindFirstObjectByType<BattleManager>();
+        Require(manager != null, "natural battle manager exists");
+        if (manager == null)
+        {
+            Finish();
+            yield break;
+        }
+        manager.BeginBattle();
 
         if (duelRun)
         {
@@ -215,8 +233,10 @@ public sealed class BattleRuntimeSmoke : MonoBehaviour
         return System.Array.Exists(System.Environment.GetCommandLineArgs(), value => value == argument);
     }
 
-    private static void Capture(string filename)
+    private void Capture(string filename)
     {
+        if (!captureScreenshots)
+            return;
         string path = Path.GetFullPath(Path.Combine(Application.dataPath, "..", filename));
         ScreenCapture.CaptureScreenshot(path);
     }

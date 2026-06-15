@@ -28,7 +28,8 @@ listener. Each mode's camera carries the single active `AudioListener`.
 | `CampaignTypes` | Unit catalog, unit roster, and arena-type definitions. |
 | `CampaignMapController` | Builds and runs the campaign map view and UI. |
 | `BattleBootstrap` | Builds a battle (arena, fighters) under a supplied root. |
-| `BattleManager` | Public battle facade; owns lifecycle, combat queries, statistics, and UI. |
+| `BattleManager` | Public battle facade; owns lifecycle, combat queries, statistics, and feedback state. |
+| `BattleHud` | Renders ready, fighting, and result battle UI from the manager facade. |
 | `BattleTactics` | Owns AI target distribution, attack permissions, engagement slots, and telemetry. |
 | `BattleDiagnostics` | Owns deterministic combat checks used by smoke tooling. |
 | `BattleFighter` | Shared fighter state, combat, health, and movement. |
@@ -55,6 +56,8 @@ listener. Each mode's camera carries the single active `AudioListener`.
 - Target: Windows 64-bit standalone.
 - Scene: `Assets/Scenes/SampleScene.unity`.
 - Output: `Builds/Windows/ConquerOthers.exe`.
+- GitHub Actions invokes the same `MvpBuilder.BuildWindows` method, then runs
+  the built player on a Windows runner through both required standalone smokes.
 
 ## Design Constraint
 
