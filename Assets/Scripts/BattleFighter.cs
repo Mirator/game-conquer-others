@@ -32,7 +32,7 @@ public abstract class BattleFighter : MonoBehaviour
     public float BowCurrentSpreadDegrees => IsRanged
         ? Mathf.Lerp(BowLooseSpreadDegrees, BowPreciseSpreadDegrees,
             Mathf.SmoothStep(0f, 1f, BowPrecisionNormalized)) : 0f;
-    public float CurrentAttackDamageMultiplier => counterAttack ? 1.45f : 1f;
+    public float CurrentAttackDamageMultiplier => counterAttack ? CombatBalance.CounterDamageMultiplier : 1f;
     public bool ShouldShowHealthBar => damageDisplayTimer > 0f;
     public float AttackChargeNormalized => Phase == CombatPhase.AttackWindup
         ? Mathf.Clamp01(1f - phaseTimer / Mathf.Max(phaseDuration, 0.0001f))
@@ -123,7 +123,7 @@ public abstract class BattleFighter : MonoBehaviour
             damageDisplayTimer = Mathf.Max(0f, damageDisplayTimer - Time.unscaledDeltaTime);
             if (IsBlocking)
                 blockAge += Time.unscaledDeltaTime;
-            stamina = Mathf.Min(MaxStamina, stamina + (IsBlocking ? 12f : 25f) * Time.deltaTime);
+            stamina = Mathf.Min(MaxStamina, stamina + (IsBlocking ? CombatBalance.StaminaRegenBlocking : CombatBalance.StaminaRegenIdle) * Time.deltaTime);
             staggerTimer = Mathf.Max(0f, staggerTimer - Time.deltaTime);
             if (IsRanged && IsChargingAttack)
                 bowDrawTimer = Mathf.Min(BowFullPrecisionTime, bowDrawTimer + Time.deltaTime);
@@ -163,7 +163,9 @@ public abstract class BattleFighter : MonoBehaviour
     protected bool PrepareAttack(CombatDirection direction)
     {
         bool useCounter = counterWindowTimer > 0f;
-        float staminaCost = IsRanged ? 12f : useCounter ? 10f : Weapon == WeaponType.TwoHandedSword ? 24f : 18f;
+        float staminaCost = IsRanged ? CombatBalance.AttackCostRanged
+            : useCounter ? CombatBalance.AttackCostCounter
+            : Weapon == WeaponType.TwoHandedSword ? CombatBalance.AttackCostTwoHanded : CombatBalance.AttackCostOneHanded;
         if (!CanAct || IsAttacking || IsBlocking || stamina < staminaCost)
             return false;
 
@@ -428,30 +430,33 @@ public abstract class BattleFighter : MonoBehaviour
 
     private float GetWindup(CombatDirection direction)
     {
-        if (IsRanged) return 0.62f;
-        float value = direction == CombatDirection.Up ? 0.5f : direction == CombatDirection.Thrust ? 0.3f : 0.35f;
-        return value * (Weapon == WeaponType.TwoHandedSword ? 1.22f : 1f);
+        if (IsRanged) return CombatBalance.WindupRanged;
+        float value = direction == CombatDirection.Up ? CombatBalance.WindupUp
+            : direction == CombatDirection.Thrust ? CombatBalance.WindupThrust : CombatBalance.WindupDefault;
+        return value * (Weapon == WeaponType.TwoHandedSword ? CombatBalance.WindupTwoHandedScale : 1f);
     }
 
     private float GetRelease(CombatDirection direction)
     {
-        if (IsRanged) return 0.08f;
-        float value = direction == CombatDirection.Thrust ? 0.2f : 0.25f;
-        return value * (Weapon == WeaponType.TwoHandedSword ? 1.08f : 1f);
+        if (IsRanged) return CombatBalance.ReleaseRanged;
+        float value = direction == CombatDirection.Thrust ? CombatBalance.ReleaseThrust : CombatBalance.ReleaseDefault;
+        return value * (Weapon == WeaponType.TwoHandedSword ? CombatBalance.ReleaseTwoHandedScale : 1f);
     }
 
     private float GetRecovery(CombatDirection direction)
     {
-        if (IsRanged) return 0.42f;
-        float value = direction == CombatDirection.Up ? 0.6f : direction == CombatDirection.Thrust ? 0.4f : 0.45f;
-        return value * (Weapon == WeaponType.TwoHandedSword ? 1.25f : 1f);
+        if (IsRanged) return CombatBalance.RecoveryRanged;
+        float value = direction == CombatDirection.Up ? CombatBalance.RecoveryUp
+            : direction == CombatDirection.Thrust ? CombatBalance.RecoveryThrust : CombatBalance.RecoveryDefault;
+        return value * (Weapon == WeaponType.TwoHandedSword ? CombatBalance.RecoveryTwoHandedScale : 1f);
     }
 
     private float GetDamage(CombatDirection direction)
     {
-        if (IsRanged) return 32f;
-        float value = direction == CombatDirection.Up ? 35f : direction == CombatDirection.Thrust ? 20f : 25f;
-        return value * (Weapon == WeaponType.TwoHandedSword ? 1.38f : 1f);
+        if (IsRanged) return CombatBalance.DamageRanged;
+        float value = direction == CombatDirection.Up ? CombatBalance.DamageUp
+            : direction == CombatDirection.Thrust ? CombatBalance.DamageThrust : CombatBalance.DamageDefault;
+        return value * (Weapon == WeaponType.TwoHandedSword ? CombatBalance.DamageTwoHandedScale : 1f);
     }
 
     protected void SetAimDirection(Vector3 direction)
