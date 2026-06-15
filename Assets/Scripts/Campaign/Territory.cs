@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-public enum TerritoryOwner { Player, Enemy, Neutral }
+public enum TerritoryOwner { Player, Enemy }
 
 // A single node on the campaign map. Plain data: position, who holds it, how
 // strong its garrison is, and which other nodes it borders.
