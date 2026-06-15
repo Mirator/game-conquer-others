@@ -12,6 +12,8 @@ public sealed class GameDirector : MonoBehaviour
     public enum Mode { Map, Battle }
     public Mode CurrentMode { get; private set; }
     public CampaignState Campaign => campaign;
+    public bool IsModeReady(Mode mode) => !transitioning
+        && (mode == Mode.Map ? mapRoot != null : battleRoot != null);
 
     private BattleBootstrap battleBuilder;
     private CampaignState campaign;
@@ -53,9 +55,6 @@ public sealed class GameDirector : MonoBehaviour
         pendingTarget = target;
         StartCoroutine(TransitionTo(Mode.Battle));
     }
-
-    // Rebuilds the current battle with the same setup (in-battle R / retry).
-    public void RestartBattle() => StartCoroutine(TransitionTo(Mode.Battle));
 
     public void EnterMap() => StartCoroutine(TransitionTo(Mode.Map));
 

@@ -28,17 +28,23 @@ listener. Each mode's camera carries the single active `AudioListener`.
 | `CampaignTypes` | Unit catalog, unit roster, and arena-type definitions. |
 | `CampaignMapController` | Builds and runs the campaign map view and UI. |
 | `BattleBootstrap` | Builds a battle (arena, fighters) under a supplied root. |
-| `BattleManager` | Owns battle rules, queries, lifecycle, and UI. |
-| `BattleFighter` | Shared fighter state, combat, health, and visuals. |
+| `BattleManager` | Public battle facade; owns lifecycle, combat queries, statistics, and UI. |
+| `BattleTactics` | Owns AI target distribution, attack permissions, engagement slots, and telemetry. |
+| `BattleDiagnostics` | Owns deterministic combat checks used by smoke tooling. |
+| `BattleFighter` | Shared fighter state, combat, health, and movement. |
+| `BattleFighterPresentation` | Builds and animates the procedural fighter model. |
 | `PlayerFighter` | Player input, movement, dodge, and direction selection. |
 | `AIFighter` | Targeting, movement, attacks, and blocks. |
 | `ThirdPersonCamera` | Orbit, collision, framing, FOV, and shake. |
 | `BattleEffects` | Procedural audio and impact sparks. |
+| `RuntimeAssets` | Caches and shares generated materials and procedural audio clips. |
 | `BattleRuntimeSmoke` | Standalone automated campaign-step verification. |
 
 ## Rendering and Assets
 
-- Models, arena props, materials, effects, and audio are generated at runtime.
+- Models, arena props, effects, and audio are generated at runtime.
+- Generated materials and procedural audio clips are cached and shared across
+  map and battle rebuilds.
 - The project supports an active render pipeline or built-in renderer fallback.
 - Standard, Legacy Diffuse, and Sprites/Default shaders are always included for
   standalone procedural material reliability.

@@ -34,8 +34,7 @@ repeat.
   types persist back to the roster; allied deaths are permanent. The player
   earns conquest gold plus income from all owned lands.
 - **Defeat** (player dies): the campaign is lost.
-- The player dismisses the result screen with Enter to apply the outcome and
-  return to the map.
+- The player clicks the result button to apply the outcome and return to the map.
 
 ## Win and Loss
 
@@ -48,13 +47,12 @@ repeat.
 | Input | Action |
 |---|---|
 | Left mouse | Select a territory |
-| Enter | Assault the selected attackable territory |
 | R (on an end screen) | Begin a new campaign |
 
 ## Presentation
 
 - The map is runtime-generated in the same low-poly style as the battle, reusing
-  `BattleBootstrap.CreateMaterial`.
+  shared materials from `RuntimeAssets`.
 - Overhead camera over a table-like ground plane.
 - Territory nodes are colored by owner (blue / red / grey); attackable enemy
   nodes pulse. Adjacency edges are drawn between nodes.

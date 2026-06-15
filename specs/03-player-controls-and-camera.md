@@ -11,7 +11,6 @@
 | Release left mouse | Strike in the aimed direction |
 | Hold right mouse + move mouse | Block in that direction |
 | Escape | Release cursor |
-| R | Restart battle |
 
 ## Movement
 

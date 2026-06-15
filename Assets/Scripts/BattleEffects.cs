@@ -31,25 +31,25 @@ public sealed class BattleEffects : MonoBehaviour
         uiSource.volume = 0.42f;
 
         ambienceSource = gameObject.AddComponent<AudioSource>();
-        ambienceSource.clip = CreateAmbience("Courtyard Wind", 4f);
+        ambienceSource.clip = RuntimeAssets.Audio("Courtyard Wind", () => CreateAmbience(4f));
         ambienceSource.loop = true;
         ambienceSource.volume = 0.11f;
         ambienceSource.Play();
 
         drumSource = gameObject.AddComponent<AudioSource>();
-        drumSource.clip = CreateDrumLoop();
+        drumSource.clip = RuntimeAssets.Audio("Distant War Drums", CreateDrumLoop);
         drumSource.loop = true;
         drumSource.volume = 0.12f;
         drumSource.Play();
 
-        hitClip = CreateTone("Hit", 115f, 0.12f, true);
-        blockClip = CreateTone("Block", 620f, 0.13f, true);
-        perfectBlockClip = CreateTone("Perfect Block", 920f, 0.2f, true);
-        counterClip = CreateTone("Counter Strike", 360f, 0.18f, false);
-        swingClip = CreateTone("Swing", 240f, 0.11f, false);
-        whiffClip = CreateTone("Whiff", 150f, 0.16f, true);
-        footstepClip = CreateTone("Footstep", 72f, 0.09f, true);
-        victoryClip = CreateTone("Victory", 440f, 0.55f, false);
+        hitClip = Tone("Hit", 115f, 0.12f, true);
+        blockClip = Tone("Block", 620f, 0.13f, true);
+        perfectBlockClip = Tone("Perfect Block", 920f, 0.2f, true);
+        counterClip = Tone("Counter Strike", 360f, 0.18f, false);
+        swingClip = Tone("Swing", 240f, 0.11f, false);
+        whiffClip = Tone("Whiff", 150f, 0.16f, true);
+        footstepClip = Tone("Footstep", 72f, 0.09f, true);
+        victoryClip = Tone("Victory", 440f, 0.55f, false);
     }
 
     public void PlaySwing(Vector3 position, bool player)
@@ -129,7 +129,7 @@ public sealed class BattleEffects : MonoBehaviour
             sparkObject.transform.position = position + Random.insideUnitSphere * 0.18f;
             sparkObject.transform.localScale = Vector3.one * 0.1f;
             Destroy(sparkObject.GetComponent<Collider>());
-            sparkObject.GetComponent<Renderer>().material = BattleBootstrap.CreateMaterial(color, true);
+            sparkObject.GetComponent<Renderer>().sharedMaterial = RuntimeAssets.Material(color, true);
             sparks.Add(new Spark
             {
                 GameObject = sparkObject,
@@ -140,7 +140,7 @@ public sealed class BattleEffects : MonoBehaviour
         }
     }
 
-    private static AudioClip CreateAmbience(string clipName, float duration)
+    private static AudioClip CreateAmbience(float duration)
     {
         const int sampleRate = 22050;
         int length = Mathf.RoundToInt(sampleRate * duration);
@@ -152,7 +152,7 @@ public sealed class BattleEffects : MonoBehaviour
             float gust = 0.35f + 0.2f * Mathf.Sin(i / (float)sampleRate * Mathf.PI * 0.65f);
             samples[i] = filtered * gust * 0.16f;
         }
-        AudioClip clip = AudioClip.Create(clipName, length, 1, sampleRate, false);
+        AudioClip clip = AudioClip.Create("Courtyard Wind", length, 1, sampleRate, false);
         clip.SetData(samples, 0);
         return clip;
     }
@@ -173,6 +173,11 @@ public sealed class BattleEffects : MonoBehaviour
         AudioClip clip = AudioClip.Create("Distant War Drums", length, 1, sampleRate, false);
         clip.SetData(samples, 0);
         return clip;
+    }
+
+    private static AudioClip Tone(string clipName, float frequency, float duration, bool noisy)
+    {
+        return RuntimeAssets.Audio(clipName, () => CreateTone(clipName, frequency, duration, noisy));
     }
 
     private static AudioClip CreateTone(string clipName, float frequency, float duration, bool noisy)

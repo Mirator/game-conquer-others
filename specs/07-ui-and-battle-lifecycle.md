@@ -7,7 +7,7 @@ The ready screen communicates:
 - Game title and courtyard battle premise.
 - Movement, dodge, directional attack, and directional block controls.
 - The rule that matching the incoming direction stops damage.
-- Enter or click begins the battle.
+- A mouse click begins the battle.
 
 ## Fighting HUD
 
@@ -42,7 +42,7 @@ Victory and defeat screens show:
   - Player kills.
   - Perfect blocks and landed counter strikes.
   - Blue and red losses (fallen / starting count).
-- Return-to-map / restart prompt.
+- Return-to-map prompt.
 
 ## Cursor Rules
 

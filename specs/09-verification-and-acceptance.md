@@ -6,7 +6,7 @@ The current MVP is accepted when:
 
 1. Unity scripts compile without errors.
 2. A Windows standalone build succeeds.
-3. The player can begin, play, finish, and restart a battle.
+3. The player can begin, play, finish, and confirm a battle result.
 4. All four attack and block directions are represented.
 5. Every matching directional block prevents all damage.
 6. Every wrong directional block takes full damage.
@@ -43,7 +43,8 @@ The standalone smoke test:
   selection, held-attack cancellation into block, and swept-target filtering.
 - Audits AI attack-permission limits and living enemy target assignments.
 - Captures opening, combat, and late-battle screenshots.
-- Exits after the run.
+- Exits with code 0 only when every audit passes; failed audits and transition
+  timeouts exit with code 1.
 
 Add `-smokelarge` to run a 6v6 encounter and verify coordination and spacing
 under a larger fighter count.
@@ -71,7 +72,7 @@ conquests and persistent campaign progression.
 - Editor smoke test: opening state correct (Blue=4, Red=4, Fighting); battle log shows stable group combat.
 - Directional block audit: passed.
 - Natural group battle: passed.
-- Forced victory and restart: passed.
+- Forced victory and return-to-map flow: passed.
 - Managed exception scan: passed.
 - P0/P1 responsive combat audit: passed.
 - P2 tactical AI coordination audit: passed.

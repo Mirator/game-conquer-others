@@ -7,12 +7,12 @@ document covers a single battle; the campaign map owns the higher-level loop.
 ## Core Loop
 
 1. The game presents the ready screen.
-2. The player begins the battle with Enter or a mouse click.
+2. The player begins the battle with a mouse click.
 3. Blue and red fighters move toward opposing targets.
 4. The player moves, attacks, blocks, dodges, and fights beside allies.
 5. Fighters lose health and die.
 6. The battle ends in victory or defeat.
-7. The player presses R to rebuild and restart the battle.
+7. The player confirms the result and returns to the campaign map.
 
 ## Teams
 
@@ -36,11 +36,10 @@ document covers a single battle; the campaign map owns the higher-level loop.
 - Defeat occurs immediately when the player dies.
 - Allied deaths alone do not trigger defeat.
 
-## Restart Rule
+## Campaign Consequences
 
-Pressing R rebuilds the current battle (same encounter setup) in the Ready state
-with restored fighters, UI, camera, arena, and effects. Dismissing a result
-screen instead returns to the campaign map.
+Battles cannot be restarted. The result must be confirmed so defeat and allied
+casualties are applied to the campaign.
 
 ## Current Balance Context
 
@@ -51,4 +50,3 @@ screen instead returns to the campaign map.
 - Battle size is parameterized by the encounter: blue fighters = player + roster,
   red fighters = the target territory's garrison. The opening encounter defaults
   to 4 blue versus 4 red.
-

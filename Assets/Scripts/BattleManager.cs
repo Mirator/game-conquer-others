@@ -11,7 +11,7 @@ public sealed class BattleManager : MonoBehaviour
     public PlayerFighter Player { get; private set; }
     public int AlliesAlive => CountAlive(Team.Allies);
     public int EnemiesAlive => CountAlive(Team.Enemies);
-    public string DebugAISummary => $"MaxPlayerAttackers={maxPlayerAttackers}, MaxTargetAttackers={maxTargetAttackers}, MinFighterDistance={minimumFighterDistance:0.00}, MaxClosePairs={maxClosePairs}";
+    public string DebugAISummary => tactics.DebugSummary;
 
     // Living allied soldiers excluding the player — this is what carries to the
     // campaign roster (the player/captain is tracked separately).
@@ -43,7 +43,7 @@ public sealed class BattleManager : MonoBehaviour
     public string DebugSummary => $"State={State}, Blue={CountAlive(Team.Allies)}, Red={CountAlive(Team.Enemies)}, Time={battleTime:0.0}";
 
     private readonly List<BattleFighter> fighters = new();
-    private readonly Dictionary<BattleFighter, List<AIFighter>> attackPermissions = new();
+    private BattleTactics tactics;
     private BattleEffects effects;
     private ThirdPersonCamera cameraRig;
     private GUIStyle titleStyle;
@@ -69,15 +69,12 @@ public sealed class BattleManager : MonoBehaviour
     private int playerCounterHits;
     private int initialAllies;
     private int initialEnemies;
-    private int maxPlayerAttackers;
-    private int maxTargetAttackers;
-    private int maxClosePairs;
-    private float minimumFighterDistance = float.MaxValue;
 
     public void Configure(BattleEffects battleEffects, ThirdPersonCamera rig)
     {
         effects = battleEffects;
         cameraRig = rig;
+        tactics = new BattleTactics(fighters, () => Player);
     }
 
     public void Register(BattleFighter fighter)
@@ -94,17 +91,14 @@ public sealed class BattleManager : MonoBehaviour
             battleTime += Time.deltaTime;
             impactFlash = Mathf.MoveTowards(impactFlash, 0f, Time.deltaTime * 3.5f);
             messageTimer -= Time.deltaTime;
-            UpdateTacticalTelemetry();
+            tactics.UpdateTelemetry();
         }
 
         if (Keyboard.current == null)
             return;
-        if (Keyboard.current.rKey.wasPressedThisFrame)
-            GameDirector.Instance.RestartBattle();
-        // Battle starts on Enter/click; the result screen is dismissed only via
-        // its on-screen button (see OnGUI) so the statistics are not skipped.
-        if (State == BattleState.Ready && (Keyboard.current.enterKey.wasPressedThisFrame
-            || Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame))
+        // Mouse input starts the battle. Result screens are dismissed only via
+        // their on-screen button so campaign outcomes cannot be bypassed.
+        if (State == BattleState.Ready && Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame)
             BeginBattle();
         if (Keyboard.current.escapeKey.wasPressedThisFrame)
         {
@@ -136,24 +130,7 @@ public sealed class BattleManager : MonoBehaviour
     }
 
     public BattleFighter SelectTacticalTarget(AIFighter seeker, BattleFighter current)
-    {
-        if (seeker.Team == Team.Enemies && Player != null && Player.IsAlive && CountAssignedTo(Player, seeker) == 0)
-            return Player;
-        BattleFighter best = current != null && current.IsAlive ? current : null;
-        float bestScore = best != null ? ScoreTarget(seeker, best, true) : float.MaxValue;
-        foreach (BattleFighter fighter in fighters)
-        {
-            if (!fighter.IsAlive || fighter.Team == seeker.Team)
-                continue;
-            float score = ScoreTarget(seeker, fighter, fighter == current);
-            if (score < bestScore)
-            {
-                bestScore = score;
-                best = fighter;
-            }
-        }
-        return best;
-    }
+        => tactics.SelectTarget(seeker, current);
 
     public BattleFighter FindIncomingThreat(BattleFighter defender)
     {
@@ -175,53 +152,13 @@ public sealed class BattleManager : MonoBehaviour
     }
 
     public bool TryClaimAttackPermission(AIFighter attacker, BattleFighter target)
-    {
-        CleanupAttackPermissions();
-        if (target == null || !target.IsAlive)
-            return false;
-        if (!attackPermissions.TryGetValue(target, out List<AIFighter> attackers))
-        {
-            attackers = new List<AIFighter>();
-            attackPermissions[target] = attackers;
-        }
-        if (attackers.Contains(attacker))
-            return true;
-        int limit = target.IsPlayer ? 1 : 2;
-        if (attackers.Count >= limit)
-            return false;
-        attackers.Add(attacker);
-        return true;
-    }
+        => tactics.TryClaimAttackPermission(attacker, target);
 
     public void ReleaseAttackPermission(AIFighter attacker)
-    {
-        foreach (List<AIFighter> attackers in attackPermissions.Values)
-            attackers.Remove(attacker);
-    }
+        => tactics.ReleaseAttackPermission(attacker);
 
     public Vector3 GetEngagementPosition(AIFighter seeker, BattleFighter target, bool activeAttacker, float preferredRange)
-    {
-        Vector3 radial = seeker.transform.position - target.transform.position;
-        radial.y = 0f;
-        if (radial.sqrMagnitude < 0.01f)
-            radial = target.transform.forward;
-        radial.Normalize();
-
-        if (activeAttacker)
-            return target.transform.position + radial * preferredRange;
-
-        List<AIFighter> supporters = new();
-        foreach (BattleFighter fighter in fighters)
-            if (fighter is AIFighter ai && ai.IsAlive && ai != seeker && ai.CurrentTarget == target && !ai.HasAttackPermission)
-                supporters.Add(ai);
-        supporters.Add(seeker);
-        supporters.Sort((a, b) => a.GetInstanceID().CompareTo(b.GetInstanceID()));
-        int index = supporters.IndexOf(seeker);
-        float[] angles = { -72f, 72f, -138f, 138f, 180f, -105f, 105f };
-        float angle = angles[index % angles.Length] + index / angles.Length * 18f;
-        Vector3 slotDirection = Quaternion.AngleAxis(angle, Vector3.up) * target.transform.forward;
-        return target.transform.position + slotDirection.normalized * Mathf.Lerp(2.8f, 3.5f, index % 3 / 2f);
-    }
+        => tactics.GetEngagementPosition(seeker, target, activeAttacker, preferredRange);
 
     public BattleFighter FindSweptStrikeTarget(BattleFighter attacker, Vector3 start, Vector3 end, float radius)
     {
@@ -243,22 +180,7 @@ public sealed class BattleManager : MonoBehaviour
     }
 
     public Vector3 GetSeparation(BattleFighter seeker)
-    {
-        Vector3 result = Vector3.zero;
-        foreach (BattleFighter fighter in fighters)
-        {
-            if (fighter == seeker || !fighter.IsAlive)
-                continue;
-            Vector3 offset = seeker.transform.position - fighter.transform.position;
-            offset.y = 0f;
-            if (offset.sqrMagnitude < 6.25f && offset.sqrMagnitude > 0.001f)
-            {
-                float distance = offset.magnitude;
-                result += offset.normalized * Mathf.Clamp01((2.5f - distance) / 1.8f);
-            }
-        }
-        return Vector3.ClampMagnitude(result, 1.4f);
-    }
+        => tactics.GetSeparation(seeker);
 
     public void PlayAttackSound(Vector3 position, bool player) => effects?.PlaySwing(position, player);
 
@@ -347,124 +269,6 @@ public sealed class BattleManager : MonoBehaviour
             }
     }
 
-    public bool DebugAuditDirectionalBlock()
-    {
-        if (Player == null)
-            return false;
-        BattleFighter attacker = FindNearestOpponent(Player);
-        if (attacker == null)
-            return false;
-
-        float startingHealth = Player.CurrentHealth;
-        Quaternion startingRotation = Player.transform.rotation;
-        Vector3 towardAttacker = attacker.transform.position - Player.transform.position;
-        towardAttacker.y = 0f;
-        Player.transform.rotation = Quaternion.LookRotation(towardAttacker.normalized);
-
-        bool allCorrectBlocksStoppedDamage = true;
-        bool allWrongBlocksTookDamage = true;
-        foreach (CombatDirection direction in System.Enum.GetValues(typeof(CombatDirection)))
-        {
-            Player.DebugSetBlock(true, direction);
-            Player.ReceiveHit(25f, attacker, direction);
-            allCorrectBlocksStoppedDamage &= Mathf.Approximately(Player.CurrentHealth, startingHealth);
-            Player.DebugRestoreHealth(startingHealth);
-
-            CombatDirection wrongDirection = (CombatDirection)(((int)direction + 1) % 4);
-            Player.DebugSetBlock(true, wrongDirection);
-            Player.ReceiveHit(25f, attacker, direction);
-            allWrongBlocksTookDamage &= Mathf.Approximately(Player.CurrentHealth, startingHealth - 25f);
-            Player.DebugRestoreHealth(startingHealth);
-        }
-
-        Player.transform.rotation = Quaternion.LookRotation(-towardAttacker.normalized);
-        Player.DebugSetBlock(true, CombatDirection.Up);
-        Player.ReceiveHit(25f, attacker, CombatDirection.Up);
-        bool rearAttackBypassedBlock = Mathf.Approximately(Player.CurrentHealth, startingHealth - 25f);
-        Player.DebugRestoreHealth(startingHealth);
-        Player.DebugSetBlock(false, CombatDirection.Right);
-        Player.transform.rotation = startingRotation;
-        Debug.Log($"Directional combat audit: allCorrectBlocks={allCorrectBlocksStoppedDamage}, allWrongBlocks={allWrongBlocksTookDamage}, rearBypass={rearAttackBypassedBlock}");
-        return allCorrectBlocksStoppedDamage && allWrongBlocksTookDamage && rearAttackBypassedBlock;
-    }
-
-    public bool DebugAuditResponsiveCombat()
-    {
-        bool jitterIgnored = !CombatGesture.TryResolve(new Vector2(4f, 3f), out _);
-        bool diagonalIgnored = !CombatGesture.TryResolve(new Vector2(10f, 9f), out _);
-        bool deliberateLeft = CombatGesture.TryResolve(new Vector2(-12f, 0f), out CombatDirection direction)
-            && direction == CombatDirection.Left;
-
-        Player.DebugSetBlock(false, CombatDirection.Right);
-        bool prepared = Player.DebugPrepareAttack(CombatDirection.Up);
-        Player.DebugSetBlock(true, CombatDirection.Left);
-        bool heldAttackCancelledIntoBlock = prepared && Player.Phase == CombatPhase.Idle
-            && Player.IsBlocking && Player.BlockDirection == CombatDirection.Left;
-        Player.DebugSetBlock(false, CombatDirection.Right);
-        Player.DebugRestoreStamina();
-
-        BattleFighter enemy = FindNearestOpponent(Player);
-        bool sweptTargetFound = false;
-        if (enemy != null)
-        {
-            Vector3 center = enemy.transform.position + Vector3.up * 1.05f;
-            sweptTargetFound = FindSweptStrikeTarget(Player, center + Vector3.left * 0.5f,
-                center + Vector3.right * 0.5f, 0.72f) == enemy;
-        }
-
-        bool passed = jitterIgnored && diagonalIgnored && deliberateLeft
-            && heldAttackCancelledIntoBlock && sweptTargetFound;
-        Debug.Log($"Responsive combat audit: jitterIgnored={jitterIgnored}, diagonalIgnored={diagonalIgnored}, deliberateLeft={deliberateLeft}, cancelToBlock={heldAttackCancelledIntoBlock}, sweptTarget={sweptTargetFound}");
-        return passed;
-    }
-
-    public bool DebugAuditCombatExcellence()
-    {
-        if (Player == null)
-            return false;
-        BattleFighter attacker = FindNearestOpponent(Player);
-        if (attacker == null)
-            return false;
-
-        Quaternion startingRotation = Player.transform.rotation;
-        Vector3 towardAttacker = attacker.transform.position - Player.transform.position;
-        towardAttacker.y = 0f;
-        Player.transform.rotation = Quaternion.LookRotation(towardAttacker.normalized);
-        float health = Player.CurrentHealth;
-
-        Player.DebugSetBlock(false, CombatDirection.Right);
-        Player.DebugSetBlock(true, CombatDirection.Right);
-        Player.ReceiveHit(25f, attacker, CombatDirection.Right);
-        bool perfectGrantedCounter = Player.IsCounterReady && Mathf.Approximately(Player.CurrentHealth, health);
-
-        Player.DebugClearCombatReaction();
-        Player.DebugSetBlock(false, CombatDirection.Right);
-        bool counterPrepared = Player.DebugPrepareAttack(CombatDirection.Up) && Player.IsCounterAttack
-            && Mathf.Approximately(Player.CurrentAttackDamageMultiplier, 1.45f);
-        Player.DebugSetBlock(true, CombatDirection.Left);
-        Player.DebugSetBlock(false, CombatDirection.Left);
-
-        Player.DebugSetBlock(true, CombatDirection.Right);
-        Player.DebugExpirePerfectBlock();
-        Player.ReceiveHit(25f, attacker, CombatDirection.Right);
-        bool normalBlockNoCounter = !Player.IsCounterReady && Mathf.Approximately(Player.CurrentHealth, health);
-
-        Player.DebugClearCombatReaction();
-        Player.DebugSetBlock(true, CombatDirection.Left);
-        Player.DebugExpirePerfectBlock();
-        Player.DebugSetBlock(true, CombatDirection.Right);
-        Player.ReceiveHit(25f, attacker, CombatDirection.Right);
-        bool correctedDirectionPerfect = Player.IsCounterReady && Mathf.Approximately(Player.CurrentHealth, health);
-
-        Player.DebugSetBlock(false, CombatDirection.Right);
-        Player.DebugRestoreHealth(health);
-        Player.DebugRestoreStamina();
-        Player.transform.rotation = startingRotation;
-        bool passed = perfectGrantedCounter && counterPrepared && normalBlockNoCounter && correctedDirectionPerfect;
-        Debug.Log($"Combat excellence audit: perfectCounter={perfectGrantedCounter}, counterPrepared={counterPrepared}, normalNoCounter={normalBlockNoCounter}, correctedPerfect={correctedDirectionPerfect}");
-        return passed;
-    }
-
     public void DebugClearCombatMessage()
     {
         message = null;
@@ -474,20 +278,9 @@ public sealed class BattleManager : MonoBehaviour
 
     public bool DebugAuditAICoordination()
     {
-        CleanupAttackPermissions();
-        int playerAttackers = Player != null && attackPermissions.TryGetValue(Player, out List<AIFighter> attackers)
-            ? attackers.Count : 0;
-        int largestGroup = 0;
-        foreach (List<AIFighter> group in attackPermissions.Values)
-            largestGroup = Mathf.Max(largestGroup, group.Count);
-        bool playerLimit = playerAttackers <= 1;
-        bool generalLimit = largestGroup <= 2;
-        bool stableTargets = true;
-        foreach (BattleFighter fighter in fighters)
-            if (fighter is AIFighter ai && ai.IsAlive && ai.CurrentTarget != null)
-                stableTargets &= ai.CurrentTarget.Team != ai.Team && ai.CurrentTarget.IsAlive;
-        Debug.Log($"AI coordination audit: playerAttackers={playerAttackers}, largestGroup={largestGroup}, playerLimit={playerLimit}, generalLimit={generalLimit}, stableTargets={stableTargets}, {DebugAISummary}");
-        return playerLimit && generalLimit && stableTargets;
+        bool passed = tactics.AuditCoordination();
+        Debug.Log($"AI coordination audit: passed={passed}, {DebugAISummary}");
+        return passed;
     }
 
     private int CountAlive(Team team)
@@ -497,74 +290,6 @@ public sealed class BattleManager : MonoBehaviour
             if (fighter.IsAlive && fighter.Team == team)
                 count++;
         return count;
-    }
-
-    private float ScoreTarget(AIFighter seeker, BattleFighter target, bool current)
-    {
-        float distance = Vector3.Distance(seeker.transform.position, target.transform.position);
-        int assigned = 0;
-        foreach (BattleFighter fighter in fighters)
-            if (fighter is AIFighter ai && ai != seeker && ai.IsAlive && ai.CurrentTarget == target)
-                assigned++;
-        float score = distance + assigned * 3.1f;
-        if (target.IsPlayer)
-            score -= 0.65f;
-        if (seeker.Team == Team.Allies && target is AIFighter enemy && enemy.CurrentTarget == Player)
-            score += 4.5f;
-        if (current)
-            score -= 2.4f;
-        if (target.IsAttackThreatening)
-            score += 0.35f;
-        return score;
-    }
-
-    private int CountAssignedTo(BattleFighter target, AIFighter except)
-    {
-        int count = 0;
-        foreach (BattleFighter fighter in fighters)
-            if (fighter is AIFighter ai && ai != except && ai.IsAlive && ai.CurrentTarget == target)
-                count++;
-        return count;
-    }
-
-    private void CleanupAttackPermissions()
-    {
-        List<BattleFighter> empty = new();
-        foreach (KeyValuePair<BattleFighter, List<AIFighter>> pair in attackPermissions)
-        {
-            pair.Value.RemoveAll(ai => ai == null || !ai.IsAlive || ai.CurrentTarget != pair.Key);
-            if (pair.Key == null || !pair.Key.IsAlive || pair.Value.Count == 0)
-                empty.Add(pair.Key);
-        }
-        foreach (BattleFighter target in empty)
-            attackPermissions.Remove(target);
-    }
-
-    private void UpdateTacticalTelemetry()
-    {
-        CleanupAttackPermissions();
-        int closePairs = 0;
-        for (int i = 0; i < fighters.Count; i++)
-        {
-            if (!fighters[i].IsAlive)
-                continue;
-            for (int j = i + 1; j < fighters.Count; j++)
-            {
-                if (!fighters[j].IsAlive)
-                    continue;
-                float distance = Vector3.Distance(fighters[i].transform.position, fighters[j].transform.position);
-                minimumFighterDistance = Mathf.Min(minimumFighterDistance, distance);
-                if (distance < 1.05f)
-                    closePairs++;
-            }
-        }
-        maxClosePairs = Mathf.Max(maxClosePairs, closePairs);
-        foreach (KeyValuePair<BattleFighter, List<AIFighter>> pair in attackPermissions)
-        {
-            maxTargetAttackers = Mathf.Max(maxTargetAttackers, pair.Value.Count);
-            if (pair.Key != null && pair.Key.IsPlayer)
-                maxPlayerAttackers = Mathf.Max(maxPlayerAttackers, pair.Value.Count);
-        }
     }
 
     private static float SqrDistanceToSegment(Vector3 point, Vector3 start, Vector3 end)
@@ -669,7 +394,7 @@ public sealed class BattleManager : MonoBehaviour
 
             if (State == BattleState.Ready)
             {
-                string body = $"ASSAULT ON {EncounterTitle}\nLead the blue soldiers and break the red line.\n\nWASD  Move       Shift  Sprint       Space  Dodge\nHold LMB + move mouse  Aim a swing, release to strike\nHold RMB + move mouse  Raise your shield that way\n\nMatch the incoming direction to block all damage.\nRaise the correct block at the last moment for a perfect block,\nthen strike during the counter window for bonus damage.\n\nPRESS ENTER OR CLICK TO BEGIN";
+                string body = $"ASSAULT ON {EncounterTitle}\nLead the blue soldiers and break the red line.\n\nWASD  Move       Shift  Sprint       Space  Dodge\nHold LMB + move mouse  Aim a swing, release to strike\nHold RMB + move mouse  Raise your shield that way\n\nMatch the incoming direction to block all damage.\nRaise the correct block at the last moment for a perfect block,\nthen strike during the counter window for bonus damage.\n\nCLICK TO BEGIN";
                 GUI.Label(new Rect(width * 0.5f - 235f, height * 0.5f - 126f, 470f, 320f), body, bodyTopStyle);
             }
             else
@@ -680,7 +405,6 @@ public sealed class BattleManager : MonoBehaviour
                 string buttonLabel = State == BattleState.Victory ? "CLAIM THE TERRITORY" : "RETURN TO THE MAP";
                 if (GUI.Button(new Rect(width * 0.5f - 140f, height * 0.5f + 70f, 280f, 40f), buttonLabel, buttonStyle))
                     ConfirmResult();
-                GUI.Label(new Rect(width * 0.5f - 140f, height * 0.5f + 116f, 280f, 20f), "or press R to retry the battle", smallCenterStyle);
             }
         }
         GUI.matrix = previous;

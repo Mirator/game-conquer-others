@@ -8,7 +8,6 @@ using UnityEngine.Rendering;
 public sealed class BattleBootstrap : MonoBehaviour
 {
     private GameObject battleRoot;
-    private static Shader litShader;
 
     public BattleManager Build(GameObject root, BattleSetup setup)
     {
@@ -268,7 +267,7 @@ public sealed class BattleBootstrap : MonoBehaviour
         primitive.transform.SetParent(battleRoot.transform);
         primitive.transform.position = position;
         primitive.transform.localScale = scale;
-        primitive.GetComponent<Renderer>().material = CreateMaterial(color);
+        primitive.GetComponent<Renderer>().sharedMaterial = RuntimeAssets.Material(color);
         if (!collider)
             Destroy(primitive.GetComponent<Collider>());
     }
@@ -285,7 +284,7 @@ public sealed class BattleBootstrap : MonoBehaviour
         flameObject.transform.position = position + Vector3.up * 1.55f;
         flameObject.transform.localScale = new Vector3(0.22f, 0.42f, 0.22f);
         Destroy(flameObject.GetComponent<Collider>());
-        flameObject.GetComponent<Renderer>().material = CreateMaterial(flame, true);
+        flameObject.GetComponent<Renderer>().sharedMaterial = RuntimeAssets.Material(flame, true);
 
         Light light = flameObject.AddComponent<Light>();
         light.type = LightType.Point;
@@ -302,28 +301,9 @@ public sealed class BattleBootstrap : MonoBehaviour
         block.transform.SetParent(battleRoot.transform);
         block.transform.position = position;
         block.transform.localScale = scale;
-        block.GetComponent<Renderer>().material = CreateMaterial(color);
+        block.GetComponent<Renderer>().sharedMaterial = RuntimeAssets.Material(color);
         if (!collider)
             Destroy(block.GetComponent<Collider>());
     }
 
-    public static Material CreateMaterial(Color color, bool emissive = false)
-    {
-        if (litShader == null)
-            litShader = UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline != null
-                ? Shader.Find("Universal Render Pipeline/Lit")
-                : Shader.Find("Standard");
-        litShader ??= Shader.Find("Legacy Shaders/Diffuse");
-        litShader ??= Shader.Find("Sprites/Default");
-
-        Material material = new Material(litShader);
-        material.color = color;
-        material.SetFloat("_Smoothness", 0.18f);
-        if (emissive)
-        {
-            material.EnableKeyword("_EMISSION");
-            material.SetColor("_EmissionColor", color * 2f);
-        }
-        return material;
-    }
 }

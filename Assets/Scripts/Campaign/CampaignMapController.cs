@@ -3,8 +3,8 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 
 // Builds and runs the campaign map: an overhead view of territory nodes the
-// player clicks to select and Enter to assault. Reuses BattleBootstrap's runtime
-// material factory and the same IMGUI HUD style as the battle.
+// player clicks to select and assault. Uses shared runtime materials and the
+// same IMGUI HUD style as the battle.
 public sealed class CampaignMapController : MonoBehaviour
 {
     private GameDirector director;
@@ -13,6 +13,7 @@ public sealed class CampaignMapController : MonoBehaviour
     private Territory selected;
 
     private readonly List<NodeView> nodes = new();
+    private MaterialPropertyBlock nodeColorProperties;
 
     private Texture2D whiteTexture;
     private GUIStyle titleStyle;
@@ -36,6 +37,7 @@ public sealed class CampaignMapController : MonoBehaviour
     {
         director = gameDirector;
         campaign = state;
+        nodeColorProperties = new MaterialPropertyBlock();
         BuildVisuals();
     }
 
@@ -70,7 +72,7 @@ public sealed class CampaignMapController : MonoBehaviour
         table.transform.SetParent(transform);
         table.transform.position = new Vector3(0f, -0.5f, 2f);
         table.transform.localScale = new Vector3(46f, 1f, 38f);
-        table.GetComponent<Renderer>().material = BattleBootstrap.CreateMaterial(new Color(0.18f, 0.2f, 0.16f));
+        table.GetComponent<Renderer>().sharedMaterial = RuntimeAssets.Material(new Color(0.18f, 0.2f, 0.16f));
 
         foreach (Territory t in campaign.Territories)
             foreach (int adj in t.AdjacentIds)
@@ -91,7 +93,7 @@ public sealed class CampaignMapController : MonoBehaviour
         go.transform.position = WorldOf(t) + Vector3.up * 0.2f;
         go.transform.localScale = new Vector3(1.6f, 0.3f, 1.6f);
         Renderer r = go.GetComponent<Renderer>();
-        r.material = BattleBootstrap.CreateMaterial(ColorFor(t));
+        r.sharedMaterial = RuntimeAssets.Material(Color.white);
 
         GameObject keep = GameObject.CreatePrimitive(PrimitiveType.Cube);
         keep.name = "Keep";
@@ -99,7 +101,7 @@ public sealed class CampaignMapController : MonoBehaviour
         keep.transform.SetParent(go.transform, false);
         keep.transform.localPosition = new Vector3(0f, 1.1f, 0f);
         keep.transform.localScale = new Vector3(0.5f, 2.2f, 0.5f);
-        keep.GetComponent<Renderer>().material = BattleBootstrap.CreateMaterial(ColorFor(t));
+        keep.GetComponent<Renderer>().sharedMaterial = RuntimeAssets.Material(ColorFor(t));
 
         PrimitiveType markerType = t.Arena == ArenaType.Forest ? PrimitiveType.Sphere
             : t.Arena == ArenaType.Marsh ? PrimitiveType.Cylinder : PrimitiveType.Cube;
@@ -111,7 +113,7 @@ public sealed class CampaignMapController : MonoBehaviour
         marker.transform.localScale = t.Arena == ArenaType.Forest ? new Vector3(0.45f, 0.7f, 0.45f)
             : t.Arena == ArenaType.Marsh ? new Vector3(0.55f, 0.08f, 0.55f)
             : t.Arena == ArenaType.Highlands ? new Vector3(0.38f, 0.85f, 0.38f) : new Vector3(0.45f, 0.45f, 0.45f);
-        marker.GetComponent<Renderer>().material = BattleBootstrap.CreateMaterial(ArenaColor(t.Arena));
+        marker.GetComponent<Renderer>().sharedMaterial = RuntimeAssets.Material(ArenaColor(t.Arena));
 
         nodes.Add(new NodeView { Go = go, Territory = t, Renderer = r });
     }
@@ -129,7 +131,7 @@ public sealed class CampaignMapController : MonoBehaviour
         edge.transform.position = mid;
         edge.transform.localScale = new Vector3(0.18f, 0.05f, Vector3.Distance(pa, pb));
         edge.transform.rotation = Quaternion.LookRotation((pb - pa).normalized);
-        edge.GetComponent<Renderer>().material = BattleBootstrap.CreateMaterial(new Color(0.3f, 0.28f, 0.22f));
+        edge.GetComponent<Renderer>().sharedMaterial = RuntimeAssets.Material(new Color(0.3f, 0.28f, 0.22f));
     }
 
     private static Color ColorFor(Territory t) => t.Owner switch
@@ -183,7 +185,9 @@ public sealed class CampaignMapController : MonoBehaviour
                 color = Color.Lerp(color, Color.white, pulse);
             if (n.Territory == selected)
                 color = Color.Lerp(color, new Color(1f, 0.9f, 0.4f), 0.5f);
-            n.Renderer.material.color = color;
+            nodeColorProperties.SetColor("_BaseColor", color);
+            nodeColorProperties.SetColor("_Color", color);
+            n.Renderer.SetPropertyBlock(nodeColorProperties);
         }
     }
 

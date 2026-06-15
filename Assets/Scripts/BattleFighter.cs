@@ -48,24 +48,12 @@ public abstract class BattleFighter : MonoBehaviour
     private float blockAge;
     private float counterWindowTimer;
     private float damageDisplayTimer;
-    private float walkCycle;
-    private float previousWalkCycle;
     private bool releaseQueued;
     private bool dealtAttackDamage;
     private bool whiffRecovery;
     private bool counterAttack;
-    private Transform modelRoot;
-    private Transform swordPivot;
-    private Transform shieldPivot;
-    private Transform leftLeg;
-    private Transform rightLeg;
-    private Transform leftArm;
-    private Transform rightArm;
-    private Renderer[] renderers;
-    private Color[] baseColors;
-    private Vector3 previousPosition;
-    private Vector3 swordBasePosition;
     private Vector3 previousStrikePoint;
+    private BattleFighterPresentation presentation;
 
     public void Configure(BattleManager owner, Team team, bool player, float healthScale = 1f, UnitType unitType = UnitType.Militia)
     {
@@ -89,8 +77,7 @@ public abstract class BattleFighter : MonoBehaviour
         controller.stepOffset = 0.32f;
         controller.skinWidth = 0.04f;
 
-        BuildModel();
-        previousPosition = transform.position;
+        presentation = new BattleFighterPresentation(transform, Team, UnitType);
     }
 
     protected virtual void Update()
@@ -308,27 +295,9 @@ public abstract class BattleFighter : MonoBehaviour
 
     private void UpdateVisuals()
     {
-        Vector3 planarDelta = transform.position - previousPosition;
-        planarDelta.y = 0f;
-        float movement = Mathf.Clamp01(planarDelta.magnitude / Mathf.Max(Time.deltaTime, 0.001f) / 4f);
-        previousPosition = transform.position;
-        walkCycle += movement * Time.deltaTime * 11f;
-        if (battle.IsBattleRunning && Mathf.FloorToInt(walkCycle / Mathf.PI) > Mathf.FloorToInt(previousWalkCycle / Mathf.PI))
-            battle.PlayFootstep(transform.position, IsPlayer);
-        previousWalkCycle = walkCycle;
-
-        ApplyWeaponPose();
-
-        float legSwing = Mathf.Sin(walkCycle) * 28f * movement;
-        leftLeg.localRotation = Quaternion.Euler(legSwing, 0f, 0f);
-        rightLeg.localRotation = Quaternion.Euler(-legSwing, 0f, 0f);
-        modelRoot.localPosition = Vector3.up * (Mathf.Abs(Mathf.Sin(walkCycle)) * 0.035f * movement);
-        float whiffLean = whiffRecovery && Phase == CombatPhase.AttackRecovery ? 8f : 0f;
-        modelRoot.localRotation = Quaternion.Euler(staggerTimer > 0f ? -7f : whiffLean, 0f, IsBlocking ? 5f : 0f);
-
         hitFlashTimer = Mathf.Max(0f, hitFlashTimer - Time.deltaTime);
-        for (int i = 0; i < renderers.Length; i++)
-            renderers[i].material.color = hitFlashTimer > 0f ? Color.white : baseColors[i];
+        presentation.Update(battle, IsPlayer, IsBlocking, AttackDirection, BlockDirection, Phase,
+            phaseTimer, phaseDuration, staggerTimer, whiffRecovery, hitFlashTimer);
     }
 
     private void Die()
@@ -338,61 +307,8 @@ public abstract class BattleFighter : MonoBehaviour
         if (controller != null)
             controller.enabled = false;
 
-        transform.rotation = Quaternion.Euler(78f, transform.eulerAngles.y, Random.Range(-16f, 16f));
-        transform.position += Vector3.down * 0.36f;
+        presentation.Fall();
         battle.NotifyDeath(this);
-    }
-
-    private void BuildModel()
-    {
-        Color teamColor = Team == Team.Allies ? new Color(0.12f, 0.39f, 0.82f) : new Color(0.72f, 0.12f, 0.08f);
-        Color cloth = Team == Team.Allies ? new Color(0.08f, 0.17f, 0.32f) : new Color(0.32f, 0.07f, 0.05f);
-        Color metal = new Color(0.55f, 0.6f, 0.65f);
-        Color leather = new Color(0.2f, 0.1f, 0.04f);
-        Color rankColor = UnitType == UnitType.Guard ? new Color(0.92f, 0.72f, 0.18f)
-            : UnitType == UnitType.Veteran ? metal : leather;
-
-        modelRoot = new GameObject("Animated Model").transform;
-        modelRoot.SetParent(transform, false);
-        CreatePart("Torso", PrimitiveType.Capsule, modelRoot, new Vector3(0f, 1.16f, 0f), new Vector3(0.68f, 0.65f, 0.48f), cloth);
-        CreatePart("Tabard", PrimitiveType.Cube, modelRoot, new Vector3(0f, 0.95f, 0.22f), new Vector3(0.5f, 0.72f, 0.08f), teamColor);
-        CreatePart("Head", PrimitiveType.Sphere, modelRoot, new Vector3(0f, 1.76f, 0f), Vector3.one * 0.4f, new Color(0.72f, 0.5f, 0.32f));
-        CreatePart("Helmet", PrimitiveType.Sphere, modelRoot, new Vector3(0f, 1.88f, 0f), new Vector3(0.47f, 0.27f, 0.47f), metal);
-        CreatePart("Helmet Ridge", PrimitiveType.Cube, modelRoot, new Vector3(0f, 2.02f, 0f),
-            UnitType == UnitType.Guard ? new Vector3(0.16f, 0.32f, 0.6f) : new Vector3(0.1f, 0.2f, 0.55f), rankColor);
-        CreatePart("Belt", PrimitiveType.Cube, modelRoot, new Vector3(0f, 0.91f, 0f), new Vector3(0.7f, 0.11f, 0.52f), leather);
-
-        leftLeg = NewPivot("Left Leg", modelRoot, new Vector3(-0.2f, 0.78f, 0f));
-        rightLeg = NewPivot("Right Leg", modelRoot, new Vector3(0.2f, 0.78f, 0f));
-        CreatePart("Left Leg Mesh", PrimitiveType.Capsule, leftLeg, new Vector3(0f, -0.36f, 0f), new Vector3(0.22f, 0.42f, 0.22f), leather);
-        CreatePart("Right Leg Mesh", PrimitiveType.Capsule, rightLeg, new Vector3(0f, -0.36f, 0f), new Vector3(0.22f, 0.42f, 0.22f), leather);
-
-        leftArm = NewPivot("Left Arm", modelRoot, new Vector3(-0.42f, 1.48f, 0f));
-        rightArm = NewPivot("Right Arm", modelRoot, new Vector3(0.42f, 1.48f, 0f));
-        CreatePart("Left Arm Mesh", PrimitiveType.Capsule, leftArm, new Vector3(0f, -0.28f, 0f), new Vector3(0.2f, 0.34f, 0.2f), metal);
-        CreatePart("Right Arm Mesh", PrimitiveType.Capsule, rightArm, new Vector3(0f, -0.28f, 0f), new Vector3(0.2f, 0.34f, 0.2f), metal);
-
-        swordPivot = NewPivot("Sword Pivot", rightArm, new Vector3(0f, -0.52f, 0.08f));
-        swordBasePosition = swordPivot.localPosition;
-        CreatePart("Sword", PrimitiveType.Cube, swordPivot, new Vector3(0f, 0f, 0.72f), new Vector3(0.09f, 0.07f, 1.42f), metal);
-        CreatePart("Sword Guard", PrimitiveType.Cube, swordPivot, new Vector3(0f, 0f, 0.06f), new Vector3(0.4f, 0.09f, 0.09f), leather);
-
-        shieldPivot = NewPivot("Shield Pivot", leftArm, new Vector3(0f, -0.3f, 0.25f));
-        CreatePart("Shield", PrimitiveType.Cylinder, shieldPivot, Vector3.zero, new Vector3(0.68f, 0.12f, 0.78f), teamColor, new Vector3(90f, 0f, 0f));
-        CreatePart("Shield Boss", PrimitiveType.Sphere, shieldPivot, new Vector3(0f, 0f, -0.08f), Vector3.one * 0.22f, metal);
-
-        renderers = modelRoot.GetComponentsInChildren<Renderer>();
-        baseColors = new Color[renderers.Length];
-        for (int i = 0; i < renderers.Length; i++)
-            baseColors[i] = renderers[i].material.color;
-    }
-
-    private static Transform NewPivot(string pivotName, Transform parent, Vector3 position)
-    {
-        Transform pivot = new GameObject(pivotName).transform;
-        pivot.SetParent(parent, false);
-        pivot.localPosition = position;
-        return pivot;
     }
 
     private void EnterRelease()
@@ -450,57 +366,6 @@ public abstract class BattleFighter : MonoBehaviour
         float eased = Mathf.SmoothStep(0f, 1f, progress);
         return transform.TransformPoint(Vector3.Lerp(start, end, eased));
     }
-
-    private void ApplyWeaponPose()
-    {
-        float progress = phaseDuration > 0f ? 1f - phaseTimer / phaseDuration : 0f;
-        Vector3 prepared = AttackDirection switch
-        {
-            CombatDirection.Left => new Vector3(-25f, -80f, -45f),
-            CombatDirection.Right => new Vector3(-25f, 80f, 45f),
-            CombatDirection.Up => new Vector3(-145f, 0f, -12f),
-            _ => new Vector3(-5f, 0f, -8f)
-        };
-        Vector3 released = AttackDirection switch
-        {
-            CombatDirection.Left => new Vector3(25f, 95f, 50f),
-            CombatDirection.Right => new Vector3(25f, -95f, -50f),
-            CombatDirection.Up => new Vector3(95f, 0f, -8f),
-            _ => new Vector3(-5f, 0f, -8f)
-        };
-
-        Vector3 swordEuler = new Vector3(-18f, 0f, 0f);
-        swordPivot.localPosition = swordBasePosition;
-        if (Phase == CombatPhase.AttackWindup)
-            swordEuler = Vector3.Lerp(new Vector3(-18f, 0f, 0f), prepared, progress);
-        else if (Phase == CombatPhase.AttackHold)
-            swordEuler = prepared;
-        else if (Phase == CombatPhase.AttackRelease)
-        {
-            swordEuler = Vector3.Lerp(prepared, released, progress);
-            if (AttackDirection == CombatDirection.Thrust)
-                swordPivot.localPosition = swordBasePosition + Vector3.forward * Mathf.Sin(progress * Mathf.PI) * 0.7f;
-        }
-        else if (Phase == CombatPhase.AttackRecovery)
-        {
-            Vector3 recoveryStart = whiffRecovery ? released + new Vector3(18f, 0f, 0f) : released;
-            swordEuler = Vector3.Lerp(recoveryStart, new Vector3(-18f, 0f, 0f), progress);
-        }
-
-        swordPivot.localRotation = Quaternion.Euler(swordEuler);
-        Vector3 shieldEuler = IsBlocking ? GetBlockPose(BlockDirection) : new Vector3(8f, 0f, 0f);
-        shieldPivot.localRotation = Quaternion.Euler(shieldEuler);
-        leftArm.localRotation = Quaternion.Euler(IsBlocking ? -55f : 0f, 0f, IsBlocking ? -20f : 0f);
-        rightArm.localRotation = Quaternion.Euler(IsAttacking ? swordEuler.x * 0.25f : 0f, 0f, -8f);
-    }
-
-    private static Vector3 GetBlockPose(CombatDirection direction) => direction switch
-    {
-        CombatDirection.Left => new Vector3(-15f, -65f, -25f),
-        CombatDirection.Right => new Vector3(-15f, 65f, 25f),
-        CombatDirection.Up => new Vector3(-80f, 0f, 0f),
-        _ => new Vector3(20f, 0f, 0f)
-    };
 
     private static float GetWindup(CombatDirection direction) => direction == CombatDirection.Up ? 0.5f : direction == CombatDirection.Thrust ? 0.3f : 0.35f;
     private static float GetRelease(CombatDirection direction) => direction == CombatDirection.Thrust ? 0.2f : 0.25f;
@@ -561,16 +426,4 @@ public abstract class BattleFighter : MonoBehaviour
 
     public void DebugRestoreStamina() => stamina = MaxStamina;
 
-    private static GameObject CreatePart(string partName, PrimitiveType type, Transform parent, Vector3 position, Vector3 scale, Color color, Vector3? rotation = null)
-    {
-        GameObject part = GameObject.CreatePrimitive(type);
-        part.name = partName;
-        part.transform.SetParent(parent, false);
-        part.transform.localPosition = position;
-        part.transform.localScale = scale;
-        part.transform.localEulerAngles = rotation ?? Vector3.zero;
-        Object.Destroy(part.GetComponent<Collider>());
-        part.GetComponent<Renderer>().material = BattleBootstrap.CreateMaterial(color);
-        return part;
-    }
 }

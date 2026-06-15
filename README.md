@@ -12,8 +12,8 @@ The organized product and technical specification set starts at
 Open `Assets/Scenes/SampleScene.unity` in Unity 6.3 LTS and press Play. The game
 opens on the **campaign map**: click a glowing enemy territory bordering your
 lands, compare its threat, reward, income, and arena, then click its assault
-button. Each assault launches that territory's regional battle; press Enter or
-click to begin the fight.
+button. Each assault launches that territory's regional battle; click to begin
+the fight.
 
 Conquer every territory to win the campaign; if your captain falls, the campaign
 is lost.
@@ -37,7 +37,6 @@ Unity menu. The executable is written to `Builds/Windows/ConquerOthers.exe`.
 | Release left mouse | Strike in the aimed direction |
 | Hold right mouse + move mouse | Block in that direction |
 | Escape | Release cursor |
-| R | Restart battle |
 
 The battle ends in victory when the enemy force is eliminated or in defeat when
 the player dies. Army size, enemy quality, and battlefield layout depend on the
