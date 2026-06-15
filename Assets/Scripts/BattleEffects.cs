@@ -12,6 +12,9 @@ public sealed class BattleEffects : MonoBehaviour
     private AudioClip perfectBlockClip;
     private AudioClip counterClip;
     private AudioClip swingClip;
+    private AudioClip heavySwingClip;
+    private AudioClip bowReleaseClip;
+    private AudioClip arrowImpactClip;
     private AudioClip whiffClip;
     private AudioClip footstepClip;
     private AudioClip victoryClip;
@@ -47,14 +50,24 @@ public sealed class BattleEffects : MonoBehaviour
         perfectBlockClip = Tone("Perfect Block", 920f, 0.2f, true);
         counterClip = Tone("Counter Strike", 360f, 0.18f, false);
         swingClip = Tone("Swing", 240f, 0.11f, false);
+        heavySwingClip = Tone("Heavy Swing", 155f, 0.18f, false);
+        bowReleaseClip = RuntimeAssets.Audio("Bow Release", CreateBowRelease);
+        arrowImpactClip = Tone("Arrow Impact", 430f, 0.1f, true);
         whiffClip = Tone("Whiff", 150f, 0.16f, true);
         footstepClip = Tone("Footstep", 72f, 0.09f, true);
         victoryClip = Tone("Victory", 440f, 0.55f, false);
     }
 
-    public void PlaySwing(Vector3 position, bool player)
+    public void PlayAttack(Vector3 position, bool player, WeaponType weapon)
     {
-        PlaySpatial(swingClip, position + Vector3.up, player ? 0.6f : 0.32f, player ? 1.08f : Random.Range(0.82f, 0.98f), 14f);
+        AudioClip clip = weapon == WeaponType.Bow ? bowReleaseClip
+            : weapon == WeaponType.TwoHandedSword ? heavySwingClip : swingClip;
+        float volume = weapon == WeaponType.Bow ? (player ? 0.72f : 0.42f)
+            : weapon == WeaponType.TwoHandedSword ? (player ? 0.74f : 0.42f) : (player ? 0.6f : 0.32f);
+        float pitch = weapon == WeaponType.Bow ? Random.Range(0.96f, 1.04f)
+            : weapon == WeaponType.TwoHandedSword ? Random.Range(0.86f, 0.94f)
+            : player ? 1.08f : Random.Range(0.82f, 0.98f);
+        PlaySpatial(clip, position + Vector3.up, volume, pitch, weapon == WeaponType.Bow ? 22f : 14f);
     }
 
     public void PlayFootstep(Vector3 position, bool player)
@@ -76,6 +89,14 @@ public sealed class BattleEffects : MonoBehaviour
             : counterStrike ? new Color(1f, 0.82f, 0.18f)
             : blocked ? new Color(1f, 0.78f, 0.25f) : new Color(0.85f, 0.12f, 0.05f);
         SpawnSparks(position + Vector3.up * 1.2f, color, perfectBlock ? 16 : counterStrike ? 12 : blocked ? 9 : 7);
+    }
+
+    public void PlayArrowImpact(Vector3 position, bool fighterHit)
+    {
+        PlaySpatial(arrowImpactClip, position, fighterHit ? 0.62f : 0.42f,
+            fighterHit ? Random.Range(0.86f, 0.96f) : Random.Range(1.02f, 1.16f), 18f);
+        SpawnSparks(position, fighterHit ? new Color(0.72f, 0.12f, 0.06f) : new Color(0.7f, 0.52f, 0.22f),
+            fighterHit ? 6 : 9);
     }
 
     public void PlayVictory()
@@ -171,6 +192,25 @@ public sealed class BattleEffects : MonoBehaviour
             samples[i] = Mathf.Sin(t * 66f * Mathf.PI * 2f) * envelope * 0.22f;
         }
         AudioClip clip = AudioClip.Create("Distant War Drums", length, 1, sampleRate, false);
+        clip.SetData(samples, 0);
+        return clip;
+    }
+
+    private static AudioClip CreateBowRelease()
+    {
+        const int sampleRate = 22050;
+        const float duration = 0.18f;
+        int length = Mathf.RoundToInt(sampleRate * duration);
+        float[] samples = new float[length];
+        for (int i = 0; i < length; i++)
+        {
+            float t = i / (float)sampleRate;
+            float envelope = Mathf.Exp(-t * 24f);
+            float stringSnap = Mathf.Sin(t * 820f * Mathf.PI * 2f) * envelope;
+            float body = Mathf.Sin(t * 118f * Mathf.PI * 2f) * Mathf.Exp(-t * 14f);
+            samples[i] = stringSnap * 0.32f + body * 0.24f;
+        }
+        AudioClip clip = AudioClip.Create("Bow Release", length, 1, sampleRate, false);
         clip.SetData(samples, 0);
         return clip;
     }

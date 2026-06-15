@@ -9,19 +9,20 @@ the game's strategic scope. The ordered remediation plan is defined in
 ## Near-Term Candidates
 
 - Tune directional combat timings, reach, movement penalties, and AI cadence.
-- Add incoming attack telegraphing for the player to react to.
+- Continue improving attack poses and animation readability without textual
+  directional cues.
 - Replace primitive fighters with coherent animated character assets.
 - Replace synthesized audio with recorded weapon, armor, voice, and ambience.
-- Add simple ally commands: follow, charge, and hold.
 
 ## Combat Extensions
 
 - Feints and attack cancellation.
 - Perfect blocks or parries.
 - Partial damage for wrong-direction blocks.
-- Additional weapon classes and speed profiles.
+- Additional weapon classes beyond the current sword-and-shield, two-handed
+  sword, and bow.
 - Armor and damage mitigation.
-- Two-handed weapons, spears, and mounted combat.
+- Spears and mounted combat.
 
 ## Battle Extensions
 
@@ -37,6 +38,12 @@ the game's strategic scope. The ordered remediation plan is defined in
 - Gold, territorial income, three recruitable unit tiers, escalating territory
   threats, and four regional battlefields (see
   [13-campaign-economy-units-and-regions.md](13-campaign-economy-units-and-regions.md)).
+- Persistent player equipment, two-handed swords, bows, weapon-specific AI,
+  and a consequence-free Training Arena (see
+  [14-weapons-equipment-and-training.md](14-weapons-equipment-and-training.md)).
+- Follow, Hold, and Charge ally orders, captain-centered formations, and
+  morale-driven retreats (see
+  [15-tactical-commands-formations-and-morale.md](15-tactical-commands-formations-and-morale.md)).
 
 ## Explicitly Excluded From Current Scope
 

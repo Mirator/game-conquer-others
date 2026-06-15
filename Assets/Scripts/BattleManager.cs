@@ -5,23 +5,26 @@ using UnityEngine.InputSystem;
 public sealed class BattleManager : MonoBehaviour
 {
     public enum BattleState { Ready, Fighting, Victory, Defeat }
+    public enum AllyCommand { Follow, Hold, Charge }
 
     public bool IsBattleRunning => State == BattleState.Fighting;
     public BattleState State { get; private set; } = BattleState.Ready;
+    public AllyCommand CurrentAllyCommand { get; private set; } = AllyCommand.Follow;
     public PlayerFighter Player { get; private set; }
     public int AlliesAlive => CountAlive(Team.Allies);
     public int EnemiesAlive => CountAlive(Team.Enemies);
     public string DebugAISummary => tactics.DebugSummary;
+    public bool IsTraining { get; private set; }
 
-    // Living allied soldiers excluding the player — this is what carries to the
-    // campaign roster (the player/captain is tracked separately).
+    // Surviving allied soldiers excluding the player, including withdrawals.
+    // This is what carries to the campaign roster.
     public int AlliedSoldiersAlive
     {
         get
         {
             int count = 0;
             foreach (BattleFighter fighter in fighters)
-                if (fighter.IsAlive && fighter.Team == Team.Allies && !fighter.IsPlayer)
+                if (fighter.SurvivedBattle && fighter.Team == Team.Allies && !fighter.IsPlayer)
                     count++;
             return count;
         }
@@ -31,7 +34,7 @@ public sealed class BattleManager : MonoBehaviour
     {
         int count = 0;
         foreach (BattleFighter fighter in fighters)
-            if (fighter.IsAlive && fighter.Team == Team.Allies && !fighter.IsPlayer && fighter.UnitType == type)
+            if (fighter.SurvivedBattle && fighter.Team == Team.Allies && !fighter.IsPlayer && fighter.UnitType == type)
                 count++;
         return count;
     }
@@ -43,6 +46,7 @@ public sealed class BattleManager : MonoBehaviour
     public string DebugSummary => $"State={State}, Blue={CountAlive(Team.Allies)}, Red={CountAlive(Team.Enemies)}, Time={battleTime:0.0}";
 
     private readonly List<BattleFighter> fighters = new();
+    private readonly Dictionary<AIFighter, Vector3> holdPositions = new();
     private BattleTactics tactics;
     private BattleEffects effects;
     private ThirdPersonCamera cameraRig;
@@ -60,13 +64,20 @@ public sealed class BattleManager : MonoBehaviour
     private int playerKills;
     private int playerPerfectBlocks;
     private int playerCounterHits;
+    private int projectileShots;
+    private int projectileHits;
+    private int arrowImpacts;
+    private int bowReleases;
+    private int heavyReleases;
+    private int retreats;
     private int initialAllies;
     private int initialEnemies;
 
-    public void Configure(BattleEffects battleEffects, ThirdPersonCamera rig)
+    public void Configure(BattleEffects battleEffects, ThirdPersonCamera rig, bool training = false)
     {
         effects = battleEffects;
         cameraRig = rig;
+        IsTraining = training;
         tactics = new BattleTactics(fighters, () => Player);
         gameObject.AddComponent<BattleHud>().Configure(this);
     }
@@ -90,6 +101,16 @@ public sealed class BattleManager : MonoBehaviour
             {
                 telemetryTimer = 0.25f;
                 tactics.UpdateTelemetry();
+            }
+
+            if (Keyboard.current != null)
+            {
+                if (Keyboard.current.digit1Key.wasPressedThisFrame)
+                    SetAllyCommand(AllyCommand.Follow);
+                else if (Keyboard.current.digit2Key.wasPressedThisFrame)
+                    SetAllyCommand(AllyCommand.Hold);
+                else if (Keyboard.current.digit3Key.wasPressedThisFrame)
+                    SetAllyCommand(AllyCommand.Charge);
             }
         }
 
@@ -181,11 +202,98 @@ public sealed class BattleManager : MonoBehaviour
     public Vector3 GetSeparation(BattleFighter seeker)
         => tactics.GetSeparation(seeker);
 
-    public void PlayAttackSound(Vector3 position, bool player) => effects?.PlaySwing(position, player);
+    public bool TryGetCommandPosition(AIFighter ally, BattleFighter target, out Vector3 position)
+    {
+        position = ally.transform.position;
+        if (ally.Team != Team.Allies || CurrentAllyCommand == AllyCommand.Charge || Player == null || !Player.IsAlive)
+            return false;
+
+        float threatDistance = target != null && target.IsAlive ? ally.DistanceTo(target) : float.MaxValue;
+        float defenseRadius = CurrentAllyCommand == AllyCommand.Hold ? 4.5f : 5.5f;
+        if (threatDistance <= defenseRadius)
+            return false;
+
+        if (CurrentAllyCommand == AllyCommand.Hold && holdPositions.TryGetValue(ally, out Vector3 held))
+            position = held;
+        else
+            position = GetFollowFormationPosition(ally);
+        return true;
+    }
+
+    public void SetAllyCommand(AllyCommand command)
+    {
+        if (IsTraining)
+            return;
+
+        CurrentAllyCommand = command;
+        holdPositions.Clear();
+        if (command == AllyCommand.Hold)
+        {
+            foreach (BattleFighter fighter in fighters)
+                if (fighter is AIFighter ally && ally.IsAlive && ally.Team == Team.Allies)
+                    holdPositions[ally] = ally.transform.position;
+        }
+
+        message = command switch
+        {
+            AllyCommand.Follow => "ALLIES: FORM ON ME",
+            AllyCommand.Hold => "ALLIES: HOLD THIS GROUND",
+            _ => "ALLIES: CHARGE"
+        };
+        messageTimer = 1.2f;
+    }
+
+    private Vector3 GetFollowFormationPosition(AIFighter ally)
+    {
+        int index = 0;
+        foreach (BattleFighter fighter in fighters)
+        {
+            if (fighter is not AIFighter candidate || !candidate.IsAlive || candidate.Team != Team.Allies)
+                continue;
+            if (candidate == ally)
+                break;
+            index++;
+        }
+
+        int row = index / 4;
+        int column = index % 4;
+        float side = (column - 1.5f) * 1.65f;
+        float depth = 1.5f - row * 1.7f;
+        return Player.transform.position + Player.transform.right * side + Player.transform.forward * depth;
+    }
+
+    public void PlayAttackSound(Vector3 position, bool player, WeaponType weapon)
+    {
+        if (weapon == WeaponType.Bow)
+            bowReleases++;
+        else if (weapon == WeaponType.TwoHandedSword)
+            heavyReleases++;
+        effects?.PlayAttack(position, player, weapon);
+    }
 
     public void PlayFootstep(Vector3 position, bool player) => effects?.PlayFootstep(position, player);
 
     public void ReportWhiff(BattleFighter attacker) => effects?.PlayWhiff(attacker.transform.position, attacker.IsPlayer);
+
+    public void SpawnArrow(BattleFighter attacker, Vector3 position, Vector3 direction, float damage)
+    {
+        projectileShots++;
+        GameObject arrow = new GameObject($"{attacker.Team} Arrow");
+        arrow.transform.SetParent(transform);
+        arrow.transform.position = position;
+        arrow.AddComponent<BattleProjectile>().Configure(this, attacker, direction, damage);
+    }
+
+    public BattleFighter FindProjectileTarget(BattleFighter attacker, Vector3 start, Vector3 end, float radius)
+        => FindSweptStrikeTarget(attacker, start, end, radius);
+
+    public void ReportProjectileHit() => projectileHits++;
+
+    public void ReportArrowImpact(Vector3 position, bool fighterHit)
+    {
+        arrowImpacts++;
+        effects?.PlayArrowImpact(position, fighterHit);
+    }
 
     public void ReportImpact(BattleFighter target, BattleFighter attacker, bool blocked, bool perfectBlock, bool counterStrike)
     {
@@ -239,6 +347,43 @@ public sealed class BattleManager : MonoBehaviour
             effects?.PlayVictory();
             UnlockCursor();
         }
+    }
+
+    public bool ShouldRetreat(AIFighter fighter)
+    {
+        if (fighter == null || fighter.IsRetreating || IsTraining)
+            return false;
+        int initial = fighter.Team == Team.Allies ? initialAllies : initialEnemies;
+        if (initial < 3)
+            return false;
+        int allies = CountAlive(fighter.Team);
+        int opponents = CountAlive(fighter.Team == Team.Allies ? Team.Enemies : Team.Allies);
+        bool shattered = allies <= Mathf.CeilToInt(initial * 0.25f);
+        bool badlyOutnumbered = allies <= Mathf.CeilToInt(initial * 0.5f) && allies * 2 <= opponents;
+        return shattered || badlyOutnumbered;
+    }
+
+    public void NotifyRetreat(AIFighter fighter)
+    {
+        if (fighter == null || !fighter.IsAlive)
+            return;
+        Team team = fighter.Team;
+        fighter.WithdrawFromBattle();
+        retreats++;
+        message = team == Team.Allies ? "AN ALLY HAS RETREATED" : "THE RED LINE IS BREAKING";
+        messageTimer = 1.2f;
+        if (team == Team.Enemies && CountAlive(Team.Enemies) == 0)
+        {
+            State = BattleState.Victory;
+            effects?.PlayVictory();
+            UnlockCursor();
+        }
+    }
+
+    public void NotifyMoraleBreak(Team team)
+    {
+        message = team == Team.Allies ? "ALLIED MORALE IS BREAKING" : "THE RED LINE IS BREAKING";
+        messageTimer = 1.5f;
     }
 
     // Dismisses the result screen and reports the outcome to the GameDirector.
@@ -308,7 +453,7 @@ public sealed class BattleManager : MonoBehaviour
         telemetryTimer = 0f;
         initialAllies = CountAlive(Team.Allies);
         initialEnemies = CountAlive(Team.Enemies);
-        message = "BREAK THE RED LINE";
+        message = IsTraining ? "SPAR WITH YOUR OPPONENT" : "BREAK THE RED LINE";
         messageTimer = 2.2f;
         LockCursor();
     }
@@ -357,4 +502,24 @@ public sealed class BattleManager : MonoBehaviour
     internal int PlayerCounterHits => playerCounterHits;
     internal int InitialAllies => initialAllies;
     internal int InitialEnemies => initialEnemies;
+    internal int ProjectileShots => projectileShots;
+    internal int ProjectileHits => projectileHits;
+    internal int ArrowImpacts => arrowImpacts;
+    internal int BowReleases => bowReleases;
+    internal int HeavyReleases => heavyReleases;
+    internal int Retreats => retreats;
+    internal int AlliesNearCommandPositions(float tolerance)
+    {
+        int count = 0;
+        foreach (BattleFighter fighter in fighters)
+        {
+            if (fighter is not AIFighter ally || !ally.IsAlive || ally.Team != Team.Allies)
+                continue;
+            Vector3 destination = CurrentAllyCommand == AllyCommand.Hold && holdPositions.TryGetValue(ally, out Vector3 held)
+                ? held : GetFollowFormationPosition(ally);
+            if (Vector3.Distance(ally.transform.position, destination) <= tolerance)
+                count++;
+        }
+        return count;
+    }
 }

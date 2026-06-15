@@ -58,4 +58,4 @@ if (-not $SkipBuild) {
 & (Join-Path $PSScriptRoot "RunStandaloneSmokes.ps1")
 
 $buildStatus = if ($SkipBuild) { "existing Windows build" } else { "Windows build" }
-Write-Host "Verification passed: EditMode, PlayMode, $buildStatus, victory smoke, and 6v6 natural smoke."
+Write-Host "Verification passed: EditMode, PlayMode, $buildStatus, victory, 6v6 natural, and command/morale smokes."

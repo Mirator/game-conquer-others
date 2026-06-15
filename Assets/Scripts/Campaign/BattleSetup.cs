@@ -13,6 +13,9 @@ public sealed class BattleSetup
     public float EnemyHealthScale = 1f;
     public string TargetName = "THE OLD COURTYARD";
     public ArenaType Arena = ArenaType.Courtyard;
+    public WeaponType PlayerWeapon = WeaponType.SwordAndShield;
+    public WeaponType TrainingEnemyWeapon = WeaponType.SwordAndShield;
+    public bool IsTraining;
 
     public static BattleSetup Default() => new BattleSetup();
 }

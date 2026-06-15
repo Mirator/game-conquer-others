@@ -103,7 +103,8 @@ minimum fighter distance, close pairs, and invalid target assignments.
 ### P3 - Improve Threat Readability
 
 1. Give AI attacks a clear preparation pose and minimum readable telegraph.
-2. Show an incoming-direction cue only for the player's current primary threat.
+2. Communicate incoming attacks through weapon pose and animation without
+   enemy-attached or textual directional cues.
 3. Reduce or hide health bars inside dense clusters unless recently damaged.
 4. Keep the primary opponent visible; avoid allies fully occluding the duel.
 5. Add a brief post-block counter window through longer attacker recovery.

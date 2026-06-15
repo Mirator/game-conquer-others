@@ -21,13 +21,13 @@ public sealed class BattleBootstrap : MonoBehaviour
 
         Camera camera = CreateCamera();
         ThirdPersonCamera cameraRig = camera.gameObject.AddComponent<ThirdPersonCamera>();
-        manager.Configure(effects, cameraRig);
-        PlayerFighter player = SpawnPlayer(manager, new Vector3(0f, 0.05f, -10f));
+        manager.Configure(effects, cameraRig, setup.IsTraining);
+        PlayerFighter player = SpawnPlayer(manager, new Vector3(0f, 0.05f, -10f), setup.PlayerWeapon);
         player.SetCamera(cameraRig);
         cameraRig.SetTarget(player.transform);
 
-        SpawnRoster(manager, Team.Allies, BuildAlliedRoster(setup), 1f);
-        SpawnRoster(manager, Team.Enemies, BuildEnemyRoster(setup), setup.EnemyHealthScale);
+        SpawnRoster(manager, Team.Allies, BuildAlliedRoster(setup), 1f, false, setup.TrainingEnemyWeapon);
+        SpawnRoster(manager, Team.Enemies, BuildEnemyRoster(setup), setup.EnemyHealthScale, setup.IsTraining, setup.TrainingEnemyWeapon);
         return manager;
     }
 
@@ -60,21 +60,22 @@ public sealed class BattleBootstrap : MonoBehaviour
         return units;
     }
 
-    private PlayerFighter SpawnPlayer(BattleManager manager, Vector3 position)
+    private PlayerFighter SpawnPlayer(BattleManager manager, Vector3 position, WeaponType weapon)
     {
         GameObject go = new GameObject("Player");
         go.transform.SetParent(battleRoot.transform);
         go.transform.position = position;
         go.layer = LayerMask.NameToLayer("Ignore Raycast");
         PlayerFighter fighter = go.AddComponent<PlayerFighter>();
-        fighter.Configure(manager, Team.Allies, true);
+        fighter.Configure(manager, Team.Allies, true, 1f, UnitType.Militia, weapon);
         manager.Register(fighter);
         return fighter;
     }
 
     // Lays soldiers out in ranks centered on each team's spawn line, scaled to
     // however many fighters the encounter calls for and clamped inside the walls.
-    private void SpawnRoster(BattleManager manager, Team team, List<UnitType> units, float healthScale)
+    private void SpawnRoster(BattleManager manager, Team team, List<UnitType> units, float healthScale,
+        bool forceWeapon, WeaponType forcedWeapon)
     {
         const float spacing = 2.2f;
         const int perRow = 6;
@@ -88,11 +89,12 @@ public sealed class BattleBootstrap : MonoBehaviour
             int rowCount = Mathf.Min(perRow, units.Count - row * perRow);
             float x = Mathf.Clamp((col - (rowCount - 1) * 0.5f) * spacing, -13f, 13f);
             float z = baseZ + row * rowStep;
-            SpawnAI(manager, team, new Vector3(x, 0.05f, z), healthScale, units[i]);
+            WeaponType weapon = forceWeapon ? forcedWeapon : WeaponCatalog.DefaultFor(units[i]);
+            SpawnAI(manager, team, new Vector3(x, 0.05f, z), healthScale, units[i], weapon);
         }
     }
 
-    private void SpawnAI(BattleManager manager, Team team, Vector3 position, float healthScale, UnitType unitType)
+    private void SpawnAI(BattleManager manager, Team team, Vector3 position, float healthScale, UnitType unitType, WeaponType weapon)
     {
         GameObject go = new GameObject(team == Team.Allies ? "Allied Soldier" : "Enemy Soldier");
         go.transform.SetParent(battleRoot.transform);
@@ -101,7 +103,7 @@ public sealed class BattleBootstrap : MonoBehaviour
         if (team == Team.Enemies)
             go.transform.rotation = Quaternion.Euler(0f, 180f, 0f);
         AIFighter fighter = go.AddComponent<AIFighter>();
-        fighter.Configure(manager, team, false, healthScale, unitType);
+        fighter.Configure(manager, team, false, healthScale, unitType, weapon);
         manager.Register(fighter);
     }
 

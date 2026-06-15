@@ -33,5 +33,6 @@ function Invoke-Smoke {
 
 Invoke-Smoke -Arguments @("-smokevictory") -Label "Headless victory smoke" -LogName "headless-victory-smoke.log"
 Invoke-Smoke -Arguments @("-smokelarge") -Label "Headless 6v6 natural smoke" -LogName "headless-natural-smoke.log"
+Invoke-Smoke -Arguments @("-smokecommands") -Label "Headless command and morale smoke" -LogName "headless-command-smoke.log"
 
-Write-Host "Standalone verification passed: victory smoke and 6v6 natural smoke."
+Write-Host "Standalone verification passed: victory, 6v6 natural, and command/morale smokes."

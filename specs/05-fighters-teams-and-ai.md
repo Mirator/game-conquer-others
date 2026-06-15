@@ -7,7 +7,8 @@ Player and AI fighters share:
 - Health, stamina, team membership, and death rules.
 - Directional attack and block state.
 - CharacterController-based movement.
-- Procedural sword, shield, limbs, and team-colored model.
+- Procedural sword-and-shield, two-handed sword, or bow model plus limbs and
+  team-colored clothing.
 - Hit flash, stagger, knockback, footstep, and death presentation.
 
 ## Combat States
@@ -57,6 +58,9 @@ not attacking.
 - A chosen block has roughly a 62% chance to match a player's incoming
   direction and 52% against another AI.
 - Blocks last between 0.4 and 0.8 seconds.
+- Archers hold ranged spacing, compensate for arrow drop, evade nearby enemies,
+  and can begin firing across the opening formation distance.
+- Two-handed swordsmen use a longer preferred melee range than shield users.
 
 ## Team Behavior
 
@@ -65,7 +69,11 @@ functional difference is which team they target and their health value. Allied
 target scoring avoids the enemy currently threatening the player, preserving a
 readable primary duel unless no better opponent is available.
 
+Allied soldiers additionally obey Follow, Hold, and Charge orders. AI forces
+can break morale after severe casualties and retreat from battle. See
+[15-tactical-commands-formations-and-morale.md](15-tactical-commands-formations-and-morale.md).
+
 ## Future AI Features
 
-Commands, formations, difficulty profiles, morale, and follow/charge/hold
-behavior are outside the current MVP.
+Difficulty profiles and more advanced coordinated maneuvers are outside the
+current MVP.

@@ -22,6 +22,10 @@ repeat.
 - A territory is **attackable** when it is not player-owned and borders at least
   one player-owned territory.
 - Selecting an attackable territory and confirming launches a battle.
+- The captain equipment panel selects the player's persistent weapon.
+- A separate Training Arena node launches a consequence-free 1v1. The player
+  chooses their weapon from captain equipment and chooses the opponent weapon
+  in the training setup panel.
 - The battle is parameterized by the encounter:
   - Allied soldiers spawned = the current roster (clamped to the arena cap).
   - Enemy soldiers spawned = the target's garrison.
@@ -34,6 +38,8 @@ repeat.
   types persist back to the roster; allied deaths are permanent. The player
   earns conquest gold plus income from all owned lands.
 - **Defeat** (player dies): the campaign is lost.
+- **Training result**: returns to the map without changing campaign economy,
+  roster, territory ownership, or defeat state.
 - The player clicks the result button to apply the outcome and return to the map.
 
 ## Win and Loss

@@ -7,9 +7,12 @@
 | W / A / S / D | Camera-relative movement |
 | Left Shift | Sprint |
 | Space | Dodge |
+| 1 / 2 / 3 | Order allies to Follow / Hold / Charge |
 | Hold left mouse + move mouse | Aim a directional attack |
 | Release left mouse | Strike in the aimed direction |
 | Hold right mouse + move mouse | Block in that direction |
+| Hold left mouse with bow | Draw bow while freely aiming the camera |
+| Release left mouse with bow | Fire through the crosshair |
 | Escape | Release cursor |
 
 ## Movement
@@ -47,7 +50,8 @@
 - Movement adds subtle bob and sway.
 - Impacts and dodges may add short camera shake.
 - Mouse look pauses while either combat mouse button is held, so direction
-  gestures do not rotate the camera. Normal look resumes immediately on release.
+  gestures do not rotate the camera. Bow aiming is the exception: mouse look
+  remains active while the bow is drawn.
 
 ## Camera Modes
 
@@ -56,3 +60,4 @@
 | Normal | 5.95 | 59 |
 | Sprinting | 6.6 | 64 |
 | Blocking | 5.45 | 56 |
+| Bow aiming | 5.15 | 51 |

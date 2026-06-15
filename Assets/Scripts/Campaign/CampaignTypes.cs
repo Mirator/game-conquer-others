@@ -13,6 +13,47 @@ public enum ArenaType
     Highlands
 }
 
+public enum WeaponType
+{
+    SwordAndShield,
+    TwoHandedSword,
+    Bow
+}
+
+public static class WeaponCatalog
+{
+    public static string Label(WeaponType type) => type switch
+    {
+        WeaponType.TwoHandedSword => "TWO-HANDED SWORD",
+        WeaponType.Bow => "BOW",
+        _ => "SWORD & SHIELD"
+    };
+
+    public static string ShortLabel(WeaponType type) => type switch
+    {
+        WeaponType.TwoHandedSword => "2H SWORD",
+        WeaponType.Bow => "BOW",
+        _ => "SWORD + SHIELD"
+    };
+
+    public static string Description(WeaponType type) => type switch
+    {
+        WeaponType.TwoHandedSword => "Long reach and heavy damage. Directional weapon blocks.",
+        WeaponType.Bow => "Draw with LMB. Hold until steady for accurate shots.",
+        _ => "Balanced melee weapon with a shield that can stop arrows."
+    };
+
+    public static WeaponType DefaultFor(UnitType unitType) => unitType switch
+    {
+        UnitType.Veteran => WeaponType.TwoHandedSword,
+        UnitType.Guard => WeaponType.Bow,
+        _ => WeaponType.SwordAndShield
+    };
+
+    public static WeaponType Next(WeaponType type) => (WeaponType)(((int)type + 1) % 3);
+    public static WeaponType Previous(WeaponType type) => (WeaponType)(((int)type + 2) % 3);
+}
+
 public static class UnitCatalog
 {
     public static int Cost(UnitType type) => type switch

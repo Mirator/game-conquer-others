@@ -121,7 +121,9 @@ public sealed class GameDirector : MonoBehaviour
 
     private void HandleBattleConcluded(BattleResult result)
     {
-        if (result.PlayerWon && pendingTarget != null)
+        if (currentSetup.IsTraining)
+            campaign.LastReport = $"Training completed with {WeaponCatalog.Label(currentSetup.PlayerWeapon)}.";
+        else if (result.PlayerWon && pendingTarget != null)
             campaign.ApplyVictory(pendingTarget, result);
         else if (!result.PlayerWon)
             campaign.ApplyDefeat();

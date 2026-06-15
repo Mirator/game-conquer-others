@@ -44,17 +44,23 @@ public sealed class BattleHud : MonoBehaviour
 
         DrawPanel(new Rect(width - 282f, 20f, 260f, 48f), new Color(0.035f, 0.045f, 0.055f, 0.82f));
         GUI.Label(new Rect(width - 268f, 27f, 232f, 32f), $"BLUE  {battle.CountAlive(Team.Allies)}       RED  {battle.CountAlive(Team.Enemies)}", labelStyle);
-        GUI.Label(new Rect(width * 0.5f - 10f, height * 0.5f - 14f, 20f, 20f), "+", centerStyle);
+        if (!battle.IsTraining)
+        {
+            DrawPanel(new Rect(22f, 20f, 275f, 66f), new Color(0.035f, 0.045f, 0.055f, 0.82f));
+            GUI.Label(new Rect(35f, 25f, 245f, 24f), $"ORDER: {CommandLabel(battle.CurrentAllyCommand)}", labelStyle);
+            GUI.Label(new Rect(35f, 51f, 245f, 20f), "1 FOLLOW    2 HOLD    3 CHARGE", smallStyle);
+        }
         if (battle.Player != null)
         {
-            DrawDirectionReticle(width * 0.5f, height * 0.5f);
-            string verb = battle.Player.IsBlocking ? "BLOCK" : battle.Player.IsChargingAttack ? "ATTACK" : "AIM";
-            CombatDirection shown = battle.Player.IsBlocking ? battle.Player.BlockDirection
-                : battle.Player.IsChargingAttack ? battle.Player.AttackDirection : battle.Player.SelectedDirection;
-            GUI.Label(new Rect(width * 0.5f - 100f, height * 0.5f + 44f, 200f, 24f), $"{verb}  {DirectionLabel(shown)}", smallCenterStyle);
+            if (battle.Player.IsRanged)
+                DrawBowReticle(width * 0.5f, height * 0.5f);
+            else
+            {
+                GUI.Label(new Rect(width * 0.5f - 10f, height * 0.5f - 14f, 20f, 20f), "+", centerStyle);
+                DrawDirectionReticle(width * 0.5f, height * 0.5f);
+            }
             if (battle.Player.IsCounterReady)
                 GUI.Label(new Rect(width * 0.5f - 120f, height * 0.5f + 66f, 240f, 24f), "COUNTER READY - STRIKE NOW", smallCenterStyle);
-            DrawPrimaryThreatCue(width, height);
         }
 
         if (battle.MessageTimer > 0f)
@@ -70,6 +76,47 @@ public sealed class BattleHud : MonoBehaviour
         }
     }
 
+    private void DrawBowReticle(float cx, float cy)
+    {
+        bool drawing = battle.Player.IsChargingAttack;
+        float draw = drawing ? battle.Player.BowDrawNormalized : 0f;
+        float precision = drawing ? battle.Player.BowPrecisionNormalized : 0f;
+        float radius = drawing ? Mathf.Lerp(42f, 11f, Mathf.SmoothStep(0f, 1f, precision)) : 31f;
+        Color color = !drawing ? new Color(0.78f, 0.8f, 0.82f, 0.7f)
+            : !battle.Player.BowPrecisionReady ? new Color(1f, 0.48f, 0.12f)
+            : Color.Lerp(new Color(1f, 0.78f, 0.18f), new Color(0.32f, 0.95f, 0.48f), precision);
+
+        GUI.color = color;
+        GUI.DrawTexture(new Rect(cx - 2f, cy - 2f, 4f, 4f), whiteTexture);
+        DrawReticleBracket(cx - radius, cy, true);
+        DrawReticleBracket(cx + radius, cy, true);
+        DrawReticleBracket(cx, cy - radius, false);
+        DrawReticleBracket(cx, cy + radius, false);
+
+        Rect track = new Rect(cx - 54f, cy + 58f, 108f, 5f);
+        GUI.color = new Color(0.04f, 0.05f, 0.06f, 0.85f);
+        GUI.DrawTexture(track, whiteTexture);
+        GUI.color = color;
+        GUI.DrawTexture(new Rect(track.x + 1f, track.y + 1f, (track.width - 2f) * draw, track.height - 2f), whiteTexture);
+        GUI.color = Color.white;
+        GUI.DrawTexture(new Rect(track.x + track.width * battle.Player.BowPrecisionThresholdNormalized,
+            track.y - 2f, 2f, track.height + 4f), whiteTexture);
+        if (drawing)
+        {
+            string state = precision >= 0.99f ? "STEADY" : battle.Player.BowPrecisionReady ? "TIGHTENING" : "DRAW";
+            GUI.color = color;
+            GUI.Label(new Rect(cx - 60f, cy + 63f, 120f, 18f), state, smallCenterStyle);
+        }
+        GUI.color = Color.white;
+    }
+
+    private void DrawReticleBracket(float x, float y, bool vertical)
+    {
+        float w = vertical ? 3f : 13f;
+        float h = vertical ? 13f : 3f;
+        GUI.DrawTexture(new Rect(x - w * 0.5f, y - h * 0.5f, w, h), whiteTexture);
+    }
+
     private void DrawStateScreen(float width, float height)
     {
         DrawPanel(new Rect(width * 0.5f - 285f, height * 0.5f - 205f, 570f, 410f), new Color(0.025f, 0.03f, 0.035f, 0.92f));
@@ -79,14 +126,21 @@ public sealed class BattleHud : MonoBehaviour
 
         if (battle.State == BattleManager.BattleState.Ready)
         {
-            string body = $"ASSAULT ON {battle.EncounterTitle}\nLead the blue soldiers and break the red line.\n\nWASD  Move       Shift  Sprint       Space  Dodge\nHold LMB + move mouse  Aim a swing, release to strike\nHold RMB + move mouse  Raise your shield that way\n\nMatch the incoming direction to block all damage.\nRaise the correct block at the last moment for a perfect block,\nthen strike during the counter window for bonus damage.\n\nCLICK TO BEGIN";
+            bool bow = battle.Player != null && battle.Player.IsRanged;
+            string controls = bow
+                ? "Hold LMB  Draw bow and aim with camera\nHold until STEADY for best precision, release to fire\nBow users cannot block - keep your distance"
+                : "Hold LMB + move mouse  Aim a swing, release to strike\nHold RMB + move mouse  Raise your guard that way\n\nMatch attack direction to block all damage.\nTime the block at the last moment, then counter.";
+            string encounter = battle.IsTraining ? "TRAINING ARENA" : $"ASSAULT ON {battle.EncounterTitle}";
+            string orders = battle.IsTraining ? "" : "\n1 Follow    2 Hold    3 Charge\n";
+            string body = $"{encounter}\nEQUIPPED: {(battle.Player != null ? WeaponCatalog.Label(battle.Player.Weapon) : "")}\n\nWASD  Move       Shift  Sprint       Space  Dodge\n{controls}{orders}\nCLICK TO BEGIN";
             GUI.Label(new Rect(width * 0.5f - 235f, height * 0.5f - 126f, 470f, 320f), body, bodyTopStyle);
             return;
         }
 
         string result = $"Battle time  {Mathf.FloorToInt(battle.BattleTime / 60f):00}:{Mathf.FloorToInt(battle.BattleTime % 60f):00}\n\nYOUR DAMAGE  {battle.PlayerDamageDealt:0}        ALLIES  {battle.AlliesDamageDealt:0}\nYOUR KILLS  {battle.PlayerKills}        DAMAGE TAKEN  {battle.PlayerDamageTaken:0}\nPERFECT BLOCKS  {battle.PlayerPerfectBlocks}        COUNTERS  {battle.PlayerCounterHits}\nBLUE LOSSES  {battle.InitialAllies - battle.CountAlive(Team.Allies)} / {battle.InitialAllies}        RED LOSSES  {battle.InitialEnemies - battle.CountAlive(Team.Enemies)} / {battle.InitialEnemies}";
         GUI.Label(new Rect(width * 0.5f - 245f, height * 0.5f - 118f, 490f, 150f), result, bodyTopStyle);
-        string buttonLabel = battle.State == BattleManager.BattleState.Victory ? "CLAIM THE TERRITORY" : "RETURN TO THE MAP";
+        string buttonLabel = battle.IsTraining ? "RETURN TO THE MAP"
+            : battle.State == BattleManager.BattleState.Victory ? "CLAIM THE TERRITORY" : "RETURN TO THE MAP";
         if (GUI.Button(new Rect(width * 0.5f - 140f, height * 0.5f + 70f, 280f, 40f), buttonLabel, buttonStyle))
             battle.ConfirmResult();
     }
@@ -107,19 +161,6 @@ public sealed class BattleHud : MonoBehaviour
             DrawBar(new Rect(screen.x / scale - 34f, (Screen.height - screen.y) / scale, 68f, 6f), fighter.HealthNormalized,
                 fighter.Team == Team.Allies ? new Color(0.15f, 0.48f, 0.95f) : new Color(0.9f, 0.16f, 0.1f));
         }
-    }
-
-    private void DrawPrimaryThreatCue(float width, float height)
-    {
-        BattleFighter threat = battle.FindIncomingThreat(battle.Player);
-        if (threat == null)
-            return;
-        float progress = threat.AttackTelegraphProgress;
-        Color cue = threat.Phase == CombatPhase.AttackRelease
-            ? new Color(1f, 0.18f, 0.08f) : Color.Lerp(new Color(1f, 0.82f, 0.18f), new Color(1f, 0.35f, 0.08f), progress);
-        GUI.color = cue;
-        GUI.Label(new Rect(width * 0.5f - 110f, height * 0.5f - 82f, 220f, 26f), $"INCOMING  {DirectionLabel(threat.AttackDirection)}", smallCenterStyle);
-        GUI.color = Color.white;
     }
 
     private void DrawDirectionReticle(float cx, float cy)
@@ -170,6 +211,13 @@ public sealed class BattleHud : MonoBehaviour
         GUI.color = Color.white;
     }
 
+    private static string CommandLabel(BattleManager.AllyCommand command) => command switch
+    {
+        BattleManager.AllyCommand.Follow => "FOLLOW",
+        BattleManager.AllyCommand.Hold => "HOLD",
+        _ => "CHARGE"
+    };
+
     private void EnsureStyles()
     {
         if (whiteTexture != null)
@@ -201,10 +249,4 @@ public sealed class BattleHud : MonoBehaviour
         bodyTopStyle = new GUIStyle(centerStyle) { alignment = TextAnchor.UpperCenter };
     }
 
-    private static string DirectionLabel(CombatDirection direction) => direction switch
-    {
-        CombatDirection.Up => "HIGH",
-        CombatDirection.Thrust => "THRUST",
-        _ => direction.ToString().ToUpperInvariant()
-    };
 }

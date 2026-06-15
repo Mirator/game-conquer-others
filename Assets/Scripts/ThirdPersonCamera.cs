@@ -5,8 +5,16 @@ public sealed class ThirdPersonCamera : MonoBehaviour
 {
     public Vector3 FlatForward => Vector3.ProjectOnPlane(transform.forward, Vector3.up).normalized;
     public Vector3 FlatRight => Vector3.ProjectOnPlane(transform.right, Vector3.up).normalized;
+    public Vector3 AimDirection => transform.forward;
+
+    public Vector3 GetProjectileAim(Vector3 origin)
+    {
+        Vector3 crosshairPoint = transform.position + transform.forward * 80f;
+        return (crosshairPoint - origin).normalized;
+    }
 
     private Transform target;
+    private PlayerFighter player;
     private Camera attachedCamera;
     private Vector3 previousTargetPosition;
     private Vector3 smoothPosition;
@@ -19,6 +27,7 @@ public sealed class ThirdPersonCamera : MonoBehaviour
     public void SetTarget(Transform followTarget)
     {
         target = followTarget;
+        player = followTarget.GetComponent<PlayerFighter>();
         yaw = followTarget.eulerAngles.y;
         attachedCamera = GetComponent<Camera>();
         previousTargetPosition = followTarget.position;
@@ -40,7 +49,8 @@ public sealed class ThirdPersonCamera : MonoBehaviour
             Vector2 delta = Mouse.current.delta.ReadValue();
             // Combat gestures select attack/block direction without dragging
             // the camera away from the opponent.
-            float lookScale = Mouse.current.leftButton.isPressed || Mouse.current.rightButton.isPressed ? 0f : 1f;
+            bool directionalGesture = player == null || !player.IsRanged;
+            float lookScale = directionalGesture && (Mouse.current.leftButton.isPressed || Mouse.current.rightButton.isPressed) ? 0f : 1f;
             yaw += delta.x * 0.11f * lookScale;
             pitch = Mathf.Clamp(pitch - delta.y * 0.085f * lookScale, -12f, 36f);
         }
@@ -53,9 +63,10 @@ public sealed class ThirdPersonCamera : MonoBehaviour
         stride += movementAmount * Time.deltaTime * (speed > 6f ? 12f : 9f);
 
         bool sprinting = Keyboard.current != null && Keyboard.current.leftShiftKey.isPressed && speed > 1f;
-        bool blocking = Mouse.current != null && Mouse.current.rightButton.isPressed;
-        float distance = sprinting ? 6.6f : blocking ? 5.45f : 5.95f;
-        float shoulder = blocking ? -0.5f : -0.38f;
+        bool blocking = player != null && player.CanBlock && Mouse.current != null && Mouse.current.rightButton.isPressed;
+        bool rangedAim = player != null && player.IsRangedAiming;
+        float distance = rangedAim ? 5.15f : sprinting ? 6.6f : blocking ? 5.45f : 5.95f;
+        float shoulder = rangedAim ? -0.62f : blocking ? -0.5f : -0.38f;
 
         Quaternion orbit = Quaternion.Euler(pitch, yaw, 0f);
         Vector3 forward = orbit * Vector3.forward;
@@ -81,7 +92,7 @@ public sealed class ThirdPersonCamera : MonoBehaviour
 
         if (attachedCamera != null)
         {
-            float targetFov = sprinting ? 64f : blocking ? 56f : 59f;
+            float targetFov = rangedAim ? 51f : sprinting ? 64f : blocking ? 56f : 59f;
             attachedCamera.fieldOfView = Mathf.Lerp(attachedCamera.fieldOfView, targetFov, 6f * Time.deltaTime);
         }
     }

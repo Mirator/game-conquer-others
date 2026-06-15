@@ -4,8 +4,10 @@ public abstract class BattleFighter : MonoBehaviour
 {
     public Team Team { get; private set; }
     public UnitType UnitType { get; private set; }
+    public WeaponType Weapon { get; private set; }
     public bool IsPlayer { get; private set; }
-    public bool IsAlive => health > 0f;
+    public bool IsAlive => health > 0f && !withdrawn;
+    public bool SurvivedBattle => health > 0f;
     public bool IsBlocking { get; private set; }
     public bool IsAttacking => Phase == CombatPhase.AttackWindup || Phase == CombatPhase.AttackHold || Phase == CombatPhase.AttackRelease || Phase == CombatPhase.AttackRecovery;
     public bool IsAttackThreatening => Phase == CombatPhase.AttackWindup || Phase == CombatPhase.AttackHold || Phase == CombatPhase.AttackRelease;
@@ -19,6 +21,17 @@ public abstract class BattleFighter : MonoBehaviour
     public bool IsChargingAttack => Phase == CombatPhase.AttackWindup || Phase == CombatPhase.AttackHold;
     public bool IsCounterReady => counterWindowTimer > 0f;
     public bool IsCounterAttack => counterAttack;
+    public bool IsRanged => Weapon == WeaponType.Bow;
+    public bool CanBlock => Weapon != WeaponType.Bow;
+    public float PreferredCombatRange => IsRanged ? 10f : Weapon == WeaponType.TwoHandedSword ? 2.35f : 1.8f;
+    public float BowDrawNormalized => IsRanged ? Mathf.Clamp01(bowDrawTimer / BowFullPrecisionTime) : 0f;
+    public float BowPrecisionNormalized => IsRanged
+        ? Mathf.InverseLerp(BowPrecisionThreshold, BowFullPrecisionTime, bowDrawTimer) : 0f;
+    public bool BowPrecisionReady => IsRanged && bowDrawTimer >= BowPrecisionThreshold;
+    public float BowPrecisionThresholdNormalized => BowPrecisionThreshold / BowFullPrecisionTime;
+    public float BowCurrentSpreadDegrees => IsRanged
+        ? Mathf.Lerp(BowLooseSpreadDegrees, BowPreciseSpreadDegrees,
+            Mathf.SmoothStep(0f, 1f, BowPrecisionNormalized)) : 0f;
     public float CurrentAttackDamageMultiplier => counterAttack ? 1.45f : 1f;
     public bool ShouldShowHealthBar => damageDisplayTimer > 0f;
     public float AttackChargeNormalized => Phase == CombatPhase.AttackWindup
@@ -35,6 +48,10 @@ public abstract class BattleFighter : MonoBehaviour
     private const float MaxStamina = 100f;
     private const float PerfectBlockWindow = 0.2f;
     private const float CounterWindow = 0.65f;
+    private const float BowPrecisionThreshold = 0.7f;
+    private const float BowFullPrecisionTime = 1.4f;
+    private const float BowLooseSpreadDegrees = 7.5f;
+    private const float BowPreciseSpreadDegrees = 0.25f;
 
     private float maxHealth;
     private float damageScale = 1f;
@@ -48,19 +65,25 @@ public abstract class BattleFighter : MonoBehaviour
     private float blockAge;
     private float counterWindowTimer;
     private float damageDisplayTimer;
+    private float bowDrawTimer;
     private bool releaseQueued;
     private bool dealtAttackDamage;
     private bool whiffRecovery;
     private bool counterAttack;
+    private bool withdrawn;
+    private Vector3 aimDirection;
+    private CombatDirection reactionDirection = CombatDirection.Right;
     private Vector3 previousStrikePoint;
     private BattleFighterPresentation presentation;
 
-    public void Configure(BattleManager owner, Team team, bool player, float healthScale = 1f, UnitType unitType = UnitType.Militia)
+    public void Configure(BattleManager owner, Team team, bool player, float healthScale = 1f,
+        UnitType unitType = UnitType.Militia, WeaponType weapon = WeaponType.SwordAndShield)
     {
         battle = owner;
         Team = team;
         IsPlayer = player;
         UnitType = unitType;
+        Weapon = weapon;
         maxHealth = player ? 125f : team == Team.Allies ? 110f : 100f;
         if (!player)
         {
@@ -68,7 +91,9 @@ public abstract class BattleFighter : MonoBehaviour
             damageScale = UnitCatalog.DamageScale(unitType);
         }
         health = maxHealth;
-        name = player ? "Player" : $"{team} {UnitCatalog.Label(unitType)}";
+        name = player ? $"Player - {WeaponCatalog.ShortLabel(weapon)}"
+            : $"{team} {UnitCatalog.Label(unitType)} - {WeaponCatalog.ShortLabel(weapon)}";
+        aimDirection = transform.forward;
 
         controller = gameObject.AddComponent<CharacterController>();
         controller.height = 1.85f;
@@ -77,7 +102,7 @@ public abstract class BattleFighter : MonoBehaviour
         controller.stepOffset = 0.32f;
         controller.skinWidth = 0.04f;
 
-        presentation = new BattleFighterPresentation(transform, Team, UnitType);
+        presentation = new BattleFighterPresentation(transform, Team, UnitType, Weapon);
     }
 
     protected virtual void Update()
@@ -100,6 +125,8 @@ public abstract class BattleFighter : MonoBehaviour
                 blockAge += Time.unscaledDeltaTime;
             stamina = Mathf.Min(MaxStamina, stamina + (IsBlocking ? 12f : 25f) * Time.deltaTime);
             staggerTimer = Mathf.Max(0f, staggerTimer - Time.deltaTime);
+            if (IsRanged && IsChargingAttack)
+                bowDrawTimer = Mathf.Min(BowFullPrecisionTime, bowDrawTimer + Time.deltaTime);
             UpdateAttack();
             if (Phase == CombatPhase.HitReaction && staggerTimer <= 0f)
                 Phase = CombatPhase.Idle;
@@ -136,7 +163,7 @@ public abstract class BattleFighter : MonoBehaviour
     protected bool PrepareAttack(CombatDirection direction)
     {
         bool useCounter = counterWindowTimer > 0f;
-        float staminaCost = useCounter ? 10f : 18f;
+        float staminaCost = IsRanged ? 12f : useCounter ? 10f : Weapon == WeaponType.TwoHandedSword ? 24f : 18f;
         if (!CanAct || IsAttacking || IsBlocking || stamina < staminaCost)
             return false;
 
@@ -150,6 +177,7 @@ public abstract class BattleFighter : MonoBehaviour
         releaseQueued = false;
         dealtAttackDamage = false;
         whiffRecovery = false;
+        bowDrawTimer = 0f;
         return true;
     }
 
@@ -175,6 +203,8 @@ public abstract class BattleFighter : MonoBehaviour
 
     protected bool SetBlock(bool active, CombatDirection direction)
     {
+        if (!CanBlock)
+            active = false;
         if (active && IsChargingAttack)
             CancelPreparedAttack();
         bool canBlock = CanAct && !IsAttacking;
@@ -196,7 +226,23 @@ public abstract class BattleFighter : MonoBehaviour
         return true;
     }
 
+    protected void CancelCombatForRetreat()
+    {
+        IsBlocking = false;
+        Phase = CombatPhase.Idle;
+        phaseTimer = 0f;
+        phaseDuration = 0f;
+        releaseQueued = false;
+        counterAttack = false;
+    }
+
     public void ReceiveHit(float damage, BattleFighter attacker, CombatDirection incomingDirection = CombatDirection.Right)
+        => ReceiveHitInternal(damage, attacker, incomingDirection, false);
+
+    public void ReceiveProjectileHit(float damage, BattleFighter attacker)
+        => ReceiveHitInternal(damage, attacker, CombatDirection.Thrust, true);
+
+    private void ReceiveHitInternal(float damage, BattleFighter attacker, CombatDirection incomingDirection, bool projectile)
     {
         if (!IsAlive)
             return;
@@ -204,7 +250,8 @@ public abstract class BattleFighter : MonoBehaviour
         Vector3 toAttacker = attacker.transform.position - transform.position;
         toAttacker.y = 0f;
         bool facingAttack = toAttacker.sqrMagnitude < 0.01f || Vector3.Dot(transform.forward, toAttacker.normalized) >= 0.707f;
-        bool guarded = IsBlocking && facingAttack && BlockDirection == incomingDirection;
+        bool guarded = IsBlocking && facingAttack
+            && (projectile ? Weapon == WeaponType.SwordAndShield : BlockDirection == incomingDirection);
         bool perfectBlock = guarded && blockAge <= PerfectBlockWindow;
 
         float appliedDamage = 0f;
@@ -221,6 +268,7 @@ public abstract class BattleFighter : MonoBehaviour
             health = Mathf.Max(0f, health - damage);
             appliedDamage = before - health;
             staggerTimer = 0.24f;
+            reactionDirection = incomingDirection;
             Phase = CombatPhase.HitReaction;
             IsBlocking = false;
             counterWindowTimer = 0f;
@@ -250,7 +298,7 @@ public abstract class BattleFighter : MonoBehaviour
 
         phaseTimer = Mathf.Max(0f, phaseTimer - Time.deltaTime);
 
-        if (Phase == CombatPhase.AttackRelease)
+        if (Phase == CombatPhase.AttackRelease && !IsRanged)
         {
             float progress = 1f - phaseTimer / Mathf.Max(phaseDuration, 0.0001f);
             Vector3 strikePoint = GetStrikePoint(AttackDirection, progress);
@@ -297,7 +345,7 @@ public abstract class BattleFighter : MonoBehaviour
     {
         hitFlashTimer = Mathf.Max(0f, hitFlashTimer - Time.deltaTime);
         presentation.Update(battle, IsPlayer, IsBlocking, AttackDirection, BlockDirection, Phase,
-            phaseTimer, phaseDuration, staggerTimer, whiffRecovery, hitFlashTimer);
+            phaseTimer, phaseDuration, staggerTimer, whiffRecovery, hitFlashTimer, reactionDirection);
     }
 
     private void Die()
@@ -307,7 +355,7 @@ public abstract class BattleFighter : MonoBehaviour
         if (controller != null)
             controller.enabled = false;
 
-        presentation.Fall();
+        presentation.Fall(reactionDirection);
         battle.NotifyDeath(this);
     }
 
@@ -318,7 +366,14 @@ public abstract class BattleFighter : MonoBehaviour
         phaseTimer = phaseDuration;
         releaseQueued = false;
         previousStrikePoint = GetStrikePoint(AttackDirection, 0f);
-        battle.PlayAttackSound(transform.position, IsPlayer);
+        battle.PlayAttackSound(transform.position, IsPlayer, Weapon);
+        if (IsRanged)
+        {
+            dealtAttackDamage = true;
+            Vector3 shotDirection = ApplyBowSpread(aimDirection, BowCurrentSpreadDegrees);
+            battle.SpawnArrow(this, transform.position + Vector3.up * 1.45f + aimDirection * 0.5f,
+                shotDirection, GetDamage(AttackDirection) * damageScale * CurrentAttackDamageMultiplier);
+        }
     }
 
     private void EnterRecovery()
@@ -364,13 +419,56 @@ public abstract class BattleFighter : MonoBehaviour
             _ => new Vector3(0.35f, 1.2f, AttackRange)
         };
         float eased = Mathf.SmoothStep(0f, 1f, progress);
-        return transform.TransformPoint(Vector3.Lerp(start, end, eased));
+        float reach = Weapon == WeaponType.TwoHandedSword ? 1.25f : 1f;
+        Vector3 point = Vector3.Lerp(start, end, eased);
+        point.z *= reach;
+        point.x *= Weapon == WeaponType.TwoHandedSword ? 1.12f : 1f;
+        return transform.TransformPoint(point);
     }
 
-    private static float GetWindup(CombatDirection direction) => direction == CombatDirection.Up ? 0.5f : direction == CombatDirection.Thrust ? 0.3f : 0.35f;
-    private static float GetRelease(CombatDirection direction) => direction == CombatDirection.Thrust ? 0.2f : 0.25f;
-    private static float GetRecovery(CombatDirection direction) => direction == CombatDirection.Up ? 0.6f : direction == CombatDirection.Thrust ? 0.4f : 0.45f;
-    private static float GetDamage(CombatDirection direction) => direction == CombatDirection.Up ? 35f : direction == CombatDirection.Thrust ? 20f : 25f;
+    private float GetWindup(CombatDirection direction)
+    {
+        if (IsRanged) return 0.62f;
+        float value = direction == CombatDirection.Up ? 0.5f : direction == CombatDirection.Thrust ? 0.3f : 0.35f;
+        return value * (Weapon == WeaponType.TwoHandedSword ? 1.22f : 1f);
+    }
+
+    private float GetRelease(CombatDirection direction)
+    {
+        if (IsRanged) return 0.08f;
+        float value = direction == CombatDirection.Thrust ? 0.2f : 0.25f;
+        return value * (Weapon == WeaponType.TwoHandedSword ? 1.08f : 1f);
+    }
+
+    private float GetRecovery(CombatDirection direction)
+    {
+        if (IsRanged) return 0.42f;
+        float value = direction == CombatDirection.Up ? 0.6f : direction == CombatDirection.Thrust ? 0.4f : 0.45f;
+        return value * (Weapon == WeaponType.TwoHandedSword ? 1.25f : 1f);
+    }
+
+    private float GetDamage(CombatDirection direction)
+    {
+        if (IsRanged) return 32f;
+        float value = direction == CombatDirection.Up ? 35f : direction == CombatDirection.Thrust ? 20f : 25f;
+        return value * (Weapon == WeaponType.TwoHandedSword ? 1.38f : 1f);
+    }
+
+    protected void SetAimDirection(Vector3 direction)
+    {
+        if (direction.sqrMagnitude > 0.01f)
+            aimDirection = direction.normalized;
+    }
+
+    private static Vector3 ApplyBowSpread(Vector3 direction, float spread)
+    {
+        Vector2 offset = Random.insideUnitCircle * spread;
+        Vector3 right = Vector3.Cross(Vector3.up, direction).normalized;
+        if (right.sqrMagnitude < 0.01f)
+            right = Vector3.right;
+        Vector3 up = Vector3.Cross(direction, right).normalized;
+        return (Quaternion.AngleAxis(offset.x, up) * Quaternion.AngleAxis(offset.y, right) * direction).normalized;
+    }
 
     public void DebugSetBlock(bool active, CombatDirection direction) => SetBlock(active, direction);
 
@@ -425,5 +523,42 @@ public abstract class BattleFighter : MonoBehaviour
     }
 
     public void DebugRestoreStamina() => stamina = MaxStamina;
+
+    public void DebugTeleport(Vector3 position)
+    {
+        bool enabled = controller != null && controller.enabled;
+        if (enabled)
+            controller.enabled = false;
+        transform.position = position;
+        if (enabled)
+            controller.enabled = true;
+    }
+
+    public void WithdrawFromBattle()
+    {
+        if (!IsAlive)
+            return;
+        withdrawn = true;
+        IsBlocking = false;
+        Phase = CombatPhase.Idle;
+        if (controller != null)
+            controller.enabled = false;
+        gameObject.SetActive(false);
+    }
+
+    public virtual void DebugAimAt(BattleFighter target)
+    {
+        if (target != null)
+            SetAimDirection(target.transform.position + Vector3.up * 1.1f - (transform.position + Vector3.up * 1.45f));
+    }
+
+    public void DebugReleasePreparedAttack()
+    {
+        if (IsRanged)
+            bowDrawTimer = BowFullPrecisionTime;
+        ReleasePreparedAttack(true);
+    }
+
+    public bool DebugTrailEmitting => presentation != null && presentation.IsTrailEmitting;
 
 }

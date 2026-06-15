@@ -13,6 +13,8 @@ The ready screen communicates:
 
 - Bottom-left player panel with health and stamina bars.
 - Top-right count of living blue and red fighters.
+- Top-left active ally order and `1 Follow / 2 Hold / 3 Charge` controls during
+  campaign battles.
 - Center crosshair with four directional tick marks:
   - Ticks are always visible, dimmed when idle.
   - The active direction tick brightens gold while attacking or aiming,

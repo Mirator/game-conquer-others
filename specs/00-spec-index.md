@@ -29,6 +29,8 @@ and implemented behavior by product area.
 | 11 | Campaign map and meta loop | [11-campaign-map-and-meta-loop.md](11-campaign-map-and-meta-loop.md) |
 | 12 | Combat readability and responsiveness | [12-combat-readability-and-responsiveness.md](12-combat-readability-and-responsiveness.md) |
 | 13 | Campaign economy, units, and regions | [13-campaign-economy-units-and-regions.md](13-campaign-economy-units-and-regions.md) |
+| 14 | Weapons, equipment, and training arena | [14-weapons-equipment-and-training.md](14-weapons-equipment-and-training.md) |
+| 15 | Tactical commands, formations, and morale | [15-tactical-commands-formations-and-morale.md](15-tactical-commands-formations-and-morale.md) |
 
 ## Related Files
 

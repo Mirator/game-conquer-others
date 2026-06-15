@@ -20,7 +20,9 @@ is lost.
 
 Spend gold on militia, veterans, and guards from the recruitment panel. Victory
 earns conquest gold and income, while surviving unit types carry into the next
-battle. See
+battle. Choose the captain's sword and shield, two-handed sword, or bow from
+the equipment panel. The separate Training Arena node launches consequence-free
+1v1 practice with independently selected enemy equipment. See
 [`specs/13-campaign-economy-units-and-regions.md`](specs/13-campaign-economy-units-and-regions.md).
 
 Create a standalone build with `Conquer Others > Build Windows MVP` in the
@@ -33,10 +35,16 @@ Unity menu. The executable is written to `Builds/Windows/ConquerOthers.exe`.
 | W / A / S / D | Move |
 | Left Shift | Sprint |
 | Space | Dodge |
+| 1 / 2 / 3 | Order allies to Follow / Hold / Charge |
 | Hold left mouse + move mouse | Aim a directional attack |
 | Release left mouse | Strike in the aimed direction |
 | Hold right mouse + move mouse | Block in that direction |
+| Hold / release left mouse with bow | Draw while aiming / fire through crosshair |
 | Escape | Release cursor |
+
+Bow shots begin inaccurate. Hold through the orange `DRAW` state; the reticle
+contracts after the marked threshold and turns green with `STEADY` at maximum
+precision.
 
 The battle ends in victory when the enemy force is eliminated or in defeat when
 the player dies. Army size, enemy quality, and battlefield layout depend on the

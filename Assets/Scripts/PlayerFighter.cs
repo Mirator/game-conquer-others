@@ -18,8 +18,10 @@ public sealed class PlayerFighter : BattleFighter
     private bool bufferedAttackReleased;
     private float blockBufferTimer;
     private float blockLatchTimer;
+    private float debugAimOverrideTimer;
 
     public CombatDirection SelectedDirection => selectedDirection;
+    public bool IsRangedAiming => IsRanged && IsChargingAttack;
 
     public void SetCamera(ThirdPersonCamera rig)
     {
@@ -34,15 +36,18 @@ public sealed class PlayerFighter : BattleFighter
 
         if (Mouse.current != null)
         {
-            bool combatGestureActive = Mouse.current.leftButton.isPressed || Mouse.current.rightButton.isPressed;
+            debugAimOverrideTimer = Mathf.Max(0f, debugAimOverrideTimer - Time.unscaledDeltaTime);
+            if (IsRanged && debugAimOverrideTimer <= 0f)
+                SetAimDirection(cameraRig.GetProjectileAim(transform.position + Vector3.up * 1.45f));
+            bool combatGestureActive = !IsRanged && (Mouse.current.leftButton.isPressed || Mouse.current.rightButton.isPressed);
             UpdateCombatGesture(combatGestureActive ? Mouse.current.delta.ReadValue() : Vector2.zero, combatGestureActive);
 
-            bool blockHeld = Mouse.current.rightButton.isPressed;
+            bool blockHeld = !IsRanged && Mouse.current.rightButton.isPressed;
             if (Mouse.current.rightButton.wasPressedThisFrame)
                 blockBufferTimer = ActionBufferDuration;
             blockBufferTimer = Mathf.Max(0f, blockBufferTimer - Time.unscaledDeltaTime);
             blockLatchTimer = Mathf.Max(0f, blockLatchTimer - Time.unscaledDeltaTime);
-            bool wantsBlock = blockHeld || blockBufferTimer > 0f || blockLatchTimer > 0f;
+            bool wantsBlock = !IsRanged && (blockHeld || blockBufferTimer > 0f || blockLatchTimer > 0f);
             if (SetBlock(wantsBlock, selectedDirection) && blockBufferTimer > 0f)
             {
                 blockBufferTimer = 0f;
@@ -59,11 +64,12 @@ public sealed class PlayerFighter : BattleFighter
                 bufferedAttackReleased = true;
                 ReleasePreparedAttack(true);
             }
-            if (Mouse.current.leftButton.isPressed)
+            if (Mouse.current.leftButton.isPressed && !IsRanged)
                 AimHeldAttack(selectedDirection);
 
             attackBufferTimer = Mathf.Max(0f, attackBufferTimer - Time.unscaledDeltaTime);
-            if (attackBufferTimer > 0f && !wantsBlock && PrepareAttack(selectedDirection))
+            CombatDirection attackDirection = IsRanged ? CombatDirection.Thrust : selectedDirection;
+            if (attackBufferTimer > 0f && !wantsBlock && PrepareAttack(attackDirection))
             {
                 attackBufferTimer = 0f;
                 if (bufferedAttackReleased)
@@ -138,5 +144,11 @@ public sealed class PlayerFighter : BattleFighter
             gestureDelta = Vector2.zero;
             gestureTimer = 0f;
         }
+    }
+
+    public override void DebugAimAt(BattleFighter target)
+    {
+        base.DebugAimAt(target);
+        debugAimOverrideTimer = 2f;
     }
 }

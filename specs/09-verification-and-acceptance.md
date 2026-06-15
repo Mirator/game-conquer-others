@@ -59,7 +59,19 @@ under a larger fighter count.
 
 Add `-smokeduel` to run a one-on-one readability scenario. It audits fresh and
 corrected-direction perfect blocks, ordinary blocks, the counter damage state,
-and captures a deterministic primary-threat telegraph.
+and forces a deterministic primary-threat attack telegraph.
+
+Add `-smokeweapons` to verify:
+
+- Campaign equipment reaches the player.
+- Training equipment reaches both duelists.
+- Player bow projectiles deal damage at range.
+- Bow NPCs independently fire and deal damage at range.
+- Repeated training results do not change campaign gold, roster, lands, or
+  defeat state.
+
+Add `-smokecommands` to verify Follow formation assembly, anchored Hold
+positions, unrestricted Charge behavior, and morale-driven enemy retreat.
 
 Add `-smokevictory` to:
 
@@ -77,8 +89,9 @@ conquests and persistent campaign progression.
 
 Run `.\Tools\Verify.ps1` from PowerShell to execute EditMode tests, PlayMode
 tests, the custom Windows shipping build, a headless standalone victory smoke,
-and a headless 6v6 natural-combat smoke. `.\Tools\RunStandaloneSmokes.ps1`
-re-runs both smokes against an existing build.
+a headless 6v6 natural-combat smoke, and a command/morale smoke.
+`.\Tools\RunStandaloneSmokes.ps1` re-runs all three smokes against an existing
+build.
 
 Deterministic PlayMode tests cover directional combat diagnostics, perfect
 blocks and counters, attack-permission limits, engagement-slot distribution,
@@ -86,7 +99,7 @@ separation steering, and battle-result lifecycle behavior.
 
 GitHub Actions runs the Unity test suites, invokes the same
 `MvpBuilder.BuildWindows` shipping build, and executes the resulting player on a
-Windows runner through both standalone smokes.
+Windows runner through all three standalone smokes.
 
 ## Current Verified Status
 
@@ -100,8 +113,14 @@ Windows runner through both standalone smokes.
 - P0/P1 responsive combat audit: passed.
 - P2 tactical AI coordination audit: passed.
 - P3 threat readability and perfect-block/counter audit: passed.
-- Deterministic duel telegraph capture: passed; one primary threat displays one
-  incoming-direction cue near the reticle without enemy-attached text.
+- Deterministic duel telegraph audit: passed; attack animation remains readable
+  without enemy-attached or textual directional cues.
+- Weapon and training audit: passed; bow player damage, bow NPC damage,
+  two-handed loadouts, selected equipment, and consequence-free training return
+  were verified.
+- Tactical command and morale audit: passed; Follow formation, anchored Hold,
+  Charge, enemy withdrawal, and allied-retreater roster preservation were
+  verified.
 - Three repeated natural battles and a 6v6 stress battle passed with the new
   combat feedback and counter systems.
 - Repeated natural 4v4 battles: player attacker limit held at one; no central

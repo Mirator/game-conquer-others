@@ -13,6 +13,8 @@ public sealed class CampaignState
     public int Seed;
     public bool CampaignOver; // set when the player is defeated
     public string LastReport = "Choose a border territory or strengthen your warband.";
+    public WeaponType PlayerWeapon = WeaponType.SwordAndShield;
+    public WeaponType TrainingEnemyWeapon = WeaponType.SwordAndShield;
 
     public const int WarbandCap = 12;
 
@@ -195,7 +197,20 @@ public sealed class CampaignState
         EnemyGuards = t.Threat >= 4 ? 1 : 0,
         EnemyHealthScale = t.DifficultyScale,
         TargetName = t.Name.ToUpperInvariant(),
-        Arena = t.Arena
+        Arena = t.Arena,
+        PlayerWeapon = PlayerWeapon
+    };
+
+    public BattleSetup BuildTrainingSetup() => new BattleSetup
+    {
+        AllyCount = 0,
+        EnemyCount = 1,
+        EnemyHealthScale = 1f,
+        TargetName = "TRAINING ARENA",
+        Arena = ArenaType.Courtyard,
+        PlayerWeapon = PlayerWeapon,
+        TrainingEnemyWeapon = TrainingEnemyWeapon,
+        IsTraining = true
     };
 
     public bool CanRecruit(UnitType type) => Roster < WarbandCap && Gold >= UnitCatalog.Cost(type);
