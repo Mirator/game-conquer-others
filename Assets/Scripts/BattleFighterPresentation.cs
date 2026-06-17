@@ -312,6 +312,15 @@ public sealed class BattleFighterPresentation
             swordEuler = Vector3.Lerp(recoveryStart, new Vector3(72f, 0f, 8f), progress);
         }
 
+        // Authored fighters carry the sword in a fixed blade-up grip on the hand
+        // bone and let the Sword_Idle/Attack/Block clips swing the arm. The
+        // procedural per-phase angles below are tuned for the primitive rig and
+        // would force the blade flat-forward (a "lance") on the authored hand.
+        if (hasAuthoredModel)
+        {
+            swordEuler = new Vector3(-90f, 0f, 0f);
+            swordPivot.localPosition = swordBasePosition;
+        }
         swordPivot.localRotation = Quaternion.Euler(swordEuler);
         shieldPivot.localRotation = Quaternion.Euler(isBlocking ? GetBlockPose(blockDirection) : new Vector3(-12f, 0f, -8f));
         if (weapon == WeaponType.TwoHandedSword)

@@ -16,6 +16,8 @@ public static class PresentationSmokeRunner
     private static double stepAt;
     private static GameDirector director;
     private static bool requestedTitleReset;
+    private static double swordShotAt;
+    private static int swordShot;
 
     static PresentationSmokeRunner()
     {
@@ -136,14 +138,26 @@ public static class PresentationSmokeRunner
         {
             if (!AfterDelay(3.5d))
                 return;
-            Capture("presentation-battle-late.png");
-            BattleManager closeupManager = Object.FindFirstObjectByType<BattleManager>();
-            if (closeupManager != null && closeupManager.Player != null)
-                CaptureCloseup(closeupManager.Player.transform, "presentation-fighter-closeup.png");
-            Transform archer = FindArcher();
-            if (archer != null)
-                CaptureCloseup(archer, "presentation-archer-closeup.png");
-            Advance();
+            if (EditorApplication.timeSinceStartup - swordShotAt < 0.18d)
+                return;
+            swordShotAt = EditorApplication.timeSinceStartup;
+            BattleManager m = Object.FindFirstObjectByType<BattleManager>();
+            BattleFighter p = m != null ? m.Player : null;
+            if (swordShot == 0)
+            {
+                Capture("presentation-battle-late.png");
+                if (p != null) CaptureCloseup(p.transform, "presentation-sword-0-idle.png");
+                Transform archer = FindArcher();
+                if (archer != null) CaptureCloseup(archer, "presentation-archer-closeup.png");
+                if (p != null) p.DebugPrepareAttack(CombatDirection.Right);
+            }
+            else if (p != null)
+            {
+                CaptureCloseup(p.transform, $"presentation-sword-{swordShot}.png");
+            }
+            swordShot++;
+            if (swordShot > 6)
+                Advance();
             return;
         }
 
@@ -236,6 +250,8 @@ public static class PresentationSmokeRunner
         step = 0;
         director = null;
         requestedTitleReset = false;
+        swordShot = 0;
+        swordShotAt = 0d;
         startedAt = EditorApplication.timeSinceStartup;
         stepAt = startedAt;
     }
