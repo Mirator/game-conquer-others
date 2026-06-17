@@ -31,8 +31,8 @@ public static class PresentationAssetBuilder
         new("FormationWalk", "FormationWalk", "Armature|Walk_Formal_Loop"),
         new("Jog", "Jog", "Armature|Jog_Fwd_Loop"),
         new("Attack", "Sword_Attack", "Armature|Sword_Regular_A", "Armature|Sword_Attack"),
-        new("Attack_Up", "Sword_Attack_Up", "Armature|Sword_Attack", "Armature|Sword_Regular_C"),
-        new("Attack_Left", "Sword_Attack_Left", "Armature|Sword_Regular_A"),
+        new("Attack_Up", "Sword_Attack_Up", "Armature|Sword_Regular_B"),
+        new("Attack_Left", "Sword_Attack_Left", "Armature|Sword_Regular_C"),
         // Attack_Right is the Attack_Left swing mirrored (added in EnsureFighterController).
         new("Attack_Thrust", "Sword_Attack_Thrust", "Armature|Sword_Dash_RM", "Armature|Sword_Regular_Combo"),
         new("Block", "Sword_Block", "Armature|Sword_Block"),
