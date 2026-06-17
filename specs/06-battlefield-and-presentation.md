@@ -39,11 +39,12 @@ atmosphere, and movement routes.
 
 ## Visual Style
 
-- Runtime-generated low-poly primitives.
+- Heroic, readable, stylized low-poly medieval presentation.
 - Blue and red team colors provide immediate faction readability.
-- Fighters use simple procedural sword-and-shield silhouettes.
-- Warm directional sunlight, ambient fill, fog, and torch lights establish mood.
-- Presentation prioritizes combat readability over realism.
+- Arena visuals and fighter views are replaceable through `PresentationCatalog`.
+- Warm directional sunlight, ambient fill, fog, landmarks, and limited torch
+  lights establish mood without obscuring combat routes.
+- Procedural presentation is a migration fallback, not the final shipping path.
 
 ## Animation and Reactions
 
@@ -56,15 +57,10 @@ atmosphere, and movement routes.
 
 ## Audio and Effects
 
-All current audio is procedurally generated:
+Recorded CC0 clip sets are used where curated assets exist:
 
-- Spatial sword swings, hits, blocks, and footsteps.
+- Randomized spatial sword swings, blocks, and footsteps.
 - Looping courtyard wind and distant drums.
 - Victory cue.
-- Red hit sparks and gold block sparks.
+- Pooled flesh-hit, metal-block, and perfect-block particles.
 - Small impact camera shake.
-
-## Future Presentation Work
-
-Replace primitive fighters, procedural animation, and synthesized audio with
-production assets only after combat behavior is approved.

@@ -3,7 +3,9 @@ using UnityEngine;
 
 public sealed class BattleEffects : MonoBehaviour
 {
-    private readonly List<Spark> sparks = new();
+    private readonly List<ParticleSystem> particlePool = new();
+    private PresentationCatalog catalog;
+    private int particleCursor;
     private AudioSource uiSource;
     private AudioSource ambienceSource;
     private AudioSource drumSource;
@@ -19,16 +21,9 @@ public sealed class BattleEffects : MonoBehaviour
     private AudioClip footstepClip;
     private AudioClip victoryClip;
 
-    private sealed class Spark
-    {
-        public GameObject GameObject;
-        public Vector3 Velocity;
-        public float Life;
-        public float MaxLife;
-    }
-
     private void Awake()
     {
+        catalog = PresentationCatalog.Load();
         uiSource = gameObject.AddComponent<AudioSource>();
         uiSource.spatialBlend = 0f;
         uiSource.volume = 0.42f;
@@ -45,17 +40,19 @@ public sealed class BattleEffects : MonoBehaviour
         drumSource.volume = 0.12f;
         drumSource.Play();
 
-        hitClip = Tone("Hit", 115f, 0.12f, true);
-        blockClip = Tone("Block", 620f, 0.13f, true);
+        hitClip = RandomClip(catalog != null ? catalog.impacts : null) ?? Tone("Hit", 115f, 0.12f, true);
+        blockClip = RandomClip(catalog != null ? catalog.blocks : null) ?? Tone("Block", 620f, 0.13f, true);
         perfectBlockClip = Tone("Perfect Block", 920f, 0.2f, true);
         counterClip = Tone("Counter Strike", 360f, 0.18f, false);
-        swingClip = Tone("Swing", 240f, 0.11f, false);
+        swingClip = RandomClip(catalog != null ? catalog.swings : null) ?? Tone("Swing", 240f, 0.11f, false);
         heavySwingClip = Tone("Heavy Swing", 155f, 0.18f, false);
         bowReleaseClip = RuntimeAssets.Audio("Bow Release", CreateBowRelease);
         arrowImpactClip = Tone("Arrow Impact", 430f, 0.1f, true);
         whiffClip = Tone("Whiff", 150f, 0.16f, true);
-        footstepClip = Tone("Footstep", 72f, 0.09f, true);
+        footstepClip = RandomClip(catalog != null ? catalog.footsteps : null) ?? Tone("Footstep", 72f, 0.09f, true);
         victoryClip = Tone("Victory", 440f, 0.55f, false);
+        for (int i = 0; i < 8; i++)
+            particlePool.Add(CreateParticleEmitter(i));
     }
 
     public void PlayAttack(Vector3 position, bool player, WeaponType weapon)
@@ -105,24 +102,6 @@ public sealed class BattleEffects : MonoBehaviour
         uiSource.PlayOneShot(victoryClip, 0.7f);
     }
 
-    private void Update()
-    {
-        for (int i = sparks.Count - 1; i >= 0; i--)
-        {
-            Spark spark = sparks[i];
-            spark.Life -= Time.unscaledDeltaTime;
-            if (spark.Life <= 0f)
-            {
-                Destroy(spark.GameObject);
-                sparks.RemoveAt(i);
-                continue;
-            }
-            spark.Velocity += Physics.gravity * 0.35f * Time.unscaledDeltaTime;
-            spark.GameObject.transform.position += spark.Velocity * Time.unscaledDeltaTime;
-            spark.GameObject.transform.localScale = Vector3.one * (spark.Life / spark.MaxLife * 0.11f);
-        }
-    }
-
     private void PlaySpatial(AudioClip clip, Vector3 position, float volume, float pitch, float maxDistance)
     {
         GameObject soundObject = new GameObject($"Sound - {clip.name}");
@@ -130,7 +109,7 @@ public sealed class BattleEffects : MonoBehaviour
         soundObject.transform.SetParent(transform);
         AudioSource source = soundObject.AddComponent<AudioSource>();
         source.clip = clip;
-        source.volume = volume;
+        source.volume = volume * (SettingsService.Current != null ? SettingsService.Current.effectsVolume : 1f);
         source.pitch = pitch;
         source.spatialBlend = 1f;
         source.rolloffMode = AudioRolloffMode.Linear;
@@ -142,24 +121,40 @@ public sealed class BattleEffects : MonoBehaviour
 
     private void SpawnSparks(Vector3 position, Color color, int count)
     {
-        for (int i = 0; i < count; i++)
-        {
-            GameObject sparkObject = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            sparkObject.name = "Impact Spark";
-            sparkObject.transform.SetParent(transform);
-            sparkObject.transform.position = position + Random.insideUnitSphere * 0.18f;
-            sparkObject.transform.localScale = Vector3.one * 0.1f;
-            Destroy(sparkObject.GetComponent<Collider>());
-            sparkObject.GetComponent<Renderer>().sharedMaterial = RuntimeAssets.Material(color, true);
-            sparks.Add(new Spark
-            {
-                GameObject = sparkObject,
-                Velocity = Random.onUnitSphere * Random.Range(1.5f, 3.5f) + Vector3.up * 1.2f,
-                Life = 0.42f,
-                MaxLife = 0.42f
-            });
-        }
+        ParticleSystem particles = particlePool[particleCursor++ % particlePool.Count];
+        particles.transform.position = position;
+        ParticleSystem.MainModule main = particles.main;
+        main.startColor = color;
+        particles.Emit(count);
     }
+
+    private ParticleSystem CreateParticleEmitter(int index)
+    {
+        GameObject go = new($"Impact Particles {index}");
+        go.transform.SetParent(transform);
+        ParticleSystem particles = go.AddComponent<ParticleSystem>();
+        particles.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+        ParticleSystem.MainModule main = particles.main;
+        main.loop = false;
+        main.playOnAwake = false;
+        main.duration = 0.45f;
+        main.startLifetime = new ParticleSystem.MinMaxCurve(0.25f, 0.5f);
+        main.startSpeed = new ParticleSystem.MinMaxCurve(1.5f, 4f);
+        main.startSize = new ParticleSystem.MinMaxCurve(0.035f, 0.11f);
+        main.gravityModifier = 0.5f;
+        main.maxParticles = 48;
+        ParticleSystem.EmissionModule emission = particles.emission;
+        emission.enabled = false;
+        ParticleSystem.ShapeModule shape = particles.shape;
+        shape.shapeType = ParticleSystemShapeType.Sphere;
+        shape.radius = 0.16f;
+        ParticleSystemRenderer renderer = particles.GetComponent<ParticleSystemRenderer>();
+        renderer.sharedMaterial = RuntimeAssets.Material(Color.white, true);
+        return particles;
+    }
+
+    private static AudioClip RandomClip(AudioClip[] clips)
+        => clips != null && clips.Length > 0 ? clips[Random.Range(0, clips.Length)] : null;
 
     private static AudioClip CreateAmbience(float duration)
     {

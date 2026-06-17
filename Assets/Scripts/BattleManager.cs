@@ -122,10 +122,10 @@ public sealed class BattleManager : MonoBehaviour
             BeginBattle();
         if (Keyboard.current.escapeKey.wasPressedThisFrame)
         {
-            Cursor.lockState = CursorLockMode.None;
-            Cursor.visible = true;
+            GameDirector.Instance?.TogglePause();
         }
-        if (State == BattleState.Fighting && Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame && Cursor.lockState != CursorLockMode.Locked)
+        if (State == BattleState.Fighting && (GameDirector.Instance == null || !GameDirector.Instance.IsPaused)
+            && Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame && Cursor.lockState != CursorLockMode.Locked)
             LockCursor();
     }
 

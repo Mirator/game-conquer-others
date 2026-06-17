@@ -9,21 +9,25 @@ public sealed class GameDirector : MonoBehaviour
 {
     public static GameDirector Instance { get; private set; }
 
-    public enum Mode { Map, Battle }
+    public enum Mode { Title, Map, Battle }
     public Mode CurrentMode { get; private set; }
     public CampaignState Campaign => campaign;
-    public bool IsModeReady(Mode mode) => !transitioning
-        && (mode == Mode.Map ? mapRoot != null : battleRoot != null);
+    public bool IsPaused { get; private set; }
+    public bool IsModeReady(Mode mode) => !transitioning && CurrentMode == mode
+        && (mode == Mode.Title ? frontend != null : mode == Mode.Map ? mapRoot != null : battleRoot != null);
 
     private BattleBootstrap battleBuilder;
     private CampaignState campaign;
     private GameObject battleRoot;
     private GameObject mapRoot;
+    private GameObject titleRoot;
+    private FrontendUi frontend;
     private BattleSetup currentSetup = BattleSetup.Default();
     private Territory pendingTarget;
     private int campaignSeed = 1;
     private bool transitioning;
     private bool smokeStarted;
+    private static readonly string[] PresentationRootNames = { "Frontend", "Campaign Map", "Battle" };
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     private static void Initialize()
@@ -35,18 +39,29 @@ public sealed class GameDirector : MonoBehaviour
 
     private void Awake()
     {
+        if (Instance != null && Instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
         Instance = this;
         DontDestroyOnLoad(gameObject);
         Application.runInBackground = true;
+        DestroyStrayPresentationRoots();
 
         // One-time: silence the SampleScene's default camera/light. Each mode
         // builds its own afterwards, so this must not run on every mode switch.
         DisableSceneDefaults();
         battleBuilder = gameObject.AddComponent<BattleBootstrap>();
+        SettingsService.Load();
 
         campaign = CampaignState.CreateDefault(campaignSeed);
         MaybeStartSmoke();
-        EnterMap();
+        BuildFrontend();
+        if (smokeStarted)
+            EnterMap();
+        else
+            ReturnToTitle();
     }
 
     public void LaunchBattle(BattleSetup setup, Territory target = null)
@@ -58,12 +73,68 @@ public sealed class GameDirector : MonoBehaviour
 
     public void EnterMap() => StartCoroutine(TransitionTo(Mode.Map));
 
-    public void RestartCampaign()
+    public void StartNewCampaign()
     {
         campaignSeed++;
         campaign = CampaignState.CreateDefault(campaignSeed);
         pendingTarget = null;
         EnterMap();
+    }
+
+    public void RestartCampaign()
+    {
+        StartNewCampaign();
+    }
+
+    public void TogglePause()
+    {
+        if (CurrentMode != Mode.Battle && !IsPaused)
+            return;
+        if (IsPaused)
+            Resume();
+        else
+            Pause();
+    }
+
+    public void Pause()
+    {
+        if (IsPaused || CurrentMode != Mode.Battle)
+            return;
+        IsPaused = true;
+        Time.timeScale = 0f;
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
+        frontend?.ShowPause(true);
+    }
+
+    public void Resume()
+    {
+        if (!IsPaused)
+            return;
+        IsPaused = false;
+        Time.timeScale = 1f;
+        frontend?.ShowPause(false);
+        BattleManager manager = FindFirstObjectByType<BattleManager>();
+        if (manager != null && manager.State == BattleManager.BattleState.Fighting)
+        {
+            Cursor.lockState = CursorLockMode.Locked;
+            Cursor.visible = false;
+        }
+    }
+
+    public void ReturnToTitle()
+    {
+        Resume();
+        StartCoroutine(TransitionTo(Mode.Title));
+    }
+
+    public void Quit()
+    {
+#if UNITY_EDITOR
+        UnityEditor.EditorApplication.isPlaying = false;
+#else
+        Application.Quit();
+#endif
     }
 
     public Territory FirstAttackableTarget()
@@ -78,6 +149,8 @@ public sealed class GameDirector : MonoBehaviour
         if (transitioning)
             yield break;
         transitioning = true;
+        if (IsPaused)
+            Resume();
 
         // Cursor is visible on the map and on the battle's Ready screen; the
         // battle re-locks it when the fight actually begins.
@@ -94,15 +167,25 @@ public sealed class GameDirector : MonoBehaviour
             Destroy(mapRoot);
             mapRoot = null;
         }
+        DestroyStrayPresentationRoots();
         yield return null; // let the deferred Destroy complete before rebuilding
 
         if (target == Mode.Battle)
             BuildBattleRoot();
-        else
+        else if (target == Mode.Map)
             BuildMapRoot();
 
         CurrentMode = target;
+        frontend?.ShowTitle(target == Mode.Title);
         transitioning = false;
+    }
+
+    private void BuildFrontend()
+    {
+        titleRoot = new GameObject("Frontend");
+        titleRoot.transform.SetParent(transform);
+        frontend = titleRoot.AddComponent<FrontendUi>();
+        frontend.Configure(this);
     }
 
     private void BuildBattleRoot()
@@ -135,11 +218,49 @@ public sealed class GameDirector : MonoBehaviour
     {
         if (smokeStarted)
             return;
+        if (System.Array.Exists(System.Environment.GetCommandLineArgs(), argument => argument == "-smokepresentation"))
+        {
+            gameObject.AddComponent<PresentationRuntimeSmoke>().Configure(this);
+            return;
+        }
         if (System.Array.Exists(System.Environment.GetCommandLineArgs(), argument => argument == "-smoketest"))
         {
             smokeStarted = true;
             gameObject.AddComponent<BattleRuntimeSmoke>().Configure(this);
         }
+    }
+
+    private void OnDestroy()
+    {
+        if (Instance == this)
+            Instance = null;
+        Time.timeScale = 1f;
+    }
+
+    private void DestroyStrayPresentationRoots()
+    {
+        foreach (Transform transform in FindObjectsByType<Transform>(FindObjectsSortMode.None))
+        {
+            if (!IsPresentationRootName(transform.name))
+                continue;
+            // Unity "fake-null" (destroyed/unassigned) is not C# null, so a `?.`
+            // here would still dereference a dead root; use Unity-aware checks.
+            if ((titleRoot != null && transform == titleRoot.transform)
+                || (mapRoot != null && transform == mapRoot.transform)
+                || (battleRoot != null && transform == battleRoot.transform))
+                continue;
+            if (transform.GetComponentInParent<GameDirector>() == this)
+                continue;
+            Destroy(transform.gameObject);
+        }
+    }
+
+    private static bool IsPresentationRootName(string value)
+    {
+        foreach (string name in PresentationRootNames)
+            if (value == name)
+                return true;
+        return false;
     }
 
     private static void DisableSceneDefaults()

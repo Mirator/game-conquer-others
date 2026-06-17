@@ -107,6 +107,9 @@ InitTestScene*.unity*
 
 # Smoke-test artifacts written to the project root (editor runs)
 /smoke-*.png
+/presentation-smoke.*
+/[Pp]resentation[Cc]aptures/
+/AssetDownloads/
 
 # OS-generated files
 .DS_Store

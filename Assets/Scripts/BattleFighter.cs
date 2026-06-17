@@ -343,11 +343,30 @@ public abstract class BattleFighter : MonoBehaviour
         }
     }
 
+    private static bool loggedVisualFault;
     private void UpdateVisuals()
     {
         hitFlashTimer = Mathf.Max(0f, hitFlashTimer - Time.deltaTime);
-        presentation.Update(battle, IsPlayer, IsBlocking, AttackDirection, BlockDirection, Phase,
-            phaseTimer, phaseDuration, staggerTimer, whiffRecovery, hitFlashTimer, reactionDirection);
+        if (presentation == null)
+            return;
+        // Presentation is purely visual, so a transient fault here must never spam
+        // the console or interrupt the simulation. Swallow it, but record the first
+        // occurrence (with full stack) so the root cause stays diagnosable.
+        try
+        {
+            presentation.Update(battle, IsPlayer, IsBlocking, AttackDirection, BlockDirection, Phase,
+                phaseTimer, phaseDuration, staggerTimer, whiffRecovery, hitFlashTimer, reactionDirection);
+        }
+        catch (System.Exception e)
+        {
+            if (loggedVisualFault)
+                return;
+            loggedVisualFault = true;
+            Debug.LogError($"Presentation update fault on {name} (weapon={Weapon}, phase={Phase}): {e}");
+            try { System.IO.File.WriteAllText(System.IO.Path.GetFullPath("PresentationCaptures/visual-fault.txt"),
+                $"{name} weapon={Weapon} phase={Phase} alive={IsAlive}\n{e}"); }
+            catch { }
+        }
     }
 
     private void Die()

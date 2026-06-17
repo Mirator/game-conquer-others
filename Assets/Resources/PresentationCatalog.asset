@@ -1,0 +1,73 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4b753582fa7ddc743a0cca9fbedb2429, type: 3}
+  m_Name: PresentationCatalog
+  m_EditorClassIdentifier: ConquerOthers.Runtime::PresentationCatalog
+  captainPrefab: {fileID: 5370383247836283100, guid: 3b8c7c4d29ba11142b53ad0a0b5dff15, type: 3}
+  militiaPrefab: {fileID: 5502426423122076206, guid: daf612f9f2bc1cc488d03a79e54715ff, type: 3}
+  veteranPrefab: {fileID: 7716109990091224680, guid: e449d5b6e3f0fa741a21981f7e652fb5, type: 3}
+  guardPrefab: {fileID: 6498767536042523760, guid: c8cbc5eb4d867bc46a792eba72c66404, type: 3}
+  enemyPrefab: {fileID: 5078809434778322938, guid: 46545d4035be79846bb3715f77ef1005, type: 3}
+  swordPrefab: {fileID: 919132149155446097, guid: 95efa015042a83d439df9cc5d2687fb6, type: 3}
+  shieldPrefab: {fileID: 919132149155446097, guid: ed50fb3f9d1e4624096fb202e3f179bf, type: 3}
+  courtyard: {fileID: 11400000, guid: b1ab9cbb7fade4944a6b0c3bf917e4de, type: 2}
+  forest: {fileID: 11400000, guid: 6265f56f9e1b8044d8d29a0d5d51c105, type: 2}
+  marsh: {fileID: 11400000, guid: b357608089b821f41bbea13b6d4adda9, type: 2}
+  highlands: {fileID: 11400000, guid: de5b864d14aa22f4bbc2a11219640e80, type: 2}
+  villageWall: {fileID: 919132149155446097, guid: 10c015e35ed9d45409b56c6ebf9ef8ab, type: 3}
+  villageArch: {fileID: 919132149155446097, guid: 8812d819cfa990843af2a998ae76483e, type: 3}
+  villageWagon: {fileID: 919132149155446097, guid: 4fd568f44aac9d5468de92b91f6a7773, type: 3}
+  villageCrate: {fileID: 919132149155446097, guid: 1c953d0fd6fcac444849023a82e52931, type: 3}
+  villageFence: {fileID: 919132149155446097, guid: 7b4346339908aa54c91fcf3c4f9303f0, type: 3}
+  villageTowerRoof: {fileID: 919132149155446097, guid: 98100c90a9b6e33489dc618023855f11, type: 3}
+  banner: {fileID: 919132149155446097, guid: a9ca39362bce9df48915fe1dde6b55d4, type: 3}
+  barrel: {fileID: 919132149155446097, guid: 87da37e59e476c14da591bdff9483578, type: 3}
+  propCrate: {fileID: 919132149155446097, guid: 99051d6f834d8ec47b607b9fcabc2c97, type: 3}
+  weaponStand: {fileID: 919132149155446097, guid: 3c5a89628820c3041b324c6e8f5b4b83, type: 3}
+  commonTree: {fileID: 919132149155446097, guid: 0719dc8349ebb624fa149655662ab0dc, type: 3}
+  pineTree: {fileID: 919132149155446097, guid: 1f8224735d057904a8ab2787d6e2b247, type: 3}
+  deadTree: {fileID: 919132149155446097, guid: 14c1a083f37d263479332e553c52c07f, type: 3}
+  rock: {fileID: 919132149155446097, guid: 7e252a58cbc37a6408d705fbbdfba0c9, type: 3}
+  bush: {fileID: 919132149155446097, guid: b86c9e5aaa5bec746bfdccf31def4031, type: 3}
+  panelBorder: {fileID: 21300000, guid: 2ed30cb3fd7b3c247b516f5312174731, type: 3}
+  buttonBorder: {fileID: 21300000, guid: e78f9dcae071b9245ae4458737842000, type: 3}
+  titlePrefab: {fileID: 0}
+  settingsPrefab: {fileID: 0}
+  pausePrefab: {fileID: 0}
+  battleHudPrefab: {fileID: 0}
+  campaignHudPrefab: {fileID: 0}
+  fleshHit: {fileID: 0}
+  metalBlock: {fileID: 0}
+  perfectBlock: {fileID: 0}
+  arrowImpact: {fileID: 0}
+  dust: {fileID: 0}
+  mapMusic: {fileID: 0}
+  battleMusic: {fileID: 0}
+  victoryMusic: {fileID: 0}
+  defeatMusic: {fileID: 0}
+  swings:
+  - {fileID: 8300000, guid: 466bde37a3d6b0d4ea96875a1bd5e4ad, type: 3}
+  - {fileID: 8300000, guid: 3528b53d24ff49a4bb11e38fb3a216ae, type: 3}
+  impacts:
+  - {fileID: 8300000, guid: 799fd018c08477a42bbea6c32d2d58b3, type: 3}
+  blocks:
+  - {fileID: 8300000, guid: a5656c0a51f52da408cd8461977dcc4a, type: 3}
+  - {fileID: 8300000, guid: f59f03ddf61955c44ba1cc16f1451158, type: 3}
+  arrows: []
+  footsteps:
+  - {fileID: 8300000, guid: 078e59e0a64d4da41bac7715d609d8b1, type: 3}
+  - {fileID: 8300000, guid: c863a1b6bf84e1549acfe5f25c82b237, type: 3}
+  - {fileID: 8300000, guid: f5ad2bd53d899934aa80953de85f8eee, type: 3}
+  ui:
+  - {fileID: 8300000, guid: a5656c0a51f52da408cd8461977dcc4a, type: 3}
+  - {fileID: 8300000, guid: db726e17ee0c9514393ab80fe766d104, type: 3}
+  - {fileID: 8300000, guid: 09e5fd51e34b52046b5e45b20739da5e, type: 3}

@@ -1,214 +1,146 @@
 using UnityEngine;
+using UnityEngine.UI;
 
-// Owns battle presentation and delegates every state transition back to the
-// BattleManager gameplay facade.
+// Responsive uGUI battle presentation. Gameplay remains owned by BattleManager.
 public sealed class BattleHud : MonoBehaviour
 {
     private BattleManager battle;
-    private GUIStyle titleStyle;
-    private GUIStyle labelStyle;
-    private GUIStyle centerStyle;
-    private GUIStyle smallStyle;
-    private GUIStyle smallCenterStyle;
-    private GUIStyle buttonStyle;
-    private GUIStyle bodyTopStyle;
-    private Texture2D whiteTexture;
+    private Canvas canvas;
+    private RectTransform fighting;
+    private RectTransform stateScreen;
+    private Text healthLabel;
+    private Image healthFill;
+    private Image staminaFill;
+    private Text score;
+    private Text order;
+    private Text message;
+    private Text stateTitle;
+    private Text stateBody;
+    private Text reticle;
+    private Button stateButton;
+    private Text stateButtonLabel;
+    private Image impactFlash;
 
-    public void Configure(BattleManager manager) => battle = manager;
-
-    private void OnGUI()
+    public void Configure(BattleManager manager)
     {
-        if (battle == null)
+        battle = manager;
+        Build();
+    }
+
+    private void Build()
+    {
+        canvas = MedievalUi.CreateCanvas(transform, "Battle HUD Canvas", 20);
+        fighting = MedievalUi.Panel(canvas.transform, "Fighting HUD", Vector2.zero, Vector2.one,
+            Vector2.zero, Vector2.zero, Color.clear);
+        fighting.GetComponent<Image>().raycastTarget = false;
+
+        RectTransform captain = MedievalUi.Panel(fighting, "Captain Status", new Vector2(0.015f, 0.025f),
+            new Vector2(0.29f, 0.145f), Vector2.zero, Vector2.zero);
+        healthLabel = MedievalUi.Label(captain, "Captain", "THE BLUE CAPTAIN", 24, TextAnchor.MiddleLeft,
+            new Vector2(0.04f, 0.66f), new Vector2(0.96f, 0.95f), Vector2.zero, Vector2.zero);
+        healthFill = BuildBar(captain, "Health", new Vector2(0.04f, 0.39f), new Vector2(0.96f, 0.62f),
+            new Color(0.18f, 0.72f, 0.29f));
+        staminaFill = BuildBar(captain, "Stamina", new Vector2(0.04f, 0.14f), new Vector2(0.7f, 0.28f),
+            new Color(0.9f, 0.68f, 0.2f));
+        MedievalUi.Label(captain, "Stamina Label", "STAMINA", 15, TextAnchor.MiddleLeft,
+            new Vector2(0.73f, 0.08f), new Vector2(0.96f, 0.32f), Vector2.zero, Vector2.zero);
+
+        RectTransform scorePanel = MedievalUi.Panel(fighting, "Score", new Vector2(0.77f, 0.925f),
+            new Vector2(0.985f, 0.985f), Vector2.zero, Vector2.zero);
+        score = MedievalUi.Label(scorePanel, "Score Label", "", 25, TextAnchor.MiddleCenter,
+            Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+
+        RectTransform orderPanel = MedievalUi.Panel(fighting, "Order", new Vector2(0.015f, 0.89f),
+            new Vector2(0.27f, 0.985f), Vector2.zero, Vector2.zero);
+        order = MedievalUi.Label(orderPanel, "Order Label", "", 20, TextAnchor.MiddleCenter,
+            Vector2.zero, Vector2.one, new Vector2(8f, 4f), new Vector2(-8f, -4f));
+
+        message = MedievalUi.Label(fighting, "Battle Message", "", 42, TextAnchor.MiddleCenter,
+            new Vector2(0.24f, 0.82f), new Vector2(0.76f, 0.92f), Vector2.zero, Vector2.zero, MedievalUi.Gold);
+        reticle = MedievalUi.Label(fighting, "Reticle", "+", 36, TextAnchor.MiddleCenter,
+            new Vector2(0.485f, 0.47f), new Vector2(0.515f, 0.53f), Vector2.zero, Vector2.zero);
+        impactFlash = MedievalUi.Panel(fighting, "Impact Flash", Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero,
+            Color.clear).GetComponent<Image>();
+        impactFlash.raycastTarget = false;
+
+        stateScreen = MedievalUi.Panel(canvas.transform, "Battle State", Vector2.zero, Vector2.one,
+            Vector2.zero, Vector2.zero, new Color(0.018f, 0.014f, 0.012f, 0.93f));
+        RectTransform card = MedievalUi.Panel(stateScreen, "State Card", new Vector2(0.25f, 0.18f),
+            new Vector2(0.75f, 0.82f), Vector2.zero, Vector2.zero);
+        stateTitle = MedievalUi.Label(card, "Title", "", 58, TextAnchor.MiddleCenter,
+            new Vector2(0.08f, 0.78f), new Vector2(0.92f, 0.94f), Vector2.zero, Vector2.zero, MedievalUi.Gold);
+        stateBody = MedievalUi.Label(card, "Body", "", 26, TextAnchor.UpperCenter,
+            new Vector2(0.08f, 0.24f), new Vector2(0.92f, 0.78f), Vector2.zero, Vector2.zero);
+        stateButton = MedievalUi.Button(card, "Confirm", "CONTINUE", new Vector2(0.28f, 0.07f),
+            new Vector2(0.72f, 0.19f), Vector2.zero, Vector2.zero, () => battle.ConfirmResult());
+        stateButtonLabel = stateButton.GetComponentInChildren<Text>();
+    }
+
+    private static Image BuildBar(Transform parent, string name, Vector2 min, Vector2 max, Color color)
+    {
+        MedievalUi.Panel(parent, name + " Back", min, max, Vector2.zero, Vector2.zero, new Color(0.01f, 0.01f, 0.01f, 0.9f));
+        Image fill = MedievalUi.Panel(parent, name + " Fill", min, max, new Vector2(3f, 3f),
+            new Vector2(-3f, -3f), color).GetComponent<Image>();
+        fill.type = Image.Type.Filled;
+        fill.fillMethod = Image.FillMethod.Horizontal;
+        fill.raycastTarget = false;
+        return fill;
+    }
+
+    private void Update()
+    {
+        if (battle == null || canvas == null)
             return;
-        EnsureStyles();
-        float scale = Mathf.Clamp(Screen.height / 900f, 0.8f, 1.35f);
-        Matrix4x4 previous = GUI.matrix;
-        GUI.matrix = Matrix4x4.Scale(new Vector3(scale, scale, 1f));
-        float width = Screen.width / scale;
-        float height = Screen.height / scale;
-
-        if (battle.State == BattleManager.BattleState.Fighting)
-            DrawFightingHud(width, height, scale);
+        bool isFighting = battle.State == BattleManager.BattleState.Fighting;
+        fighting.gameObject.SetActive(isFighting);
+        stateScreen.gameObject.SetActive(!isFighting);
+        if (isFighting)
+            RefreshFight();
         else
-            DrawStateScreen(width, height);
-        GUI.matrix = previous;
+            RefreshState();
     }
 
-    private void DrawFightingHud(float width, float height, float scale)
+    private void RefreshFight()
     {
-        DrawPanel(new Rect(22f, height - 105f, 330f, 78f), new Color(0.035f, 0.045f, 0.055f, 0.82f));
-        GUI.Label(new Rect(35f, height - 100f, 300f, 24f), "THE BLUE CAPTAIN", labelStyle);
-        DrawBar(new Rect(35f, height - 73f, 300f, 17f), battle.Player != null ? battle.Player.HealthNormalized : 0f, new Color(0.18f, 0.72f, 0.29f));
-        DrawBar(new Rect(35f, height - 49f, 220f, 9f), battle.Player != null ? battle.Player.StaminaNormalized : 0f, new Color(0.9f, 0.68f, 0.2f));
-        GUI.Label(new Rect(262f, height - 56f, 70f, 20f), "STAMINA", smallStyle);
-
-        DrawPanel(new Rect(width - 282f, 20f, 260f, 48f), new Color(0.035f, 0.045f, 0.055f, 0.82f));
-        GUI.Label(new Rect(width - 268f, 27f, 232f, 32f), $"BLUE  {battle.CountAlive(Team.Allies)}       RED  {battle.CountAlive(Team.Enemies)}", labelStyle);
-        if (!battle.IsTraining)
-        {
-            DrawPanel(new Rect(22f, 20f, 275f, 66f), new Color(0.035f, 0.045f, 0.055f, 0.82f));
-            GUI.Label(new Rect(35f, 25f, 245f, 24f), $"ORDER: {CommandLabel(battle.CurrentAllyCommand)}", labelStyle);
-            GUI.Label(new Rect(35f, 51f, 245f, 20f), "1 FOLLOW    2 HOLD    3 CHARGE", smallStyle);
-        }
-        if (battle.Player != null)
-        {
-            if (battle.Player.IsRanged)
-                DrawBowReticle(width * 0.5f, height * 0.5f);
-            else
-            {
-                GUI.Label(new Rect(width * 0.5f - 10f, height * 0.5f - 14f, 20f, 20f), "+", centerStyle);
-                DrawDirectionReticle(width * 0.5f, height * 0.5f);
-            }
-            if (battle.Player.IsCounterReady)
-                GUI.Label(new Rect(width * 0.5f - 120f, height * 0.5f + 66f, 240f, 24f), "COUNTER READY - STRIKE NOW", smallCenterStyle);
-        }
-
-        if (battle.MessageTimer > 0f)
-            GUI.Label(new Rect(width * 0.5f - 350f, 78f, 700f, 48f), battle.Message, titleStyle);
-        DrawWorldHealthBars(scale);
-
-        if (battle.ImpactFlash > 0f)
-        {
-            Color color = battle.ImpactFlashColor;
-            GUI.color = new Color(color.r, color.g, color.b, battle.ImpactFlash);
-            GUI.DrawTexture(new Rect(0f, 0f, width, height), whiteTexture);
-            GUI.color = Color.white;
-        }
+        healthFill.fillAmount = battle.Player != null ? battle.Player.HealthNormalized : 0f;
+        staminaFill.fillAmount = battle.Player != null ? battle.Player.StaminaNormalized : 0f;
+        healthLabel.text = battle.Player != null ? $"THE BLUE CAPTAIN   {battle.Player.CurrentHealth:0}" : "THE BLUE CAPTAIN";
+        score.text = $"BLUE  {battle.CountAlive(Team.Allies)}      RED  {battle.CountAlive(Team.Enemies)}";
+        order.transform.parent.gameObject.SetActive(!battle.IsTraining);
+        order.text = $"ORDER: {CommandLabel(battle.CurrentAllyCommand)}\n1 FOLLOW    2 HOLD    3 CHARGE";
+        message.gameObject.SetActive(battle.MessageTimer > 0f);
+        message.text = battle.Message;
+        reticle.text = battle.Player != null && battle.Player.IsRanged
+            ? battle.Player.IsChargingAttack ? (battle.Player.BowPrecisionReady ? "STEADY" : "DRAW") : "+"
+            : battle.Player != null && battle.Player.IsCounterReady ? "COUNTER" : "+";
+        Color flash = battle.ImpactFlashColor;
+        impactFlash.color = new Color(flash.r, flash.g, flash.b, battle.ImpactFlash);
     }
 
-    private void DrawBowReticle(float cx, float cy)
+    private void RefreshState()
     {
-        bool drawing = battle.Player.IsChargingAttack;
-        float draw = drawing ? battle.Player.BowDrawNormalized : 0f;
-        float precision = drawing ? battle.Player.BowPrecisionNormalized : 0f;
-        float radius = drawing ? Mathf.Lerp(42f, 11f, Mathf.SmoothStep(0f, 1f, precision)) : 31f;
-        Color color = !drawing ? new Color(0.78f, 0.8f, 0.82f, 0.7f)
-            : !battle.Player.BowPrecisionReady ? new Color(1f, 0.48f, 0.12f)
-            : Color.Lerp(new Color(1f, 0.78f, 0.18f), new Color(0.32f, 0.95f, 0.48f), precision);
-
-        GUI.color = color;
-        GUI.DrawTexture(new Rect(cx - 2f, cy - 2f, 4f, 4f), whiteTexture);
-        DrawReticleBracket(cx - radius, cy, true);
-        DrawReticleBracket(cx + radius, cy, true);
-        DrawReticleBracket(cx, cy - radius, false);
-        DrawReticleBracket(cx, cy + radius, false);
-
-        Rect track = new Rect(cx - 54f, cy + 58f, 108f, 5f);
-        GUI.color = new Color(0.04f, 0.05f, 0.06f, 0.85f);
-        GUI.DrawTexture(track, whiteTexture);
-        GUI.color = color;
-        GUI.DrawTexture(new Rect(track.x + 1f, track.y + 1f, (track.width - 2f) * draw, track.height - 2f), whiteTexture);
-        GUI.color = Color.white;
-        GUI.DrawTexture(new Rect(track.x + track.width * battle.Player.BowPrecisionThresholdNormalized,
-            track.y - 2f, 2f, track.height + 4f), whiteTexture);
-        if (drawing)
-        {
-            string state = precision >= 0.99f ? "STEADY" : battle.Player.BowPrecisionReady ? "TIGHTENING" : "DRAW";
-            GUI.color = color;
-            GUI.Label(new Rect(cx - 60f, cy + 63f, 120f, 18f), state, smallCenterStyle);
-        }
-        GUI.color = Color.white;
-    }
-
-    private void DrawReticleBracket(float x, float y, bool vertical)
-    {
-        float w = vertical ? 3f : 13f;
-        float h = vertical ? 13f : 3f;
-        GUI.DrawTexture(new Rect(x - w * 0.5f, y - h * 0.5f, w, h), whiteTexture);
-    }
-
-    private void DrawStateScreen(float width, float height)
-    {
-        DrawPanel(new Rect(width * 0.5f - 285f, height * 0.5f - 205f, 570f, 410f), new Color(0.025f, 0.03f, 0.035f, 0.92f));
-        string title = battle.State == BattleManager.BattleState.Ready ? "CONQUER OTHERS"
-            : battle.State == BattleManager.BattleState.Victory ? "VICTORY" : "DEFEAT";
-        GUI.Label(new Rect(width * 0.5f - 240f, height * 0.5f - 184f, 480f, 50f), title, titleStyle);
-
+        stateButton.gameObject.SetActive(battle.State != BattleManager.BattleState.Ready);
         if (battle.State == BattleManager.BattleState.Ready)
         {
-            bool bow = battle.Player != null && battle.Player.IsRanged;
-            string controls = bow
-                ? "Hold LMB  Draw bow and aim with camera\nHold until STEADY for best precision, release to fire\nBow users cannot block - keep your distance"
-                : "Hold LMB + move mouse  Aim a swing, release to strike\nHold RMB + move mouse  Raise your guard that way\n\nMatch attack direction to block all damage.\nTime the block at the last moment, then counter.";
-            string encounter = battle.IsTraining ? "TRAINING ARENA" : $"ASSAULT ON {battle.EncounterTitle}";
-            string orders = battle.IsTraining ? "" : "\n1 Follow    2 Hold    3 Charge\n";
-            string body = $"{encounter}\nEQUIPPED: {(battle.Player != null ? WeaponCatalog.Label(battle.Player.Weapon) : "")}\n\nWASD  Move       Shift  Sprint       Space  Dodge\n{controls}{orders}\nCLICK TO BEGIN";
-            GUI.Label(new Rect(width * 0.5f - 235f, height * 0.5f - 126f, 470f, 320f), body, bodyTopStyle);
+            stateTitle.text = battle.IsTraining ? "TRAINING ARENA" : $"ASSAULT ON\n{battle.EncounterTitle}";
+            string weapon = battle.Player != null ? WeaponCatalog.Label(battle.Player.Weapon) : "";
+            stateBody.text = $"EQUIPPED: {weapon}\n\nWASD  MOVE      SHIFT  SPRINT      SPACE  DODGE\n\n" +
+                (battle.Player != null && battle.Player.IsRanged
+                    ? "HOLD LMB TO DRAW AND AIM. RELEASE TO FIRE."
+                    : "HOLD LMB AND MOVE MOUSE TO AIM A SWING.\nHOLD RMB AND MOVE MOUSE TO GUARD.") +
+                "\n\nCLICK TO BEGIN";
             return;
         }
 
-        string result = $"Battle time  {Mathf.FloorToInt(battle.BattleTime / 60f):00}:{Mathf.FloorToInt(battle.BattleTime % 60f):00}\n\nYOUR DAMAGE  {battle.PlayerDamageDealt:0}        ALLIES  {battle.AlliesDamageDealt:0}\nYOUR KILLS  {battle.PlayerKills}        DAMAGE TAKEN  {battle.PlayerDamageTaken:0}\nPERFECT BLOCKS  {battle.PlayerPerfectBlocks}        COUNTERS  {battle.PlayerCounterHits}\nBLUE LOSSES  {battle.InitialAllies - battle.CountAlive(Team.Allies)} / {battle.InitialAllies}        RED LOSSES  {battle.InitialEnemies - battle.CountAlive(Team.Enemies)} / {battle.InitialEnemies}";
-        GUI.Label(new Rect(width * 0.5f - 245f, height * 0.5f - 118f, 490f, 150f), result, bodyTopStyle);
-        string buttonLabel = battle.IsTraining ? "RETURN TO THE MAP"
-            : battle.State == BattleManager.BattleState.Victory ? "CLAIM THE TERRITORY" : "RETURN TO THE MAP";
-        if (GUI.Button(new Rect(width * 0.5f - 140f, height * 0.5f + 70f, 280f, 40f), buttonLabel, buttonStyle))
-            battle.ConfirmResult();
-    }
-
-    private void DrawWorldHealthBars(float scale)
-    {
-        Camera camera = Camera.main;
-        if (camera == null)
-            return;
-        BattleFighter primaryThreat = battle.Player != null ? battle.FindIncomingThreat(battle.Player) : null;
-        foreach (BattleFighter fighter in battle.Fighters)
-        {
-            if (!fighter.IsAlive || fighter.IsPlayer || !fighter.ShouldShowHealthBar && fighter != primaryThreat)
-                continue;
-            Vector3 screen = camera.WorldToScreenPoint(fighter.transform.position + Vector3.up * 2.25f);
-            if (screen.z <= 0f)
-                continue;
-            DrawBar(new Rect(screen.x / scale - 34f, (Screen.height - screen.y) / scale, 68f, 6f), fighter.HealthNormalized,
-                fighter.Team == Team.Allies ? new Color(0.15f, 0.48f, 0.95f) : new Color(0.9f, 0.16f, 0.1f));
-        }
-    }
-
-    private void DrawDirectionReticle(float cx, float cy)
-    {
-        bool blocking = battle.Player.IsBlocking;
-        bool charging = battle.Player.IsChargingAttack;
-        float charge = battle.Player.AttackChargeNormalized;
-        CombatDirection active = blocking ? battle.Player.BlockDirection
-            : charging ? battle.Player.AttackDirection : battle.Player.SelectedDirection;
-        Color activeColor = battle.Player.IsCounterReady ? new Color(1f, 0.82f, 0.18f)
-            : blocking ? new Color(0.32f, 0.78f, 1f)
-            : charging ? Color.Lerp(new Color(1f, 0.86f, 0.42f), new Color(1f, 0.5f, 0.08f), charge)
-            : new Color(0.86f, 0.86f, 0.9f);
-        Color idleColor = new Color(0.5f, 0.52f, 0.55f, 0.55f);
-        float gap = 22f + (charging ? charge * 7f : 0f);
-        DrawReticleMarker(cx - gap, cy, true, active == CombatDirection.Left, activeColor, idleColor);
-        DrawReticleMarker(cx + gap, cy, true, active == CombatDirection.Right, activeColor, idleColor);
-        DrawReticleMarker(cx, cy - gap, false, active == CombatDirection.Up, activeColor, idleColor);
-        DrawReticleMarker(cx, cy + gap, false, active == CombatDirection.Thrust, activeColor, idleColor);
-        GUI.color = Color.white;
-    }
-
-    private void DrawReticleMarker(float x, float y, bool flank, bool active, Color activeColor, Color idleColor)
-    {
-        float lengthwise = active ? 22f : 13f;
-        float thickness = active ? 6f : 4f;
-        float w = flank ? thickness : lengthwise;
-        float h = flank ? lengthwise : thickness;
-        GUI.color = active ? activeColor : idleColor;
-        GUI.DrawTexture(new Rect(x - w * 0.5f, y - h * 0.5f, w, h), whiteTexture);
-    }
-
-    private void DrawBar(Rect rect, float amount, Color fill)
-    {
-        GUI.color = new Color(0.025f, 0.03f, 0.035f, 0.95f);
-        GUI.DrawTexture(rect, whiteTexture);
-        GUI.color = fill;
-        GUI.DrawTexture(new Rect(rect.x + 2f, rect.y + 2f, (rect.width - 4f) * amount, rect.height - 4f), whiteTexture);
-        GUI.color = Color.white;
-    }
-
-    private void DrawPanel(Rect rect, Color color)
-    {
-        GUI.color = color;
-        GUI.DrawTexture(rect, whiteTexture);
-        GUI.color = new Color(0.75f, 0.58f, 0.22f, 0.85f);
-        GUI.DrawTexture(new Rect(rect.x, rect.y, 3f, rect.height), whiteTexture);
-        GUI.color = Color.white;
+        stateTitle.text = battle.State == BattleManager.BattleState.Victory ? "VICTORY" : "DEFEAT";
+        stateBody.text = $"BATTLE TIME  {Mathf.FloorToInt(battle.BattleTime / 60f):00}:{Mathf.FloorToInt(battle.BattleTime % 60f):00}\n\n" +
+            $"YOUR DAMAGE  {battle.PlayerDamageDealt:0}      ALLIES  {battle.AlliesDamageDealt:0}\n" +
+            $"YOUR KILLS  {battle.PlayerKills}      DAMAGE TAKEN  {battle.PlayerDamageTaken:0}\n" +
+            $"PERFECT BLOCKS  {battle.PlayerPerfectBlocks}      COUNTERS  {battle.PlayerCounterHits}\n\n" +
+            $"BLUE LOSSES  {battle.InitialAllies - battle.CountAlive(Team.Allies)} / {battle.InitialAllies}      " +
+            $"RED LOSSES  {battle.InitialEnemies - battle.CountAlive(Team.Enemies)} / {battle.InitialEnemies}";
+        stateButtonLabel.text = battle.IsTraining ? "RETURN TO MAP"
+            : battle.State == BattleManager.BattleState.Victory ? "CLAIM TERRITORY" : "RETURN TO MAP";
     }
 
     private static string CommandLabel(BattleManager.AllyCommand command) => command switch
@@ -217,36 +149,4 @@ public sealed class BattleHud : MonoBehaviour
         BattleManager.AllyCommand.Hold => "HOLD",
         _ => "CHARGE"
     };
-
-    private void EnsureStyles()
-    {
-        if (whiteTexture != null)
-            return;
-        whiteTexture = Texture2D.whiteTexture;
-        titleStyle = new GUIStyle(GUI.skin.label)
-        {
-            alignment = TextAnchor.MiddleCenter, fontSize = 34, fontStyle = FontStyle.Bold,
-            normal = { textColor = new Color(0.94f, 0.78f, 0.33f) }
-        };
-        labelStyle = new GUIStyle(GUI.skin.label)
-        {
-            fontSize = 16, fontStyle = FontStyle.Bold, normal = { textColor = Color.white }
-        };
-        centerStyle = new GUIStyle(GUI.skin.label)
-        {
-            alignment = TextAnchor.MiddleCenter, fontSize = 17, wordWrap = true, normal = { textColor = Color.white }
-        };
-        smallStyle = new GUIStyle(labelStyle)
-        {
-            fontSize = 10, normal = { textColor = new Color(0.78f, 0.8f, 0.82f) }
-        };
-        smallCenterStyle = new GUIStyle(smallStyle) { alignment = TextAnchor.MiddleCenter };
-        buttonStyle = new GUIStyle(GUI.skin.button)
-        {
-            alignment = TextAnchor.MiddleCenter, fontSize = 17, fontStyle = FontStyle.Bold,
-            normal = { textColor = Color.white }
-        };
-        bodyTopStyle = new GUIStyle(centerStyle) { alignment = TextAnchor.UpperCenter };
-    }
-
 }

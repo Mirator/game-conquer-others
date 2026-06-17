@@ -8,10 +8,12 @@ using UnityEngine.Rendering;
 public sealed class BattleBootstrap : MonoBehaviour
 {
     private GameObject battleRoot;
+    private PresentationCatalog presentation;
 
     public BattleManager Build(GameObject root, BattleSetup setup)
     {
         battleRoot = root;
+        presentation = PresentationCatalog.Load();
 
         BattleManager manager = battleRoot.AddComponent<BattleManager>();
         BattleEffects effects = battleRoot.AddComponent<BattleEffects>();
@@ -122,27 +124,34 @@ public sealed class BattleBootstrap : MonoBehaviour
 
     private void SetupLighting(ArenaType arena)
     {
+        ArenaThemeDefinition theme = PresentationCatalog.Load()?.Theme(arena);
         GameObject sunObject = new GameObject("Sun");
         sunObject.transform.SetParent(battleRoot.transform);
         sunObject.transform.rotation = Quaternion.Euler(35f, -28f, 0f);
         Light sun = sunObject.AddComponent<Light>();
         sun.type = LightType.Directional;
         sun.intensity = arena == ArenaType.Forest ? 0.82f : arena == ArenaType.Marsh ? 0.92f : 1.05f;
-        sun.color = arena == ArenaType.Marsh ? new Color(0.72f, 0.82f, 0.84f)
+        sun.color = theme != null ? theme.sunlight : arena == ArenaType.Marsh ? new Color(0.72f, 0.82f, 0.84f)
             : arena == ArenaType.Forest ? new Color(0.84f, 0.9f, 0.7f) : new Color(1f, 0.78f, 0.58f);
         sun.shadows = LightShadows.Soft;
 
         RenderSettings.ambientMode = AmbientMode.Flat;
-        RenderSettings.ambientLight = arena == ArenaType.Forest ? new Color(0.18f, 0.28f, 0.2f)
+        RenderSettings.ambientLight = theme != null ? theme.ambient : arena == ArenaType.Forest ? new Color(0.18f, 0.28f, 0.2f)
             : arena == ArenaType.Marsh ? new Color(0.28f, 0.34f, 0.36f) : new Color(0.28f, 0.32f, 0.36f);
         RenderSettings.fog = true;
-        RenderSettings.fogColor = arena == ArenaType.Marsh ? new Color(0.42f, 0.52f, 0.52f)
+        RenderSettings.fogColor = theme != null ? theme.fog : arena == ArenaType.Marsh ? new Color(0.42f, 0.52f, 0.52f)
             : arena == ArenaType.Forest ? new Color(0.3f, 0.42f, 0.32f) : new Color(0.48f, 0.55f, 0.58f);
-        RenderSettings.fogDensity = arena == ArenaType.Marsh ? 0.02f : 0.012f;
+        RenderSettings.fogDensity = theme != null ? theme.fogDensity : arena == ArenaType.Marsh ? 0.02f : 0.012f;
     }
 
     private void BuildArena(ArenaType arena)
     {
+        ArenaThemeDefinition theme = PresentationCatalog.Load()?.Theme(arena);
+        if (theme != null && theme.visualPrefab != null)
+        {
+            GameObject visuals = Instantiate(theme.visualPrefab, battleRoot.transform);
+            visuals.name = $"{arena} Authored Visuals";
+        }
         if (arena == ArenaType.Forest)
             BuildForest();
         else if (arena == ArenaType.Marsh)
@@ -159,10 +168,10 @@ public sealed class BattleBootstrap : MonoBehaviour
         CreateBlock("Dirt Road", new Vector3(0f, 0.015f, 0f), new Vector3(8f, 0.035f, 31f), new Color(0.34f, 0.24f, 0.13f), false);
         CreateBlock("Cross Road", new Vector3(0f, 0.02f, 0f), new Vector3(28f, 0.04f, 5f), new Color(0.31f, 0.22f, 0.12f), false);
         Color stone = new Color(0.32f, 0.33f, 0.31f);
-        CreateBlock("North Wall", new Vector3(0f, 1.5f, 17f), new Vector3(36f, 3.4f, 1f), stone);
-        CreateBlock("South Wall", new Vector3(0f, 1.5f, -17f), new Vector3(36f, 3.4f, 1f), stone);
-        CreateBlock("East Wall", new Vector3(17f, 1.5f, 0f), new Vector3(1f, 3.4f, 36f), stone);
-        CreateBlock("West Wall", new Vector3(-17f, 1.5f, 0f), new Vector3(1f, 3.4f, 36f), stone);
+        CreateBlock("North Wall Collision", new Vector3(0f, 1.5f, 17f), new Vector3(36f, 3.4f, 1f), stone);
+        CreateBlock("South Wall Collision", new Vector3(0f, 1.5f, -17f), new Vector3(36f, 3.4f, 1f), stone);
+        CreateBlock("East Wall Collision", new Vector3(17f, 1.5f, 0f), new Vector3(1f, 3.4f, 36f), stone);
+        CreateBlock("West Wall Collision", new Vector3(-17f, 1.5f, 0f), new Vector3(1f, 3.4f, 36f), stone);
 
         Color wood = new Color(0.28f, 0.14f, 0.055f);
         CreateBlock("Center Barricade", new Vector3(-7f, 0.65f, 1.8f), new Vector3(4.5f, 1.3f, 0.45f), wood);
@@ -188,12 +197,57 @@ public sealed class BattleBootstrap : MonoBehaviour
         BuildTorch(new Vector3(6f, 1.35f, -15.8f));
         BuildTorch(new Vector3(-6f, 1.35f, 15.8f));
         BuildTorch(new Vector3(6f, 1.35f, 15.8f));
+        AuthoredVisual(presentation?.villageArch, "Village Gate", new Vector3(0f, 0f, 15.8f),
+            new Vector3(3f, 1.35f, 1.5f), new Vector3(0f, 180f, 0f));
+        Vector3 wallScale = new(3.05f, 1.1f, 1.5f);
+        for (int x = -15; x <= 15; x += 6)
+        {
+            AuthoredVisual(presentation?.villageWall, "Authored North Wall", new Vector3(x, 0f, 16.25f),
+                wallScale, new Vector3(0f, 180f, 0f));
+            AuthoredVisual(presentation?.villageWall, "Authored South Wall", new Vector3(x, 0f, -16.25f),
+                wallScale, Vector3.zero);
+        }
+        for (int z = -15; z <= 15; z += 6)
+        {
+            AuthoredVisual(presentation?.villageWall, "Authored East Wall", new Vector3(16.25f, 0f, z),
+                wallScale, new Vector3(0f, -90f, 0f));
+            AuthoredVisual(presentation?.villageWall, "Authored West Wall", new Vector3(-16.25f, 0f, z),
+                wallScale, new Vector3(0f, 90f, 0f));
+        }
+        AuthoredVisual(presentation?.villageWagon, "Village Wagon", new Vector3(-11.5f, 0f, -5f), Vector3.one * 1.2f,
+            new Vector3(0f, 30f, 0f));
+        AuthoredVisual(presentation?.weaponStand, "Courtyard Weapon Stand", new Vector3(11.8f, 0f, 5.2f),
+            Vector3.one * 1.15f, new Vector3(0f, -65f, 0f));
+        AuthoredVisual(presentation?.barrel, "Courtyard Barrel", new Vector3(13.2f, 0f, 6.3f),
+            Vector3.one * 1.1f, Vector3.zero);
+        AuthoredVisual(presentation?.barrel, "Courtyard Barrel", new Vector3(-13.2f, 0f, -7.1f),
+            Vector3.one * 1.1f, Vector3.zero);
+        for (int z = -12; z <= 12; z += 6)
+        {
+            AuthoredVisual(presentation?.villageFence, "Courtyard Fence", new Vector3(-15f, 0f, z),
+                Vector3.one, new Vector3(0f, 90f, 0f));
+            AuthoredVisual(presentation?.villageFence, "Courtyard Fence", new Vector3(15f, 0f, z),
+                Vector3.one, new Vector3(0f, 90f, 0f));
+        }
+        for (int x = -12; x <= 12; x += 8)
+        {
+            AuthoredVisual(presentation?.banner, "Blue Authored Banner", new Vector3(x, 1.15f, -15.9f),
+                Vector3.one * 1.1f, Vector3.zero, new Color(0.08f, 0.32f, 0.78f));
+            AuthoredVisual(presentation?.banner, "Red Authored Banner", new Vector3(x, 1.15f, 15.9f),
+                Vector3.one * 1.1f, new Vector3(0f, 180f, 0f), new Color(0.68f, 0.08f, 0.05f));
+        }
 
         for (int i = 0; i < 12; i++)
         {
             float side = i % 2 == 0 ? -1f : 1f;
-            CreateBlock("Supply Crate", new Vector3(side * Random.Range(11.5f, 14.5f), 0.32f, Random.Range(-13f, 13f)),
+            Vector3 cratePosition = new(side * Random.Range(11.5f, 14.5f), 0.32f, Random.Range(-13f, 13f));
+            CreateBlock("Supply Crate", cratePosition,
                 new Vector3(0.85f, 0.65f, 0.85f), wood);
+            AuthoredVisual(presentation?.villageCrate, "Authored Supply Crate", cratePosition + Vector3.up * 0.35f,
+                Vector3.one * 0.8f, Vector3.zero);
+            if (i < 4)
+                AuthoredVisual(presentation?.propCrate, "Authored Wooden Crate", cratePosition + Vector3.up * 0.36f,
+                    Vector3.one * 0.7f, new Vector3(0f, i * 20f, 0f));
         }
     }
 
@@ -206,13 +260,16 @@ public sealed class BattleBootstrap : MonoBehaviour
         CreateBlock("Forest Floor", new Vector3(0f, -0.35f, 0f), new Vector3(34f, 0.7f, 34f), grass);
         CreateBlock("Forest Track", new Vector3(0f, 0.015f, 0f), new Vector3(6f, 0.035f, 31f), earth, false);
         BuildBoundary(new Color(0.17f, 0.2f, 0.14f), 1.8f);
-        for (int i = 0; i < 22; i++)
+        for (int i = 0; i < 16; i++)
         {
             float side = i % 2 == 0 ? -1f : 1f;
-            float x = side * Random.Range(8.5f, 14.8f);
+            float x = side * Random.Range(13f, 15.8f);
             float z = Random.Range(-14f, 14f);
-            CreateBlock("Tree Trunk", new Vector3(x, 1.45f, z), new Vector3(0.65f, 2.9f, 0.65f), bark);
-            CreatePrimitive("Tree Crown", PrimitiveType.Sphere, new Vector3(x, 3.15f, z), new Vector3(2.3f, 2.5f, 2.3f), leaves, false);
+            CreateBlock("Tree Trunk", new Vector3(x, 1.25f, z), new Vector3(0.48f, 2.45f, 0.48f), bark);
+            CreatePrimitive("Tree Crown", PrimitiveType.Sphere, new Vector3(x, 2.85f, z), new Vector3(1.45f, 1.65f, 1.45f), leaves, false);
+            GameObject tree = i % 3 == 0 ? presentation?.pineTree : presentation?.commonTree;
+            AuthoredVisual(tree, "Authored Forest Tree", new Vector3(x, 0f, z), Vector3.one * Random.Range(0.28f, 0.45f),
+                new Vector3(0f, Random.Range(0f, 360f), 0f));
         }
         CreateBlock("Fallen Log", new Vector3(-4.8f, 0.55f, 2f), new Vector3(5f, 1.1f, 0.8f), bark);
         CreateBlock("Fallen Log", new Vector3(5.5f, 0.55f, -3f), new Vector3(4f, 1.1f, 0.8f), bark);
@@ -237,6 +294,12 @@ public sealed class BattleBootstrap : MonoBehaviour
         CreateBlock("Old Causeway", new Vector3(0f, 0.04f, 0f), new Vector3(5.5f, 0.08f, 31f), new Color(0.3f, 0.25f, 0.16f), false);
         CreateBlock("Wrecked Cart", new Vector3(-5f, 0.65f, 1f), new Vector3(3.8f, 1.3f, 1f), new Color(0.25f, 0.13f, 0.04f));
         CreateBlock("Stone Rise", new Vector3(6f, 0.55f, -2f), new Vector3(3f, 1.1f, 3f), new Color(0.3f, 0.32f, 0.28f));
+        AuthoredVisual(presentation?.villageWagon, "Marsh Wrecked Wagon", new Vector3(-5f, 0f, 1f), Vector3.one * 1.15f,
+            new Vector3(0f, 25f, 12f));
+        for (int i = 0; i < 7; i++)
+            AuthoredVisual(i % 2 == 0 ? presentation?.deadTree : presentation?.bush, "Marsh Landmark",
+                new Vector3((i % 2 == 0 ? -1f : 1f) * Random.Range(9f, 14f), 0f, Random.Range(-14f, 14f)),
+                Vector3.one * Random.Range(0.9f, 1.4f), new Vector3(0f, Random.Range(0f, 360f), 0f));
     }
 
     private void BuildHighlands()
@@ -250,8 +313,13 @@ public sealed class BattleBootstrap : MonoBehaviour
         CreateBlock("North Menhir", new Vector3(-4f, 1.8f, 4f), new Vector3(1.3f, 3.6f, 1.2f), rock);
         CreateBlock("South Menhir", new Vector3(4f, 1.8f, -4f), new Vector3(1.3f, 3.6f, 1.2f), rock);
         for (int i = 0; i < 8; i++)
-            CreateBlock("Boulder", new Vector3(Random.Range(-8f, 8f), 0.55f, Random.Range(-14f, 14f)),
-                new Vector3(Random.Range(1f, 2f), Random.Range(0.8f, 1.5f), Random.Range(1f, 2f)), rock);
+        {
+            Vector3 position = new(Random.Range(-8f, 8f), 0.55f, Random.Range(-14f, 14f));
+            Vector3 scale = new(Random.Range(1f, 2f), Random.Range(0.8f, 1.5f), Random.Range(1f, 2f));
+            CreateBlock("Boulder", position, scale, rock);
+            AuthoredVisual(presentation?.rock, "Authored Boulder", position + Vector3.up * 0.2f, scale,
+                new Vector3(Random.Range(-15f, 15f), Random.Range(0f, 360f), Random.Range(-15f, 15f)));
+        }
     }
 
     private void BuildBoundary(Color color, float height)
@@ -293,10 +361,11 @@ public sealed class BattleBootstrap : MonoBehaviour
         light.color = new Color(1f, 0.42f, 0.12f);
         light.intensity = 2.2f;
         light.range = 6f;
-        light.shadows = LightShadows.Soft;
+        light.shadows = LightShadows.None;
     }
 
-    private void CreateBlock(string blockName, Vector3 position, Vector3 scale, Color color, bool collider = true)
+    private void CreateBlock(string blockName, Vector3 position, Vector3 scale, Color color, bool collider = true,
+        bool visible = true)
     {
         GameObject block = GameObject.CreatePrimitive(PrimitiveType.Cube);
         block.name = blockName;
@@ -304,8 +373,35 @@ public sealed class BattleBootstrap : MonoBehaviour
         block.transform.position = position;
         block.transform.localScale = scale;
         block.GetComponent<Renderer>().sharedMaterial = RuntimeAssets.Material(color);
+        block.GetComponent<Renderer>().enabled = visible;
         if (!collider)
             Destroy(block.GetComponent<Collider>());
+    }
+
+    private void AuthoredVisual(GameObject prefab, string objectName, Vector3 position, Vector3 scale, Vector3 rotation,
+        Color? tintOverride = null)
+    {
+        if (prefab == null)
+            return;
+        GameObject visual = Instantiate(prefab, battleRoot.transform);
+        visual.name = objectName;
+        visual.transform.position = position;
+        visual.transform.localScale = prefab == presentation?.rock ? scale * 0.24f : scale;
+        visual.transform.eulerAngles = rotation;
+        foreach (Collider collider in visual.GetComponentsInChildren<Collider>())
+            Destroy(collider);
+        Color tint = tintOverride ?? (prefab == presentation?.commonTree || prefab == presentation?.pineTree || prefab == presentation?.bush
+            ? new Color(0.2f, 0.46f, 0.16f)
+            : prefab == presentation?.deadTree ? new Color(0.36f, 0.23f, 0.12f)
+            : prefab == presentation?.rock ? new Color(0.42f, 0.43f, 0.42f)
+            : new Color(0.5f, 0.38f, 0.24f));
+        TintVisual(visual, tint);
+    }
+
+    private static void TintVisual(GameObject visual, Color tint)
+    {
+        foreach (Renderer renderer in visual.GetComponentsInChildren<Renderer>())
+            renderer.sharedMaterial = RuntimeAssets.Material(tint);
     }
 
 }
