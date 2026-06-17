@@ -108,20 +108,39 @@ public sealed class FighterView : MonoBehaviour
     }
 
     public void UpdateState(float movement, bool blocking, CombatPhase phase, float staggerTimer, bool alive,
-        bool formation = false)
+        CombatDirection attackDirection = CombatDirection.Right, bool formation = false)
     {
         if (animator == null || animator.runtimeAnimatorController == null)
             return;
+        bool attacking = phase == CombatPhase.AttackWindup || phase == CombatPhase.AttackHold
+            || phase == CombatPhase.AttackRelease || phase == CombatPhase.AttackRecovery;
         string state = !alive ? "Death"
             : staggerTimer > 0f ? "Hit"
-            : phase == CombatPhase.AttackRelease ? "Attack"
+            : attacking ? AttackState(attackDirection)
             : movement > 0.65f ? "Jog"
             : movement > 0.05f ? formation ? "FormationWalk" : "Walk" : "Idle";
         if (state == currentState)
             return;
         currentState = state;
-        animator.CrossFade(state, state == "Attack" || state == "Hit" ? 0.03f : 0.12f);
+        bool fast = state == "Hit" || state.StartsWith("Attack");
+        animator.CrossFade(state, fast ? 0.05f : 0.12f);
     }
+
+    // Each attack direction maps to a distinct authored swing; fall back to the
+    // generic "Attack" if a directional clip is unavailable in the controller.
+    private string AttackState(CombatDirection direction)
+    {
+        string state = direction switch
+        {
+            CombatDirection.Up => "Attack_Up",
+            CombatDirection.Left => "Attack_Left",
+            CombatDirection.Thrust => "Attack_Thrust",
+            _ => "Attack_Right"
+        };
+        return HasState(state) ? state : "Attack";
+    }
+
+    private bool HasState(string state) => animator.HasState(0, Animator.StringToHash(state));
 
     public void SetCombatPose(WeaponType weapon, bool blocking, CombatDirection attackDirection,
         CombatDirection blockDirection, CombatPhase phase)

@@ -191,7 +191,7 @@ public sealed class BattleFighterPresentation
         // The library jog is a deep sprint pose that makes an entire AI formation
         // unreadable. Keep formation locomotion upright; reserve jog for the player.
         authoredView?.UpdateState(isPlayer ? movement : Mathf.Min(movement, 0.6f),
-            isBlocking, phase, staggerTimer, true, !isPlayer);
+            isBlocking, phase, staggerTimer, true, attackDirection, !isPlayer);
 
         ApplyWeaponPose(isBlocking, attackDirection, blockDirection, phase, phaseTimer, phaseDuration, whiffRecovery);
         swordTrail.emitting = weapon != WeaponType.Bow && phase == CombatPhase.AttackRelease;

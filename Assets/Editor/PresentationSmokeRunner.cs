@@ -138,25 +138,40 @@ public static class PresentationSmokeRunner
         {
             if (!AfterDelay(3.5d))
                 return;
-            if (EditorApplication.timeSinceStartup - swordShotAt < 0.18d)
+            if (EditorApplication.timeSinceStartup - swordShotAt < 0.3d)
                 return;
             swordShotAt = EditorApplication.timeSinceStartup;
             BattleManager m = Object.FindFirstObjectByType<BattleManager>();
             BattleFighter p = m != null ? m.Player : null;
-            if (swordShot == 0)
+            CombatDirection[] dirs = { CombatDirection.Up, CombatDirection.Left, CombatDirection.Right, CombatDirection.Thrust };
+            if (p != null)
             {
-                Capture("presentation-battle-late.png");
-                if (p != null) CaptureCloseup(p.transform, "presentation-sword-0-idle.png");
-                Transform archer = FindArcher();
-                if (archer != null) CaptureCloseup(archer, "presentation-archer-closeup.png");
-                if (p != null) p.DebugPrepareAttack(CombatDirection.Right);
-            }
-            else if (p != null)
-            {
-                CaptureCloseup(p.transform, $"presentation-sword-{swordShot}.png");
+                if (swordShot == 0)
+                {
+                    Capture("presentation-battle-late.png");
+                    CaptureCloseup(p.transform, "presentation-sword-idle.png");
+                    Transform archer = FindArcher();
+                    if (archer != null) CaptureCloseup(archer, "presentation-archer-closeup.png");
+                }
+                else
+                {
+                    int idx = (swordShot - 1) / 2;
+                    if (idx < dirs.Length)
+                    {
+                        if ((swordShot - 1) % 2 == 0)
+                        {
+                            p.DebugRestoreStamina();
+                            p.DebugPrepareAttack(dirs[idx]);
+                        }
+                        else
+                        {
+                            CaptureCloseup(p.transform, $"presentation-attack-{dirs[idx]}.png");
+                        }
+                    }
+                }
             }
             swordShot++;
-            if (swordShot > 6)
+            if (swordShot > 8)
                 Advance();
             return;
         }
