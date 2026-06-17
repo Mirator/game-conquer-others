@@ -33,7 +33,7 @@ public static class PresentationAssetBuilder
         new("Attack", "Sword_Attack", "Armature|Sword_Regular_A", "Armature|Sword_Attack"),
         new("Attack_Up", "Sword_Attack_Up", "Armature|Sword_Attack", "Armature|Sword_Regular_C"),
         new("Attack_Left", "Sword_Attack_Left", "Armature|Sword_Regular_A"),
-        new("Attack_Right", "Sword_Attack_Right", "Armature|Sword_Regular_B"),
+        // Attack_Right is the Attack_Left swing mirrored (added in EnsureFighterController).
         new("Attack_Thrust", "Sword_Attack_Thrust", "Armature|Sword_Dash_RM", "Armature|Sword_Regular_Combo"),
         new("Block", "Sword_Block", "Armature|Sword_Block"),
         new("Hit", "Hit", "Armature|Hit_Knockback", "Armature|Hit_Chest"),
@@ -223,8 +223,18 @@ public static class PresentationAssetBuilder
             AssetDatabase.DeleteAsset(path);
             AnimatorController controller = AnimatorController.CreateAnimatorControllerAtPath(path);
             AnimatorStateMachine machine = controller.layers[0].stateMachine;
+            AnimationClip leftAttack = null;
             foreach (AnimationClipSpec spec in FighterAnimationSpecs)
-                AddState(machine, spec.StateName, EnsureAnimationClip(spec));
+            {
+                AnimationClip clip = EnsureAnimationClip(spec);
+                AddState(machine, spec.StateName, clip);
+                if (spec.StateName == "Attack_Left")
+                    leftAttack = clip;
+            }
+            // The right-hand slash is the left swing mirrored so the two read as a
+            // matched pair pointing in opposite directions.
+            if (leftAttack != null)
+                AddState(machine, "Attack_Right", leftAttack).mirror = true;
             machine.defaultState = machine.states[0].state;
             return controller;
         }
@@ -235,13 +245,14 @@ public static class PresentationAssetBuilder
         }
     }
 
-    private static void AddState(AnimatorStateMachine machine, string name, AnimationClip motion)
+    private static AnimatorState AddState(AnimatorStateMachine machine, string name, AnimationClip motion)
     {
         if (motion == null)
             throw new System.InvalidOperationException($"Missing animation clip for fighter state '{name}'.");
         AnimatorState state = machine.AddState(name);
         state.motion = motion;
         state.writeDefaultValues = true;
+        return state;
     }
 
     private static AnimationClip FindClip(string name)

@@ -138,7 +138,10 @@ public static class PresentationSmokeRunner
         {
             if (!AfterDelay(3.5d))
                 return;
-            if (EditorApplication.timeSinceStartup - swordShotAt < 0.3d)
+            // Capture shots fire 0.15s after their trigger (mid-swing); trigger
+            // shots wait 0.8s so the previous attack fully finishes first.
+            double need = swordShot >= 1 && (swordShot - 1) % 2 == 1 ? 0.15d : 0.8d;
+            if (EditorApplication.timeSinceStartup - swordShotAt < need)
                 return;
             swordShotAt = EditorApplication.timeSinceStartup;
             BattleManager m = Object.FindFirstObjectByType<BattleManager>();
