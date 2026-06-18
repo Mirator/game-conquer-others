@@ -209,7 +209,7 @@ public sealed class CampaignAndCombatTests
         Assert.That(setup.EnemyComposition.Count, Is.EqualTo(Mathf.Clamp(party.Strength, 1, 12)));
 
         campaign.ResolveFieldBattle(party, new BattleResult { PlayerWon = true });
-        Assert.That(campaign.Parties, Does.Not.Contain(party), "A defeated party leaves the map.");
+        Assert.That(campaign.Parties.Contains(party), Is.False, "A defeated party leaves the map.");
         Assert.That(campaign.Gold, Is.GreaterThan(goldBefore), "Defeating a party loots gold.");
     }
 

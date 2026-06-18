@@ -18,7 +18,6 @@ public sealed class CampaignMapController : MonoBehaviour
     private GameDirector director;
     private CampaignState campaign;
     private Camera cam;
-    private GameObject mapTable;
     private GameObject trainingNode;
     private Renderer trainingRenderer;
     private GameObject partyMarker;
@@ -117,12 +116,12 @@ public sealed class CampaignMapController : MonoBehaviour
         cam.backgroundColor = new Color(0.05f, 0.06f, 0.08f);
         camObject.AddComponent<AudioListener>();
 
-        mapTable = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        mapTable.name = "Map Table";
-        mapTable.transform.SetParent(transform);
-        mapTable.transform.position = new Vector3(0f, -0.5f, 2f);
-        mapTable.transform.localScale = new Vector3(46f, 1f, 38f);
-        mapTable.GetComponent<Renderer>().sharedMaterial = RuntimeAssets.Material(new Color(0.18f, 0.2f, 0.16f));
+        GameObject table = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        table.name = "Map Table";
+        table.transform.SetParent(transform);
+        table.transform.position = new Vector3(0f, -0.5f, 2f);
+        table.transform.localScale = new Vector3(46f, 1f, 38f);
+        table.GetComponent<Renderer>().sharedMaterial = RuntimeAssets.Material(new Color(0.18f, 0.2f, 0.16f));
 
         foreach (Territory t in campaign.Territories)
             foreach (int adj in t.AdjacentIds)

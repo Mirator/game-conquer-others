@@ -180,14 +180,6 @@ public sealed class CampaignState
                 yield return t;
     }
 
-    public bool AllConquered()
-    {
-        foreach (Territory t in Territories)
-            if (t.Owner != TerritoryOwner.Player)
-                return false;
-        return true;
-    }
-
     public int PlayerTerritoryCount()
     {
         int count = 0;
