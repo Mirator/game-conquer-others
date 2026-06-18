@@ -329,6 +329,8 @@ public sealed class CampaignMapController : MonoBehaviour
             new Vector2(0.25f, 0.88f), Vector2.zero, Vector2.zero);
         MedievalUi.Label(recruit, "Title", "RECRUIT WARBAND", 27, TextAnchor.MiddleCenter,
             new Vector2(0.05f, 0.82f), new Vector2(0.95f, 0.98f), Vector2.zero, Vector2.zero, MedievalUi.Gold);
+        MedievalUi.Divider(recruit, "Recruit Divider", new Vector2(0.12f, 0.795f), new Vector2(0.88f, 0.818f),
+            Vector2.zero, Vector2.zero);
         AddRecruitButton(recruit, UnitType.Militia, 0.62f);
         AddRecruitButton(recruit, UnitType.Veteran, 0.39f);
         AddRecruitButton(recruit, UnitType.Guard, 0.16f);
@@ -337,6 +339,8 @@ public sealed class CampaignMapController : MonoBehaviour
             new Vector2(0.988f, 0.88f), Vector2.zero, Vector2.zero);
         MedievalUi.Label(equipment, "Title", "CAPTAIN EQUIPMENT", 27, TextAnchor.MiddleCenter,
             new Vector2(0.05f, 0.72f), new Vector2(0.95f, 0.96f), Vector2.zero, Vector2.zero, MedievalUi.Gold);
+        MedievalUi.Divider(equipment, "Equipment Divider", new Vector2(0.12f, 0.695f), new Vector2(0.88f, 0.718f),
+            Vector2.zero, Vector2.zero);
         equipmentText = MedievalUi.Label(equipment, "Weapon", "", 22, TextAnchor.MiddleCenter,
             new Vector2(0.12f, 0.35f), new Vector2(0.88f, 0.72f), Vector2.zero, Vector2.zero);
         MedievalUi.Button(equipment, "Previous Weapon", "<", new Vector2(0.08f, 0.08f), new Vector2(0.32f, 0.31f),

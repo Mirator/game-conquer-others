@@ -69,6 +69,8 @@ public sealed class BattleHud : MonoBehaviour
             new Vector2(0.75f, 0.82f), Vector2.zero, Vector2.zero);
         stateTitle = MedievalUi.Label(card, "Title", "", 58, TextAnchor.MiddleCenter,
             new Vector2(0.08f, 0.78f), new Vector2(0.92f, 0.94f), Vector2.zero, Vector2.zero, MedievalUi.Gold);
+        MedievalUi.Divider(card, "Title Divider", new Vector2(0.2f, 0.74f), new Vector2(0.8f, 0.765f),
+            Vector2.zero, Vector2.zero);
         stateBody = MedievalUi.Label(card, "Body", "", 26, TextAnchor.UpperCenter,
             new Vector2(0.08f, 0.24f), new Vector2(0.92f, 0.78f), Vector2.zero, Vector2.zero);
         stateButton = MedievalUi.Button(card, "Confirm", "CONTINUE", new Vector2(0.28f, 0.07f),
@@ -78,7 +80,7 @@ public sealed class BattleHud : MonoBehaviour
 
     private static Image BuildBar(Transform parent, string name, Vector2 min, Vector2 max, Color color)
     {
-        MedievalUi.Panel(parent, name + " Back", min, max, Vector2.zero, Vector2.zero, new Color(0.01f, 0.01f, 0.01f, 0.9f));
+        MedievalUi.Well(parent, name + " Back", min, max, Vector2.zero, Vector2.zero, new Color(0.01f, 0.01f, 0.01f, 0.9f));
         Image fill = MedievalUi.Panel(parent, name + " Fill", min, max, new Vector2(3f, 3f),
             new Vector2(-3f, -3f), color).GetComponent<Image>();
         // A Filled image needs a sprite to honour fillAmount; without one the mesh stays

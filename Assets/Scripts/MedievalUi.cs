@@ -139,6 +139,24 @@ public static class MedievalUi
         image.raycastTarget = false;
     }
 
+    // A recessed, rounded sliced surface used behind progress bars and slider
+    // tracks so they read as inset wells rather than flat blocks.
+    public static RectTransform Well(Transform parent, string name, Vector2 anchorMin, Vector2 anchorMax,
+        Vector2 offsetMin, Vector2 offsetMax, Color color)
+    {
+        RectTransform rect = Panel(parent, name, anchorMin, anchorMax, offsetMin, offsetMax, color);
+        Image image = rect.GetComponent<Image>();
+        if (PanelSprite != null)
+        {
+            image.sprite = PanelSprite;
+            image.type = Image.Type.Sliced;
+            // A higher multiplier shrinks the drawn corner so thin bars/tracks get
+            // a subtle rounded edge instead of the ornate full-size panel corner.
+            image.pixelsPerUnitMultiplier = 3f;
+        }
+        return rect;
+    }
+
     // A centred horizontal flourish for section headers: the Kenney divider plus
     // its mirror, so the end ornament meets in the middle like the pack sample.
     public static void Divider(Transform parent, string name, Vector2 anchorMin, Vector2 anchorMax,
@@ -223,8 +241,8 @@ public static class MedievalUi
         rect.anchorMin = new Vector2(0.45f, 0.2f);
         rect.anchorMax = new Vector2(0.96f, 0.8f);
         rect.offsetMin = rect.offsetMax = Vector2.zero;
-        RectTransform background = Panel(rect, "Background", Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero, new Color(0.15f, 0.12f, 0.08f));
-        RectTransform fillArea = Panel(rect, "Fill", Vector2.zero, new Vector2(value, 1f), Vector2.zero, Vector2.zero, Gold);
+        RectTransform background = Well(rect, "Background", Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero, new Color(0.15f, 0.12f, 0.08f));
+        RectTransform fillArea = Well(rect, "Fill", Vector2.zero, new Vector2(value, 1f), new Vector2(0f, 2f), new Vector2(0f, -2f), Gold);
         Slider slider = go.GetComponent<Slider>();
         slider.targetGraphic = background.GetComponent<Image>();
         slider.fillRect = fillArea;
