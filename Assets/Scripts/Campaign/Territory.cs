@@ -19,3 +19,13 @@ public sealed class Territory
     public int Threat;
     public readonly List<int> AdjacentIds = new();
 }
+
+// A roaming hostile party on the overworld (bandits, raiders). Moves while the
+// player travels; colliding with the player triggers a field battle.
+public sealed class EnemyParty
+{
+    public Vector2 Position;
+    public int Strength;   // fighters fielded in the resulting field battle
+    public string Name;
+    public ArenaType Arena;
+}

@@ -198,6 +198,22 @@ public sealed class CampaignAndCombatTests
     }
 
     [Test]
+    public void FieldBattle_RemovesPartyAndLoots()
+    {
+        CampaignState campaign = CampaignState.CreateDefault(7);
+        Assert.That(campaign.Parties, Is.Not.Empty, "A fresh campaign spawns roaming parties.");
+        EnemyParty party = campaign.Parties[0];
+        int goldBefore = campaign.Gold;
+
+        BattleSetup setup = campaign.BuildPartySetup(party);
+        Assert.That(setup.EnemyComposition.Count, Is.EqualTo(Mathf.Clamp(party.Strength, 1, 12)));
+
+        campaign.ResolveFieldBattle(party, new BattleResult { PlayerWon = true });
+        Assert.That(campaign.Parties, Does.Not.Contain(party), "A defeated party leaves the map.");
+        Assert.That(campaign.Gold, Is.GreaterThan(goldBefore), "Defeating a party loots gold.");
+    }
+
+    [Test]
     public void Defeat_EndsCampaign()
     {
         CampaignState campaign = CampaignState.CreateDefault(11);

@@ -7,12 +7,15 @@ using UnityEngine;
 public sealed class CampaignState
 {
     public readonly List<Territory> Territories = new();
+    public readonly List<EnemyParty> Parties = new();
     public readonly UnitRoster Units = new();
     public int Roster => Units.Total;
     public int Gold;
     public int Seed;
-    public bool CampaignOver; // set when the player is defeated
-    public string LastReport = "Choose a border territory or strengthen your warband.";
+    public Vector2 PartyPosition;     // the player warband's overworld location
+    public int Day = 1;               // campaign clock, advanced by travel
+    public bool CampaignOver;         // set when the player is defeated
+    public string LastReport = "March your warband across the land. Hunt bandits, raid holds, grow your host.";
     public WeaponType PlayerWeapon = WeaponType.SwordAndShield;
     public WeaponType TrainingEnemyWeapon = WeaponType.SwordAndShield;
 
@@ -63,7 +66,24 @@ public sealed class CampaignState
 
         state.ConnectGraph(homeIndex);
         state.ScaleThreatFromHome(homeIndex);
+        state.PartyPosition = positions[homeIndex];
+        state.SpawnInitialParties(rng);
         return state;
+    }
+
+    private static readonly string[] PartyNames = { "BANDITS", "RAIDERS", "DESERTERS", "BRIGANDS", "OUTLAWS" };
+
+    private void SpawnInitialParties(System.Random rng)
+    {
+        int count = 3 + rng.Next(0, 2);
+        for (int i = 0; i < count; i++)
+            Parties.Add(new EnemyParty
+            {
+                Position = new Vector2((float)(rng.NextDouble() * 24 - 12), (float)(rng.NextDouble() * 18 - 8)),
+                Strength = 2 + rng.Next(0, 3),
+                Name = PartyNames[i % PartyNames.Length],
+                Arena = (ArenaType)rng.Next(0, 4)
+            });
     }
 
     private void ScaleThreatFromHome(int homeIndex)
@@ -297,24 +317,66 @@ public sealed class CampaignState
         return true;
     }
 
+    // A field battle against a roaming party: bandit-tier enemies scaled by the
+    // party's strength, fought wherever the party was caught.
+    public BattleSetup BuildPartySetup(EnemyParty party) => new BattleSetup
+    {
+        AllyCount = Mathf.Clamp(Roster, 0, 12),
+        AllyComposition = BuildAllyComposition(),
+        EnemyCount = Mathf.Clamp(party.Strength, 1, 12),
+        EnemyComposition = BuildBanditComposition(party),
+        EnemyHealthScale = 1f,
+        TargetName = party.Name,
+        Arena = party.Arena,
+        PlayerWeapon = PlayerWeapon
+    };
+
+    private static List<UnitSpec> BuildBanditComposition(EnemyParty party)
+    {
+        int count = Mathf.Clamp(party.Strength, 1, 12);
+        Archetype[] pool = { Archetype.Soldier, Archetype.Berserker, Archetype.Archer };
+        List<UnitSpec> specs = new();
+        for (int i = 0; i < count; i++)
+        {
+            Archetype archetype = pool[i % pool.Length];
+            specs.Add(new UnitSpec(UnitType.Militia, archetype, ArchetypeCatalog.Weapon(archetype)));
+        }
+        return specs;
+    }
+
     public void ApplyVictory(Territory t, BattleResult result)
     {
         int reward = t.RewardGold;
         t.Owner = TerritoryOwner.Player;
+        ApplySurvivors(result);
+        int income = IncomePerVictory();
+        Gold += reward + income;
+        LastReport = $"{t.Name} captured. Earned {reward} conquest gold and {income} income.";
+    }
+
+    public void ResolveFieldBattle(EnemyParty party, BattleResult result)
+    {
+        Parties.Remove(party);
+        int loot = 25 + party.Strength * 15;
+        Gold += loot;
+        ApplySurvivors(result);
+        LastReport = $"Defeated {party.Name}. Looted {loot} gold.";
+    }
+
+    // Rebuilds the warband from a battle's allied survivors, preserving tier and
+    // archetype. Falls back to tier-only counts for smoke/test results.
+    private void ApplySurvivors(BattleResult result)
+    {
         Units.Clear();
         if (result.SurvivingUnits != null && result.SurvivingUnits.Count > 0)
             foreach (RosterEntry entry in result.SurvivingUnits)
                 Units.Add(entry.Tier, entry.Archetype, Mathf.Max(0, entry.Count));
         else
         {
-            // Fallback for tier-only results (smoke/tests): rebuild as soldiers.
             Units.Add(UnitType.Militia, Archetype.Soldier, Mathf.Max(0, result.MilitiaSurvived));
             Units.Add(UnitType.Veteran, Archetype.Soldier, Mathf.Max(0, result.VeteransSurvived));
             Units.Add(UnitType.Guard, Archetype.Soldier, Mathf.Max(0, result.GuardsSurvived));
         }
-        int income = IncomePerVictory();
-        Gold += reward + income;
-        LastReport = $"{t.Name} captured. Earned {reward} conquest gold and {income} income.";
     }
 
     public void ApplyDefeat()

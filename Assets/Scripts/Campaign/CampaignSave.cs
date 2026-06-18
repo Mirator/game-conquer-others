@@ -8,7 +8,7 @@ using UnityEngine;
 [Serializable]
 public sealed class CampaignSaveData
 {
-    public const int CurrentVersion = 2;
+    public const int CurrentVersion = 3;
 
     public int version = CurrentVersion;
     public int seed;
@@ -17,8 +17,20 @@ public sealed class CampaignSaveData
     public string lastReport;
     public int playerWeapon;
     public int trainingEnemyWeapon;
+    public Vector2 partyPosition;
+    public int day;
     public RosterEntry[] units;
     public TerritorySaveData[] territories;
+    public PartySaveData[] parties;
+}
+
+[Serializable]
+public sealed class PartySaveData
+{
+    public Vector2 position;
+    public int strength;
+    public string name;
+    public int arena;
 }
 
 [Serializable]
@@ -55,9 +67,23 @@ public static class CampaignSaveService
             lastReport = state.LastReport,
             playerWeapon = (int)state.PlayerWeapon,
             trainingEnemyWeapon = (int)state.TrainingEnemyWeapon,
+            partyPosition = state.PartyPosition,
+            day = state.Day,
             units = state.Units.Entries.ToArray(),
-            territories = new TerritorySaveData[state.Territories.Count]
+            territories = new TerritorySaveData[state.Territories.Count],
+            parties = new PartySaveData[state.Parties.Count]
         };
+        for (int i = 0; i < state.Parties.Count; i++)
+        {
+            EnemyParty party = state.Parties[i];
+            data.parties[i] = new PartySaveData
+            {
+                position = party.Position,
+                strength = party.Strength,
+                name = party.Name,
+                arena = (int)party.Arena
+            };
+        }
         for (int i = 0; i < state.Territories.Count; i++)
         {
             Territory t = state.Territories[i];
@@ -99,11 +125,22 @@ public static class CampaignSaveService
             CampaignOver = data.campaignOver,
             LastReport = data.lastReport,
             PlayerWeapon = (WeaponType)data.playerWeapon,
-            TrainingEnemyWeapon = (WeaponType)data.trainingEnemyWeapon
+            TrainingEnemyWeapon = (WeaponType)data.trainingEnemyWeapon,
+            PartyPosition = data.partyPosition,
+            Day = data.day
         };
         if (data.units != null)
             foreach (RosterEntry entry in data.units)
                 state.Units.Add(entry.Tier, entry.Archetype, entry.Count);
+        if (data.parties != null)
+            foreach (PartySaveData p in data.parties)
+                state.Parties.Add(new EnemyParty
+                {
+                    Position = p.position,
+                    Strength = p.strength,
+                    Name = p.name,
+                    Arena = (ArenaType)p.arena
+                });
         foreach (TerritorySaveData t in data.territories)
         {
             Territory territory = new Territory
