@@ -38,6 +38,10 @@ MonoBehaviour:
   deadTree: {fileID: 919132149155446097, guid: 14c1a083f37d263479332e553c52c07f, type: 3}
   rock: {fileID: 919132149155446097, guid: 7e252a58cbc37a6408d705fbbdfba0c9, type: 3}
   bush: {fileID: 919132149155446097, guid: b86c9e5aaa5bec746bfdccf31def4031, type: 3}
+  campfire: {fileID: 919132149155446097, guid: ba2944e11ab18de44b5c6a313ae58853, type: 3}
+  tent: {fileID: 919132149155446097, guid: 2f18ba69479232e4faebbc354421e93e, type: 3}
+  bedroll: {fileID: 919132149155446097, guid: 2bbe056075a8c3444ac8ffd51b4d6aee, type: 3}
+  campFence: {fileID: 919132149155446097, guid: f54c97d588632324c8b147b74214e86d, type: 3}
   panelBorder: {fileID: 21300000, guid: 2ed30cb3fd7b3c247b516f5312174731, type: 3}
   buttonBorder: {fileID: 21300000, guid: e78f9dcae071b9245ae4458737842000, type: 3}
   mapMusic: {fileID: 0}

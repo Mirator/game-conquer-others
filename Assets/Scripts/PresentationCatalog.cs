@@ -35,6 +35,12 @@ public sealed class PresentationCatalog : ScriptableObject
     public GameObject rock;
     public GameObject bush;
 
+    [Header("Camp")]
+    public GameObject campfire;
+    public GameObject tent;
+    public GameObject bedroll;
+    public GameObject campFence;
+
     [Header("Frontend")]
     public Sprite panelBorder;
     public Sprite buttonBorder;

@@ -315,6 +315,8 @@ public sealed class BattleBootstrap : MonoBehaviour
         AuthoredVisual(presentation?.villageWagon, "Camp Wagon", new Vector3(-9f, 0f, 15f), Vector3.one * 1.1f, new Vector3(0f, 40f, 0f));
         AuthoredVisual(presentation?.villageWagon, "Camp Wagon", new Vector3(9.5f, 0f, 14.5f), Vector3.one * 1.1f, new Vector3(0f, -35f, 0f));
         AuthoredVisual(presentation?.barrel, "Camp Barrel", new Vector3(-6.5f, 0f, 15.8f), Vector3.one, Vector3.zero);
+        AuthoredVisual(presentation?.campFence, "Camp Palisade", new Vector3(-7.5f, 0f, 13.4f), Vector3.one * 1.4f, new Vector3(0f, 70f, 0f));
+        AuthoredVisual(presentation?.campFence, "Camp Palisade", new Vector3(7.5f, 0f, 13.4f), Vector3.one * 1.4f, new Vector3(0f, -70f, 0f));
         for (int i = 0; i < 5; i++)
         {
             Vector3 pos = new(Random.Range(-8f, 8f), 0.32f, Random.Range(StructureMinZ, 16f));
@@ -325,12 +327,19 @@ public sealed class BattleBootstrap : MonoBehaviour
 
     private void BuildCampfire(Vector3 pos)
     {
-        CreatePrimitive("Fire Pit", PrimitiveType.Cylinder, pos + Vector3.up * 0.08f, new Vector3(1.4f, 0.08f, 1.4f), new Color(0.18f, 0.16f, 0.14f), false);
-        for (int i = 0; i < 4; i++)
+        if (presentation?.campfire != null)
         {
-            float a = i * 45f * Mathf.Deg2Rad;
-            CreateProp("Firewood", pos + new Vector3(Mathf.Cos(a) * 0.4f, 0.18f, Mathf.Sin(a) * 0.4f),
-                new Vector3(0.9f, 0.16f, 0.16f), new Vector3(0f, i * 45f, 0f), new Color(0.22f, 0.12f, 0.05f));
+            AuthoredVisual(presentation.campfire, "Campfire", pos, Vector3.one * 1.4f, Vector3.zero, new Color(0.32f, 0.22f, 0.13f));
+        }
+        else
+        {
+            CreatePrimitive("Fire Pit", PrimitiveType.Cylinder, pos + Vector3.up * 0.08f, new Vector3(1.4f, 0.08f, 1.4f), new Color(0.18f, 0.16f, 0.14f), false);
+            for (int i = 0; i < 4; i++)
+            {
+                float a = i * 45f * Mathf.Deg2Rad;
+                CreateProp("Firewood", pos + new Vector3(Mathf.Cos(a) * 0.4f, 0.18f, Mathf.Sin(a) * 0.4f),
+                    new Vector3(0.9f, 0.16f, 0.16f), new Vector3(0f, i * 45f, 0f), new Color(0.22f, 0.12f, 0.05f));
+            }
         }
         GameObject flame = GameObject.CreatePrimitive(PrimitiveType.Sphere);
         flame.name = "Campfire Flame";
@@ -349,14 +358,24 @@ public sealed class BattleBootstrap : MonoBehaviour
 
     private void BuildTent(Vector3 pos, float yaw)
     {
-        Quaternion rot = Quaternion.Euler(0f, yaw, 0f);
         Color canvas = new Color(0.5f, 0.46f, 0.36f);
+        if (presentation?.tent != null)
+        {
+            AuthoredVisual(presentation.tent, "Bandit Tent", pos, Vector3.one * 1.5f, new Vector3(0f, yaw, 0f), canvas);
+            return;
+        }
+        Quaternion rot = Quaternion.Euler(0f, yaw, 0f);
         CreateProp("Bandit Tent", pos + rot * new Vector3(-0.5f, 0.7f, 0f), new Vector3(0.12f, 1.7f, 2.4f), new Vector3(0f, yaw, 30f), canvas);
         CreateProp("Bandit Tent", pos + rot * new Vector3(0.5f, 0.7f, 0f), new Vector3(0.12f, 1.7f, 2.4f), new Vector3(0f, yaw, -30f), canvas);
     }
 
     private void BuildBedroll(Vector3 pos)
-        => CreateBlock("Bedroll", pos + Vector3.up * 0.06f, new Vector3(0.9f, 0.12f, 1.9f), new Color(0.42f, 0.3f, 0.2f), false);
+    {
+        if (presentation?.bedroll != null)
+            AuthoredVisual(presentation.bedroll, "Bedroll", pos, Vector3.one * 1.3f, new Vector3(0f, 90f, 0f), new Color(0.42f, 0.3f, 0.2f));
+        else
+            CreateBlock("Bedroll", pos + Vector3.up * 0.06f, new Vector3(0.9f, 0.12f, 1.9f), new Color(0.42f, 0.3f, 0.2f), false);
+    }
 
     // Neutral practice-yard dressing (no fortress walls): barricades, cover,
     // torches, and a few props for the consequence-free training arena.
