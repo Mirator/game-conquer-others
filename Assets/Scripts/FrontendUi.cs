@@ -17,6 +17,8 @@ public sealed class FrontendUi : MonoBehaviour
 
     public void ShowTitle(bool visible)
     {
+        if (visible && settings != null)
+            settings.gameObject.SetActive(false);
         if (title != null)
             title.gameObject.SetActive(visible);
         if (canvas != null)
@@ -25,6 +27,8 @@ public sealed class FrontendUi : MonoBehaviour
 
     public void ShowPause(bool visible)
     {
+        if (visible && settings != null)
+            settings.gameObject.SetActive(false);
         if (pause != null)
             pause.gameObject.SetActive(visible);
         if (canvas != null)
@@ -107,7 +111,13 @@ public sealed class FrontendUi : MonoBehaviour
     private void RebuildSettings()
     {
         for (int i = settings.childCount - 1; i >= 0; i--)
-            Destroy(settings.GetChild(i).gameObject);
+        {
+            // Destroy is deferred to end of frame; deactivate now so the stale widgets
+            // neither render nor catch input during the frame they coexist with the rebuilt ones.
+            GameObject child = settings.GetChild(i).gameObject;
+            child.SetActive(false);
+            Destroy(child);
+        }
         MedievalUi.Label(settings, "Title", "SETTINGS", 58, TextAnchor.MiddleCenter,
             new Vector2(0.25f, 0.8f), new Vector2(0.75f, 0.94f), Vector2.zero, Vector2.zero, MedievalUi.Gold);
         BuildSettings();

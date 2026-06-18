@@ -11,6 +11,26 @@ public static class MedievalUi
     public static readonly Color Gold = new(0.92f, 0.68f, 0.22f);
     public static readonly Color Bone = new(0.94f, 0.9f, 0.78f);
 
+    private static Sprite whiteSprite;
+
+    // A solid-white sprite shared by every UI graphic that needs real mesh geometry.
+    // A sprite-less Image of type Filled ignores fillAmount (it always renders the full
+    // quad), so progress bars MUST have a sprite to deplete. See BattleHud.BuildBar.
+    public static Sprite WhiteSprite
+    {
+        get
+        {
+            if (whiteSprite == null)
+            {
+                Texture2D tex = Texture2D.whiteTexture;
+                whiteSprite = Sprite.Create(tex, new Rect(0f, 0f, tex.width, tex.height),
+                    new Vector2(0.5f, 0.5f), 100f);
+                whiteSprite.name = "MedievalUi White";
+            }
+            return whiteSprite;
+        }
+    }
+
     public static Canvas CreateCanvas(Transform parent, string name, int sortingOrder = 10)
     {
         GameObject go = new(name, typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
@@ -22,7 +42,7 @@ public static class MedievalUi
         scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
         scaler.referenceResolution = new Vector2(1920f, 1080f);
         scaler.matchWidthOrHeight = 0.5f;
-        EnsureEventSystem(parent);
+        EnsureEventSystem();
         return canvas;
     }
 
@@ -109,11 +129,14 @@ public static class MedievalUi
         return slider;
     }
 
-    private static void EnsureEventSystem(Transform parent)
+    private static void EnsureEventSystem()
     {
         if (Object.FindFirstObjectByType<EventSystem>() != null)
             return;
+        // Keep the EventSystem at the scene root and persistent. Parenting it under the
+        // requesting canvas would let a mode teardown (Destroy(battleRoot/mapRoot)) take
+        // the only EventSystem with it, leaving every later canvas unclickable.
         GameObject eventSystem = new("EventSystem", typeof(EventSystem), typeof(InputSystemUIInputModule));
-        eventSystem.transform.SetParent(parent, false);
+        Object.DontDestroyOnLoad(eventSystem);
     }
 }

@@ -81,8 +81,12 @@ public sealed class BattleHud : MonoBehaviour
         MedievalUi.Panel(parent, name + " Back", min, max, Vector2.zero, Vector2.zero, new Color(0.01f, 0.01f, 0.01f, 0.9f));
         Image fill = MedievalUi.Panel(parent, name + " Fill", min, max, new Vector2(3f, 3f),
             new Vector2(-3f, -3f), color).GetComponent<Image>();
+        // A Filled image needs a sprite to honour fillAmount; without one the mesh stays
+        // full width and the bar never visibly depletes.
+        fill.sprite = MedievalUi.WhiteSprite;
         fill.type = Image.Type.Filled;
         fill.fillMethod = Image.FillMethod.Horizontal;
+        fill.fillOrigin = (int)Image.OriginHorizontal.Left;
         fill.raycastTarget = false;
         return fill;
     }
