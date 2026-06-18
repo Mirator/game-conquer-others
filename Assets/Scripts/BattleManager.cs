@@ -309,7 +309,7 @@ public sealed class BattleManager : MonoBehaviour
         effects?.PlayArrowImpact(position, fighterHit);
     }
 
-    public void ReportImpact(BattleFighter target, BattleFighter attacker, bool blocked, bool perfectBlock, bool counterStrike)
+    public void ReportImpact(BattleFighter target, BattleFighter attacker, bool blocked, bool perfectBlock, bool counterStrike, float appliedDamage = 0f)
     {
         effects?.PlayImpact(target.transform.position, blocked, perfectBlock, counterStrike);
         bool playerInvolved = target.IsPlayer || attacker != null && attacker.IsPlayer;
@@ -322,7 +322,11 @@ public sealed class BattleManager : MonoBehaviour
         }
         else if (!blocked && attacker != null && attacker.IsPlayer)
         {
-            float duration = counterStrike ? 0.085f : 0.055f;
+            // Heavier landed hits freeze longer, so a two-handed blow reads
+            // weightier than a quick thrust.
+            float duration = Mathf.Lerp(0.05f, 0.12f, Mathf.Clamp01(appliedDamage / 45f));
+            if (counterStrike)
+                duration += 0.02f;
             attacker.ApplyHitStop(duration);
             target.ApplyHitStop(duration);
         }

@@ -50,15 +50,16 @@ public sealed class BattleEffects : MonoBehaviour
         blockClip = RandomClip(catalog != null ? catalog.blocks : null) ?? Tone("Block", 620f, 0.13f, true);
         // Signature cues prefer curated CC0 clips from Resources, falling back to
         // the synthesized tone when a clip is absent.
-        perfectBlockClip = LoadClip("Audio/metalPot1") ?? Tone("Perfect Block", 920f, 0.2f, true);
-        counterClip = LoadClip("Audio/metalPot2") ?? Tone("Counter Strike", 360f, 0.18f, false);
+        perfectBlockClip = LoadClip("Audio/swordClash1") ?? Tone("Perfect Block", 920f, 0.2f, true);
+        counterClip = LoadClip("Audio/swordClash2") ?? Tone("Counter Strike", 360f, 0.18f, false);
         swingClip = RandomClip(catalog != null ? catalog.swings : null) ?? Tone("Swing", 240f, 0.11f, false);
-        heavySwingClip = Tone("Heavy Swing", 155f, 0.18f, false);
+        heavySwingClip = LoadClip("Audio/cloth4") ?? Tone("Heavy Swing", 155f, 0.18f, false);
         bowReleaseClip = RuntimeAssets.Audio("Bow Release", CreateBowRelease);
-        arrowImpactClip = Tone("Arrow Impact", 430f, 0.1f, true);
+        arrowImpactClip = RandomClip(catalog != null ? catalog.arrows : null)
+            ?? RandomClip(catalog != null ? catalog.impacts : null) ?? Tone("Arrow Impact", 430f, 0.1f, true);
         whiffClip = LoadClip("Audio/cloth1") ?? Tone("Whiff", 150f, 0.16f, true);
         footstepClip = RandomClip(catalog != null ? catalog.footsteps : null) ?? Tone("Footstep", 72f, 0.09f, true);
-        victoryClip = Tone("Victory", 440f, 0.55f, false);
+        victoryClip = RuntimeAssets.Audio("Victory Fanfare", CreateVictoryFanfare);
         for (int i = 0; i < 8; i++)
             particlePool.Add(CreateParticleEmitter(i));
         for (int i = 0; i < SpatialVoices; i++)
@@ -229,6 +230,34 @@ public sealed class BattleEffects : MonoBehaviour
             samples[i] = Mathf.Sin(t * 66f * Mathf.PI * 2f) * envelope * 0.22f;
         }
         AudioClip clip = AudioClip.Create("Distant War Drums", length, 1, sampleRate, false);
+        clip.SetData(samples, 0);
+        return clip;
+    }
+
+    // A rising C-major arpeggio (C5-E5-G5-C6) with octave harmonics and ringing
+    // decay — a triumphant sting instead of a single flat tone.
+    private static AudioClip CreateVictoryFanfare()
+    {
+        const int sampleRate = 22050;
+        const float duration = 0.85f;
+        int length = Mathf.RoundToInt(sampleRate * duration);
+        float[] samples = new float[length];
+        float[] notes = { 523.25f, 659.25f, 783.99f, 1046.5f };
+        for (int n = 0; n < notes.Length; n++)
+        {
+            int startSample = Mathf.RoundToInt(n * 0.12f * sampleRate);
+            for (int i = startSample; i < length; i++)
+            {
+                float t = (i - startSample) / (float)sampleRate;
+                float envelope = Mathf.Exp(-t * 4.5f);
+                float wave = Mathf.Sin(t * notes[n] * Mathf.PI * 2f)
+                    + 0.3f * Mathf.Sin(t * notes[n] * 2f * Mathf.PI * 2f);
+                samples[i] += wave * envelope * 0.18f;
+            }
+        }
+        for (int i = 0; i < length; i++)
+            samples[i] = Mathf.Clamp(samples[i], -1f, 1f);
+        AudioClip clip = AudioClip.Create("Victory Fanfare", length, 1, sampleRate, false);
         clip.SetData(samples, 0);
         return clip;
     }

@@ -287,7 +287,7 @@ public abstract class BattleFighter : MonoBehaviour
 
         damageDisplayTimer = 4f;
         hitFlashTimer = perfectBlock ? 0.18f : guarded ? 0.1f : 0.2f;
-        battle.ReportImpact(this, attacker, guarded, perfectBlock, attacker != null && attacker.IsCounterAttack);
+        battle.ReportImpact(this, attacker, guarded, perfectBlock, attacker != null && attacker.IsCounterAttack, appliedDamage);
         if (!guarded)
             battle.RecordDamage(attacker, this, appliedDamage, health <= 0f);
 
