@@ -97,6 +97,7 @@ public sealed class CampaignMapController : MonoBehaviour
         RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Flat;
         RenderSettings.ambientLight = new Color(0.35f, 0.37f, 0.4f);
         RenderSettings.fog = false;
+        RenderSettings.skybox = null; // clear any battle skybox so it doesn't bleed onto the map
 
         GameObject camObject = new GameObject("Map Camera");
         camObject.transform.SetParent(transform);

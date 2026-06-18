@@ -253,6 +253,27 @@ public sealed class CampaignAndCombatTests
     }
 
     [Test]
+    public void TimeOfDayForDay_IsDeterministicAndInRange()
+    {
+        for (int day = 1; day <= 60; day++)
+        {
+            float t = CampaignState.TimeOfDayForDay(day);
+            Assert.That(t, Is.GreaterThanOrEqualTo(0f).And.LessThan(1f));
+            Assert.That(t, Is.EqualTo(CampaignState.TimeOfDayForDay(day)), "Same day always lights the same.");
+        }
+    }
+
+    [Test]
+    public void SetupBuilders_TagEncounterKind()
+    {
+        CampaignState campaign = CampaignState.CreateDefault(11);
+        Assert.That(campaign.BuildSetupFor(FirstEnemyTerritory(campaign)).Kind, Is.EqualTo(BattleKind.SettlementAssault));
+        Assert.That(campaign.BuildPartySetup(campaign.Parties[0]).Kind, Is.EqualTo(BattleKind.BanditField));
+        Assert.That(campaign.BuildTrainingSetup().Kind, Is.EqualTo(BattleKind.Training));
+        Assert.That(campaign.BuildTrainingSetup().TimeOfDay, Is.EqualTo(0.5f));
+    }
+
+    [Test]
     public void Defeat_EndsCampaign()
     {
         CampaignState campaign = CampaignState.CreateDefault(11);

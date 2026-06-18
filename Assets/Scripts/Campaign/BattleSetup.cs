@@ -37,6 +37,10 @@ public sealed class BattleSetup
     public WeaponType TrainingEnemyWeapon = WeaponType.SwordAndShield;
     public bool IsTraining;
 
+    // Encounter context for dressing the battlefield to the overworld.
+    public BattleKind Kind = BattleKind.Training;
+    public float TimeOfDay = 0.5f;   // 0=midnight, .25 dawn, .5 midday, .75 dusk
+
     // Explicit archetype composition. When set it overrides the tier-count
     // fields above; when null the builder falls back to those counts.
     public List<UnitSpec> EnemyComposition;

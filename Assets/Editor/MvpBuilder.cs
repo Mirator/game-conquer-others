@@ -33,7 +33,7 @@ public static class MvpBuilder
         Object graphicsSettings = AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/GraphicsSettings.asset")[0];
         SerializedObject serialized = new(graphicsSettings);
         SerializedProperty shaders = serialized.FindProperty("m_AlwaysIncludedShaders");
-        string[] names = { "Standard", "Legacy Shaders/Diffuse", "Sprites/Default" };
+        string[] names = { "Standard", "Legacy Shaders/Diffuse", "Sprites/Default", "Skybox/Procedural" };
 
         foreach (string shaderName in names)
         {

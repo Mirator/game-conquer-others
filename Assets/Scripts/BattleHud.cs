@@ -128,7 +128,12 @@ public sealed class BattleHud : MonoBehaviour
         stateButton.gameObject.SetActive(battle.State != BattleManager.BattleState.Ready);
         if (battle.State == BattleManager.BattleState.Ready)
         {
-            stateTitle.text = battle.IsTraining ? "TRAINING ARENA" : $"ASSAULT ON\n{battle.EncounterTitle}";
+            stateTitle.text = battle.EncounterKind switch
+            {
+                BattleKind.Training => "TRAINING ARENA",
+                BattleKind.BanditField => $"ROUT THE\n{battle.EncounterTitle}",
+                _ => $"ASSAULT ON\n{battle.EncounterTitle}"
+            };
             string weapon = battle.Player != null ? WeaponCatalog.Label(battle.Player.Weapon) : "";
             stateBody.text = $"EQUIPPED: {weapon}\n\nWASD  MOVE      SHIFT  SPRINT      SPACE  DODGE\n\n" +
                 (battle.Player != null && battle.Player.IsRanged

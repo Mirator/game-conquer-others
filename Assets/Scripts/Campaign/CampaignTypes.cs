@@ -15,6 +15,15 @@ public enum ArenaType
     Highlands
 }
 
+// What kind of encounter a battle is, so the battlefield can be dressed to match
+// (a fortified hold for an assault, an open bandit camp for a field fight).
+public enum BattleKind
+{
+    Training,
+    SettlementAssault,
+    BanditField
+}
+
 public enum WeaponType
 {
     SwordAndShield,

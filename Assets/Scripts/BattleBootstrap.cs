@@ -7,19 +7,25 @@ using UnityEngine.Rendering;
 // the director owns lifecycle and mode switching.
 public sealed class BattleBootstrap : MonoBehaviour
 {
+    private const float StructureMinZ = 13f; // keep dressing clear of the +z enemy spawn lane
+
     private GameObject battleRoot;
     private PresentationCatalog presentation;
+    private float timeOfDay = 0.5f;
+    private Light sun;
 
     public BattleManager Build(GameObject root, BattleSetup setup)
     {
         battleRoot = root;
         presentation = PresentationCatalog.Load();
+        timeOfDay = setup.TimeOfDay;
 
         BattleManager manager = battleRoot.AddComponent<BattleManager>();
         BattleEffects effects = battleRoot.AddComponent<BattleEffects>();
+        effects.Initialize(setup.Arena);
 
         SetupLighting(setup.Arena);
-        BuildArena(setup.Arena);
+        BuildArena(setup.Arena, setup.Kind);
 
         Camera camera = CreateCamera();
         ThirdPersonCamera cameraRig = camera.gameObject.AddComponent<ThirdPersonCamera>();
@@ -150,40 +156,93 @@ public sealed class BattleBootstrap : MonoBehaviour
         camera.fieldOfView = 62f;
         camera.nearClipPlane = 0.15f;
         camera.farClipPlane = 180f;
+        camera.clearFlags = CameraClearFlags.Skybox; // show the per-region procedural sky
         go.AddComponent<AudioListener>();
         return camera;
     }
 
     private void SetupLighting(ArenaType arena)
     {
-        ArenaThemeDefinition theme = PresentationCatalog.Load()?.Theme(arena);
         GameObject sunObject = new GameObject("Sun");
         sunObject.transform.SetParent(battleRoot.transform);
-        sunObject.transform.rotation = Quaternion.Euler(35f, -28f, 0f);
-        Light sun = sunObject.AddComponent<Light>();
+        sun = sunObject.AddComponent<Light>();
         sun.type = LightType.Directional;
-        sun.intensity = arena == ArenaType.Forest ? 0.82f : arena == ArenaType.Marsh ? 0.92f : 1.05f;
-        sun.color = theme != null ? theme.sunlight : arena == ArenaType.Marsh ? new Color(0.72f, 0.82f, 0.84f)
-            : arena == ArenaType.Forest ? new Color(0.84f, 0.9f, 0.7f) : new Color(1f, 0.78f, 0.58f);
         sun.shadows = LightShadows.Soft;
-
+        RenderSettings.sun = sun;
         RenderSettings.ambientMode = AmbientMode.Flat;
-        RenderSettings.ambientLight = theme != null ? theme.ambient : arena == ArenaType.Forest ? new Color(0.18f, 0.28f, 0.2f)
-            : arena == ArenaType.Marsh ? new Color(0.28f, 0.34f, 0.36f) : new Color(0.28f, 0.32f, 0.36f);
         RenderSettings.fog = true;
-        RenderSettings.fogColor = theme != null ? theme.fog : arena == ArenaType.Marsh ? new Color(0.42f, 0.52f, 0.52f)
-            : arena == ArenaType.Forest ? new Color(0.3f, 0.42f, 0.32f) : new Color(0.48f, 0.55f, 0.58f);
-        RenderSettings.fogDensity = theme != null ? theme.fogDensity : arena == ArenaType.Marsh ? 0.02f : 0.012f;
+        ApplySunAndSky(timeOfDay, arena);
     }
 
-    private void BuildArena(ArenaType arena)
+    // Drives sun angle/color/intensity, ambient, fog, and skybox from a 0..1 time
+    // of day so a battle looks like the hour the player arrived.
+    private void ApplySunAndSky(float t, ArenaType arena)
     {
-        ArenaThemeDefinition theme = PresentationCatalog.Load()?.Theme(arena);
+        ArenaThemeDefinition theme = presentation?.Theme(arena);
+        float daySin = Mathf.Sin(t * Mathf.PI * 2f - Mathf.PI * 0.5f); // -1 night, 0 dawn/dusk, +1 midday
+        float day = Mathf.Clamp01(daySin * 0.5f + 0.5f);               // 0 night .. 1 midday
+        float golden = 1f - Mathf.Abs(daySin);                         // 1 at dawn/dusk
+
+        sun.transform.rotation = Quaternion.Euler(daySin * 55f + 6f, -28f + (t - 0.5f) * 50f, 0f);
+        Color sunBase = theme != null ? theme.sunlight : arena == ArenaType.Marsh ? new Color(0.72f, 0.82f, 0.84f)
+            : arena == ArenaType.Forest ? new Color(0.84f, 0.9f, 0.7f) : new Color(1f, 0.78f, 0.58f);
+        sun.color = Color.Lerp(new Color(1f, 0.96f, 0.9f), new Color(1f, 0.55f, 0.3f), golden) * sunBase;
+        float intensityBase = arena == ArenaType.Forest ? 0.82f : arena == ArenaType.Marsh ? 0.92f : 1.05f;
+        sun.intensity = intensityBase * Mathf.Lerp(0.06f, 1f, day);
+
+        Color ambientBase = theme != null ? theme.ambient : arena == ArenaType.Forest ? new Color(0.18f, 0.28f, 0.2f)
+            : arena == ArenaType.Marsh ? new Color(0.28f, 0.34f, 0.36f) : new Color(0.28f, 0.32f, 0.36f);
+        RenderSettings.ambientLight = ambientBase * Mathf.Lerp(0.35f, 1f, day);
+        Color fogBase = theme != null ? theme.fog : arena == ArenaType.Marsh ? new Color(0.42f, 0.52f, 0.52f)
+            : arena == ArenaType.Forest ? new Color(0.3f, 0.42f, 0.32f) : new Color(0.48f, 0.55f, 0.58f);
+        RenderSettings.fogColor = Color.Lerp(new Color(0.05f, 0.06f, 0.1f), fogBase, day);
+        RenderSettings.fogDensity = (theme != null ? theme.fogDensity : arena == ArenaType.Marsh ? 0.02f : 0.012f) * Mathf.Lerp(1.4f, 1f, day);
+
+        Material skybox = RuntimeAssets.Skybox(arena);
+        if (skybox != null)
+        {
+            skybox.SetFloat("_Exposure", Mathf.Lerp(0.28f, 1.1f, day));
+            RenderSettings.skybox = skybox;
+        }
+        DynamicGI.UpdateEnvironment();
+    }
+
+    // Torch/campfire brightness for the current time of day: barely lit at midday,
+    // strong at night.
+    private float FireIntensity(float midday, float night)
+    {
+        float day = Mathf.Clamp01(Mathf.Sin(timeOfDay * Mathf.PI * 2f - Mathf.PI * 0.5f) * 0.5f + 0.5f);
+        return Mathf.Lerp(night, midday, day);
+    }
+
+    private void BuildArena(ArenaType arena, BattleKind kind)
+    {
+        ArenaThemeDefinition theme = presentation?.Theme(arena);
         if (theme != null && theme.visualPrefab != null)
         {
             GameObject visuals = Instantiate(theme.visualPrefab, battleRoot.transform);
             visuals.name = $"{arena} Authored Visuals";
         }
+
+        BuildBiome(arena);
+        switch (kind)
+        {
+            case BattleKind.SettlementAssault:
+                BuildHold(arena);
+                break;
+            case BattleKind.BanditField:
+                BuildBanditCamp(arena);
+                break;
+            default:
+                BuildTrainingDressing();
+                break;
+        }
+    }
+
+    // Shared terrain for every encounter kind: ground, biome scatter, and a
+    // containment boundary. Structures (hold / camp / training props) layer on top.
+    private void BuildBiome(ArenaType arena)
+    {
         if (arena == ArenaType.Forest)
             BuildForest();
         else if (arena == ArenaType.Marsh)
@@ -191,96 +250,147 @@ public sealed class BattleBootstrap : MonoBehaviour
         else if (arena == ArenaType.Highlands)
             BuildHighlands();
         else
-            BuildCourtyard();
+            BuildCourtyardBiome();
     }
 
-    private void BuildCourtyard()
+    private void BuildCourtyardBiome()
     {
         CreateBlock("Ground", new Vector3(0f, -0.35f, 0f), new Vector3(34f, 0.7f, 34f), new Color(0.24f, 0.34f, 0.16f));
         CreateBlock("Dirt Road", new Vector3(0f, 0.015f, 0f), new Vector3(8f, 0.035f, 31f), new Color(0.34f, 0.24f, 0.13f), false);
         CreateBlock("Cross Road", new Vector3(0f, 0.02f, 0f), new Vector3(28f, 0.04f, 5f), new Color(0.31f, 0.22f, 0.12f), false);
+        BuildBoundary(new Color(0.2f, 0.26f, 0.14f), 1.4f);
+    }
+
+    // Assault dressing: a fortified hold on the defender (+z) side — ramparts,
+    // gate, corner towers (using the otherwise-unused villageTowerRoof) and banners.
+    private void BuildHold(ArenaType arena)
+    {
         Color stone = new Color(0.32f, 0.33f, 0.31f);
-        CreateBlock("North Wall Collision", new Vector3(0f, 1.5f, 17f), new Vector3(36f, 3.4f, 1f), stone);
-        CreateBlock("South Wall Collision", new Vector3(0f, 1.5f, -17f), new Vector3(36f, 3.4f, 1f), stone);
-        CreateBlock("East Wall Collision", new Vector3(17f, 1.5f, 0f), new Vector3(1f, 3.4f, 36f), stone);
-        CreateBlock("West Wall Collision", new Vector3(-17f, 1.5f, 0f), new Vector3(1f, 3.4f, 36f), stone);
-
         Color wood = new Color(0.28f, 0.14f, 0.055f);
-        CreateBlock("Center Barricade", new Vector3(-7f, 0.65f, 1.8f), new Vector3(4.5f, 1.3f, 0.45f), wood);
-        CreateBlock("Center Barricade", new Vector3(7f, 0.65f, -1.8f), new Vector3(4.5f, 1.3f, 0.45f), wood);
-        CreateBlock("Stone Cover", new Vector3(-10f, 0.65f, 5f), new Vector3(2.5f, 1.3f, 2.5f), stone);
-        CreateBlock("Stone Cover", new Vector3(10f, 0.65f, -5f), new Vector3(2.5f, 1.3f, 2.5f), stone);
-
+        CreateBlock("Hold North Wall", new Vector3(0f, 1.7f, 16.6f), new Vector3(36f, 3.4f, 1f), stone);
+        CreateBlock("Hold East Wall", new Vector3(16.6f, 1.7f, 0f), new Vector3(1f, 3.4f, 36f), stone);
+        CreateBlock("Hold West Wall", new Vector3(-16.6f, 1.7f, 0f), new Vector3(1f, 3.4f, 36f), stone);
         for (int i = -14; i <= 14; i += 4)
-        {
-            CreateBlock("Battlement", new Vector3(i, 3.65f, 16.8f), new Vector3(2f, 1.1f, 1.3f), stone);
-            CreateBlock("Battlement", new Vector3(i, 3.65f, -16.8f), new Vector3(2f, 1.1f, 1.3f), stone);
-        }
+            CreateBlock("Battlement", new Vector3(i, 3.65f, 16.4f), new Vector3(2f, 1.1f, 1.3f), stone);
 
-        for (int i = -12; i <= 12; i += 8)
-        {
-            CreateBlock("Blue Banner Pole", new Vector3(i, 2f, -16.15f), new Vector3(0.12f, 3.8f, 0.12f), wood, false);
-            CreateBlock("Blue Banner", new Vector3(i + 0.7f, 3.15f, -16.1f), new Vector3(1.35f, 1.25f, 0.08f), new Color(0.08f, 0.32f, 0.78f), false);
-            CreateBlock("Red Banner Pole", new Vector3(i, 2f, 16.15f), new Vector3(0.12f, 3.8f, 0.12f), wood, false);
-            CreateBlock("Red Banner", new Vector3(i + 0.7f, 3.15f, 16.1f), new Vector3(1.35f, 1.25f, 0.08f), new Color(0.68f, 0.08f, 0.05f), false);
-        }
-
-        BuildTorch(new Vector3(-6f, 1.35f, -15.8f));
-        BuildTorch(new Vector3(6f, 1.35f, -15.8f));
-        BuildTorch(new Vector3(-6f, 1.35f, 15.8f));
-        BuildTorch(new Vector3(6f, 1.35f, 15.8f));
-        AuthoredVisual(presentation?.villageArch, "Village Gate", new Vector3(0f, 0f, 15.8f),
+        AuthoredVisual(presentation?.villageArch, "Hold Gate", new Vector3(0f, 0f, 16.0f),
             new Vector3(3f, 1.35f, 1.5f), new Vector3(0f, 180f, 0f));
         Vector3 wallScale = new(3.05f, 1.1f, 1.5f);
         for (int x = -15; x <= 15; x += 6)
-        {
-            AuthoredVisual(presentation?.villageWall, "Authored North Wall", new Vector3(x, 0f, 16.25f),
-                wallScale, new Vector3(0f, 180f, 0f));
-            AuthoredVisual(presentation?.villageWall, "Authored South Wall", new Vector3(x, 0f, -16.25f),
-                wallScale, Vector3.zero);
-        }
-        for (int z = -15; z <= 15; z += 6)
-        {
-            AuthoredVisual(presentation?.villageWall, "Authored East Wall", new Vector3(16.25f, 0f, z),
-                wallScale, new Vector3(0f, -90f, 0f));
-            AuthoredVisual(presentation?.villageWall, "Authored West Wall", new Vector3(-16.25f, 0f, z),
-                wallScale, new Vector3(0f, 90f, 0f));
-        }
-        AuthoredVisual(presentation?.villageWagon, "Village Wagon", new Vector3(-11.5f, 0f, -5f), Vector3.one * 1.2f,
-            new Vector3(0f, 30f, 0f));
-        AuthoredVisual(presentation?.weaponStand, "Courtyard Weapon Stand", new Vector3(11.8f, 0f, 5.2f),
-            Vector3.one * 1.15f, new Vector3(0f, -65f, 0f));
-        AuthoredVisual(presentation?.barrel, "Courtyard Barrel", new Vector3(13.2f, 0f, 6.3f),
-            Vector3.one * 1.1f, Vector3.zero);
-        AuthoredVisual(presentation?.barrel, "Courtyard Barrel", new Vector3(-13.2f, 0f, -7.1f),
-            Vector3.one * 1.1f, Vector3.zero);
-        for (int z = -12; z <= 12; z += 6)
-        {
-            AuthoredVisual(presentation?.villageFence, "Courtyard Fence", new Vector3(-15f, 0f, z),
-                Vector3.one, new Vector3(0f, 90f, 0f));
-            AuthoredVisual(presentation?.villageFence, "Courtyard Fence", new Vector3(15f, 0f, z),
-                Vector3.one, new Vector3(0f, 90f, 0f));
-        }
+            AuthoredVisual(presentation?.villageWall, "Hold Wall", new Vector3(x, 0f, 16.25f), wallScale, new Vector3(0f, 180f, 0f));
+        BuildTower(new Vector3(-15.5f, 0f, 16f));
+        BuildTower(new Vector3(15.5f, 0f, 16f));
+
         for (int x = -12; x <= 12; x += 8)
         {
-            AuthoredVisual(presentation?.banner, "Blue Authored Banner", new Vector3(x, 1.15f, -15.9f),
-                Vector3.one * 1.1f, Vector3.zero, new Color(0.08f, 0.32f, 0.78f));
-            AuthoredVisual(presentation?.banner, "Red Authored Banner", new Vector3(x, 1.15f, 15.9f),
+            CreateBlock("Banner Pole", new Vector3(x, 2f, 15.9f), new Vector3(0.12f, 3.8f, 0.12f), wood, false);
+            AuthoredVisual(presentation?.banner, "Defender Banner", new Vector3(x, 1.15f, 15.7f),
                 Vector3.one * 1.1f, new Vector3(0f, 180f, 0f), new Color(0.68f, 0.08f, 0.05f));
+            CreateBlock("Defender Banner", new Vector3(x + 0.7f, 3.15f, 16.1f), new Vector3(1.35f, 1.25f, 0.08f), new Color(0.68f, 0.08f, 0.05f), false);
         }
+        BuildTorch(new Vector3(-6f, 1.35f, 15.6f));
+        BuildTorch(new Vector3(6f, 1.35f, 15.6f));
+    }
 
-        for (int i = 0; i < 12; i++)
+    private void BuildTower(Vector3 basePos)
+    {
+        Color stone = new Color(0.34f, 0.35f, 0.33f);
+        CreatePrimitive("Tower Body", PrimitiveType.Cylinder, basePos + Vector3.up * 2.4f, new Vector3(2.4f, 2.4f, 2.4f), stone, false);
+        if (presentation?.villageTowerRoof != null)
+            AuthoredVisual(presentation.villageTowerRoof, "Tower Roof", basePos + Vector3.up * 4.8f, Vector3.one * 1.6f, Vector3.zero);
+        else
+            CreatePrimitive("Tower Roof", PrimitiveType.Cylinder, basePos + Vector3.up * 5.2f, new Vector3(2.7f, 0.9f, 2.7f), new Color(0.4f, 0.22f, 0.1f), false);
+        BuildTorch(basePos + new Vector3(0f, 3.2f, -1.2f));
+    }
+
+    // Field dressing: an open bandit camp behind the enemy (+z) line. No fortress
+    // walls — the biome boundary is the only enclosure, so it reads as an ambush.
+    private void BuildBanditCamp(ArenaType arena)
+    {
+        BuildCampfire(new Vector3(0f, 0f, 14.5f));
+        BuildTent(new Vector3(-4.5f, 0f, 15f), 18f);
+        BuildTent(new Vector3(4.8f, 0f, 14.2f), -22f);
+        BuildBedroll(new Vector3(-2f, 0f, 13.4f));
+        BuildBedroll(new Vector3(2.4f, 0f, 13.2f));
+        AuthoredVisual(presentation?.villageWagon, "Camp Wagon", new Vector3(-9f, 0f, 15f), Vector3.one * 1.1f, new Vector3(0f, 40f, 0f));
+        AuthoredVisual(presentation?.villageWagon, "Camp Wagon", new Vector3(9.5f, 0f, 14.5f), Vector3.one * 1.1f, new Vector3(0f, -35f, 0f));
+        AuthoredVisual(presentation?.barrel, "Camp Barrel", new Vector3(-6.5f, 0f, 15.8f), Vector3.one, Vector3.zero);
+        for (int i = 0; i < 5; i++)
         {
-            float side = i % 2 == 0 ? -1f : 1f;
-            Vector3 cratePosition = new(side * Random.Range(11.5f, 14.5f), 0.32f, Random.Range(-13f, 13f));
-            CreateBlock("Supply Crate", cratePosition,
-                new Vector3(0.85f, 0.65f, 0.85f), wood);
-            AuthoredVisual(presentation?.villageCrate, "Authored Supply Crate", cratePosition + Vector3.up * 0.35f,
-                Vector3.one * 0.8f, Vector3.zero);
-            if (i < 4)
-                AuthoredVisual(presentation?.propCrate, "Authored Wooden Crate", cratePosition + Vector3.up * 0.36f,
-                    Vector3.one * 0.7f, new Vector3(0f, i * 20f, 0f));
+            Vector3 pos = new(Random.Range(-8f, 8f), 0.32f, Random.Range(StructureMinZ, 16f));
+            CreateBlock("Camp Crate", pos, new Vector3(0.8f, 0.6f, 0.8f), new Color(0.3f, 0.18f, 0.08f));
+            AuthoredVisual(presentation?.villageCrate, "Camp Supplies", pos + Vector3.up * 0.34f, Vector3.one * 0.75f, new Vector3(0f, i * 30f, 0f));
         }
+    }
+
+    private void BuildCampfire(Vector3 pos)
+    {
+        CreatePrimitive("Fire Pit", PrimitiveType.Cylinder, pos + Vector3.up * 0.08f, new Vector3(1.4f, 0.08f, 1.4f), new Color(0.18f, 0.16f, 0.14f), false);
+        for (int i = 0; i < 4; i++)
+        {
+            float a = i * 45f * Mathf.Deg2Rad;
+            CreateProp("Firewood", pos + new Vector3(Mathf.Cos(a) * 0.4f, 0.18f, Mathf.Sin(a) * 0.4f),
+                new Vector3(0.9f, 0.16f, 0.16f), new Vector3(0f, i * 45f, 0f), new Color(0.22f, 0.12f, 0.05f));
+        }
+        GameObject flame = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        flame.name = "Campfire Flame";
+        flame.transform.SetParent(battleRoot.transform);
+        flame.transform.position = pos + Vector3.up * 0.45f;
+        flame.transform.localScale = new Vector3(0.55f, 0.7f, 0.55f);
+        Destroy(flame.GetComponent<Collider>());
+        flame.GetComponent<Renderer>().sharedMaterial = RuntimeAssets.Material(new Color(1f, 0.4f, 0.08f), true);
+        Light light = flame.AddComponent<Light>();
+        light.type = LightType.Point;
+        light.color = new Color(1f, 0.5f, 0.18f);
+        light.range = 9f;
+        light.shadows = LightShadows.None;
+        light.intensity = FireIntensity(0.6f, 3.2f);
+    }
+
+    private void BuildTent(Vector3 pos, float yaw)
+    {
+        Quaternion rot = Quaternion.Euler(0f, yaw, 0f);
+        Color canvas = new Color(0.5f, 0.46f, 0.36f);
+        CreateProp("Bandit Tent", pos + rot * new Vector3(-0.5f, 0.7f, 0f), new Vector3(0.12f, 1.7f, 2.4f), new Vector3(0f, yaw, 30f), canvas);
+        CreateProp("Bandit Tent", pos + rot * new Vector3(0.5f, 0.7f, 0f), new Vector3(0.12f, 1.7f, 2.4f), new Vector3(0f, yaw, -30f), canvas);
+    }
+
+    private void BuildBedroll(Vector3 pos)
+        => CreateBlock("Bedroll", pos + Vector3.up * 0.06f, new Vector3(0.9f, 0.12f, 1.9f), new Color(0.42f, 0.3f, 0.2f), false);
+
+    // Neutral practice-yard dressing (no fortress walls): barricades, cover,
+    // torches, and a few props for the consequence-free training arena.
+    private void BuildTrainingDressing()
+    {
+        Color stone = new Color(0.32f, 0.33f, 0.31f);
+        CreateBlock("Center Barricade", new Vector3(-7f, 0.65f, 1.8f), new Vector3(4.5f, 1.3f, 0.45f), new Color(0.28f, 0.14f, 0.055f));
+        CreateBlock("Center Barricade", new Vector3(7f, 0.65f, -1.8f), new Vector3(4.5f, 1.3f, 0.45f), new Color(0.28f, 0.14f, 0.055f));
+        CreateBlock("Stone Cover", new Vector3(-10f, 0.65f, 5f), new Vector3(2.5f, 1.3f, 2.5f), stone);
+        CreateBlock("Stone Cover", new Vector3(10f, 0.65f, -5f), new Vector3(2.5f, 1.3f, 2.5f), stone);
+        BuildTorch(new Vector3(-6f, 1.35f, -15.6f));
+        BuildTorch(new Vector3(6f, 1.35f, -15.6f));
+        BuildTorch(new Vector3(-6f, 1.35f, 15.6f));
+        BuildTorch(new Vector3(6f, 1.35f, 15.6f));
+        AuthoredVisual(presentation?.weaponStand, "Weapon Stand", new Vector3(11.8f, 0f, 5.2f), Vector3.one * 1.15f, new Vector3(0f, -65f, 0f));
+        AuthoredVisual(presentation?.barrel, "Barrel", new Vector3(13.2f, 0f, 6.3f), Vector3.one * 1.1f, Vector3.zero);
+        AuthoredVisual(presentation?.barrel, "Barrel", new Vector3(-13.2f, 0f, -7.1f), Vector3.one * 1.1f, Vector3.zero);
+        for (int z = -12; z <= 12; z += 6)
+        {
+            AuthoredVisual(presentation?.villageFence, "Fence", new Vector3(-15f, 0f, z), Vector3.one, new Vector3(0f, 90f, 0f));
+            AuthoredVisual(presentation?.villageFence, "Fence", new Vector3(15f, 0f, z), Vector3.one, new Vector3(0f, 90f, 0f));
+        }
+    }
+
+    private void CreateProp(string objectName, Vector3 position, Vector3 scale, Vector3 euler, Color color)
+    {
+        GameObject prop = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        prop.name = objectName;
+        prop.transform.SetParent(battleRoot.transform);
+        prop.transform.position = position;
+        prop.transform.localScale = scale;
+        prop.transform.eulerAngles = euler;
+        prop.GetComponent<Renderer>().sharedMaterial = RuntimeAssets.Material(color);
+        Destroy(prop.GetComponent<Collider>());
     }
 
     private void BuildForest()
@@ -391,7 +501,7 @@ public sealed class BattleBootstrap : MonoBehaviour
         Light light = flameObject.AddComponent<Light>();
         light.type = LightType.Point;
         light.color = new Color(1f, 0.42f, 0.12f);
-        light.intensity = 2.2f;
+        light.intensity = FireIntensity(0.4f, 2.4f);
         light.range = 6f;
         light.shadows = LightShadows.None;
     }

@@ -199,6 +199,11 @@ public sealed class CampaignState
         return total;
     }
 
+    // Maps a campaign day to a 0..1 time of day. The golden-ratio step spreads
+    // successive days across the cycle while staying deterministic (a given day
+    // always lights the same), so a retried battle looks identical.
+    public static float TimeOfDayForDay(int day) => Mathf.Repeat(0.18f + (day - 1) * 0.61803f, 1f);
+
     public BattleSetup BuildSetupFor(Territory t) => new BattleSetup
     {
         AllyCount = Mathf.Clamp(Roster, 0, 12),
@@ -213,7 +218,9 @@ public sealed class CampaignState
         EnemyHealthScale = t.DifficultyScale,
         TargetName = t.Name.ToUpperInvariant(),
         Arena = t.Arena,
-        PlayerWeapon = PlayerWeapon
+        PlayerWeapon = PlayerWeapon,
+        Kind = BattleKind.SettlementAssault,
+        TimeOfDay = TimeOfDayForDay(Day)
     };
 
     // Builds the garrison's archetype mix: soldiers at low threat, joined by
@@ -288,7 +295,9 @@ public sealed class CampaignState
         Arena = ArenaType.Courtyard,
         PlayerWeapon = PlayerWeapon,
         TrainingEnemyWeapon = TrainingEnemyWeapon,
-        IsTraining = true
+        IsTraining = true,
+        Kind = BattleKind.Training,
+        TimeOfDay = 0.5f
     };
 
     // Cost is set by the stat tier; the archetype is a free choice of behavior.
@@ -321,7 +330,9 @@ public sealed class CampaignState
         EnemyHealthScale = 1f,
         TargetName = party.Name,
         Arena = party.Arena,
-        PlayerWeapon = PlayerWeapon
+        PlayerWeapon = PlayerWeapon,
+        Kind = BattleKind.BanditField,
+        TimeOfDay = TimeOfDayForDay(Day)
     };
 
     private static List<UnitSpec> BuildBanditComposition(EnemyParty party)

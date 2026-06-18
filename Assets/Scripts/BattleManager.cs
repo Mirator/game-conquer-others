@@ -66,6 +66,7 @@ public sealed class BattleManager : MonoBehaviour
     // and applies the outcome to the campaign.
     public System.Action<BattleResult> OnBattleConcluded;
     public string EncounterTitle = "THE OLD COURTYARD";
+    public BattleKind EncounterKind = BattleKind.SettlementAssault;
     public string DebugSummary => $"State={State}, Blue={CountAlive(Team.Allies)}, Red={CountAlive(Team.Enemies)}, Time={battleTime:0.0}";
 
     private readonly List<BattleFighter> fighters = new();

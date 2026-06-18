@@ -222,6 +222,7 @@ public sealed class GameDirector : MonoBehaviour
         battleRoot = new GameObject("Battle");
         BattleManager manager = battleBuilder.Build(battleRoot, currentSetup);
         manager.EncounterTitle = currentSetup.TargetName;
+        manager.EncounterKind = currentSetup.Kind;
         manager.OnBattleConcluded = HandleBattleConcluded;
     }
 

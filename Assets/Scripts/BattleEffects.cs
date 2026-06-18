@@ -39,6 +39,7 @@ public sealed class BattleEffects : MonoBehaviour
         ambienceSource.loop = true;
         ambienceSource.volume = AmbienceBaseVolume * MusicVolume;
         ambienceSource.Play();
+        // Initialize(arena) may later swap in a per-region ambient bed.
 
         drumSource = gameObject.AddComponent<AudioSource>();
         drumSource.clip = RuntimeAssets.Audio("Distant War Drums", CreateDrumLoop);
@@ -79,6 +80,18 @@ public sealed class BattleEffects : MonoBehaviour
 
     private static float MusicVolume => SettingsService.Current != null ? SettingsService.Current.musicVolume : 1f;
     private static float EffectsVolume => SettingsService.Current != null ? SettingsService.Current.effectsVolume : 1f;
+
+    // Swaps in the arena's ambient bed if the theme provides one (else the
+    // synthesized wind from Awake stays). Called once per battle build.
+    public void Initialize(ArenaType arena)
+    {
+        AudioClip themed = catalog != null ? catalog.Theme(arena)?.ambience : null;
+        if (themed != null && ambienceSource != null)
+        {
+            ambienceSource.clip = themed;
+            ambienceSource.Play();
+        }
+    }
 
     public void PlayAttack(Vector3 position, bool player, WeaponType weapon)
     {
