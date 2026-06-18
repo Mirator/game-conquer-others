@@ -138,9 +138,9 @@ public static class PresentationSmokeRunner
         {
             if (!AfterDelay(3.5d))
                 return;
-            // Capture shots fire 0.15s after their trigger (mid-swing); trigger
-            // shots wait 0.8s so the previous attack fully finishes first.
-            double need = swordShot >= 1 && (swordShot - 1) % 2 == 1 ? 0.15d : 0.8d;
+            // Capture shots fire 0.32s after their trigger (mid-release strike);
+            // trigger shots wait 1.4s so the previous attack fully finishes first.
+            double need = swordShot >= 1 && (swordShot - 1) % 2 == 1 ? 0.32d : 1.4d;
             if (EditorApplication.timeSinceStartup - swordShotAt < need)
                 return;
             swordShotAt = EditorApplication.timeSinceStartup;

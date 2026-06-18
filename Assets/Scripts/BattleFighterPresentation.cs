@@ -172,6 +172,8 @@ public sealed class BattleFighterPresentation
         {
             SetProceduralBodyVisible(false);
             AttachWeaponPivotsToAuthoredHands();
+            authoredView?.SetWeaponPivot(swordPivot);
+            PositionTrailAtAuthoredBladeTip();
         }
         previousPosition = fighter.position;
     }
@@ -340,7 +342,9 @@ public sealed class BattleFighterPresentation
             rightArm.localRotation = Quaternion.Euler(IsAttacking(phase) ? swordEuler.x * 0.25f : 18f,
                 0f, IsAttacking(phase) ? swordEuler.z * 0.16f - 8f : -18f);
         }
-        authoredView?.SetCombatPose(weapon, isBlocking, attackDirection, blockDirection, phase);
+        // The view interpolates the swing per phase, so it just needs the phase and
+        // the 0..1 progress within that phase.
+        authoredView?.SetCombatPose(weapon, isBlocking, attackDirection, blockDirection, phase, progress);
     }
 
     private static bool IsAttacking(CombatPhase phase) => phase == CombatPhase.AttackWindup
@@ -451,6 +455,43 @@ public sealed class BattleFighterPresentation
                 Object.Destroy(child.gameObject);
             }
         }
+    }
+
+    // The sword trail was placed for the old primitive blade (forward * swordLength).
+    // The authored blade is shorter and runs along a different local axis, so move the
+    // trail to the authored blade's actual tip (computed from its mesh bounds).
+    private void PositionTrailAtAuthoredBladeTip()
+    {
+        if (swordTrail == null)
+            return;
+        Transform authored = FindDeepChild(swordPivot, "Authored Sword");
+        if (authored == null)
+            return;
+        Bounds local = default;
+        bool found = false;
+        foreach (MeshFilter mf in authored.GetComponentsInChildren<MeshFilter>(true))
+        {
+            if (mf.sharedMesh == null)
+                continue;
+            Bounds mb = mf.sharedMesh.bounds;
+            for (int c = 0; c < 8; c++)
+            {
+                Vector3 corner = mb.center + Vector3.Scale(mb.extents,
+                    new Vector3((c & 1) == 0 ? -1f : 1f, (c & 2) == 0 ? -1f : 1f, (c & 4) == 0 ? -1f : 1f));
+                Vector3 lp = swordPivot.InverseTransformPoint(mf.transform.TransformPoint(corner));
+                if (!found) { local = new Bounds(lp, Vector3.zero); found = true; }
+                else local.Encapsulate(lp);
+            }
+        }
+        if (!found)
+            return;
+        // The blade's longest local axis is its length; the tip is the far end of it.
+        Vector3 size = local.size;
+        int axis = size.x >= size.y && size.x >= size.z ? 0 : size.y >= size.z ? 1 : 2;
+        float tip = Mathf.Abs(local.min[axis]) >= Mathf.Abs(local.max[axis]) ? local.min[axis] : local.max[axis];
+        Vector3 pos = local.center;
+        pos[axis] = tip;
+        swordTrail.transform.localPosition = pos;
     }
 
     private void AttachWeaponPivotsToAuthoredHands()

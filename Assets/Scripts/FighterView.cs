@@ -20,26 +20,19 @@ public sealed class FighterView : MonoBehaviour
 
     private MaterialPropertyBlock properties;
     private string currentState;
-    private Transform leftUpperArm;
-    private Transform leftLowerArm;
-    private Transform leftHand;
     private Transform rightUpperArm;
     private Transform rightLowerArm;
     private Transform rightHand;
-    private WeaponType poseWeapon;
     private CombatDirection poseAttackDirection;
-    private CombatDirection poseBlockDirection;
     private CombatPhase posePhase;
-    private bool poseBlocking;
+    private float poseProgress;
     private bool warnedMissingPoseBones;
-    private HumanPoseHandler poseHandler;
-    private HumanPose humanPose;
-    private int leftArmDownUp = -1;
-    private int leftArmFrontBack = -1;
-    private int leftForearmStretch = -1;
-    private int rightArmDownUp = -1;
-    private int rightArmFrontBack = -1;
-    private int rightForearmStretch = -1;
+    private Transform weaponPivot;
+
+    // Calibration: rotates the weapon so its blade aligns with the forearm line.
+    private static readonly Vector3 BladeAlign = new Vector3(-90f, 0f, 0f);
+
+    public void SetWeaponPivot(Transform pivot) => weaponPivot = pivot;
 
     private const string ControllerResource = "Presentation/Fighter";
 
@@ -112,59 +105,37 @@ public sealed class FighterView : MonoBehaviour
     {
         if (animator == null || animator.runtimeAnimatorController == null)
             return;
-        bool attacking = phase == CombatPhase.AttackWindup || phase == CombatPhase.AttackHold
-            || phase == CombatPhase.AttackRelease || phase == CombatPhase.AttackRecovery;
+        // Attacks are driven procedurally in LateUpdate, so the body stays in
+        // locomotion/idle here and the arm swing is layered on top.
         string state = !alive ? "Death"
             : staggerTimer > 0f ? "Hit"
-            : attacking ? AttackState(attackDirection)
             : movement > 0.65f ? "Jog"
             : movement > 0.05f ? formation ? "FormationWalk" : "Walk" : "Idle";
         if (state == currentState)
             return;
         currentState = state;
-        bool fast = state == "Hit" || state.StartsWith("Attack");
-        animator.CrossFade(state, fast ? 0.05f : 0.12f);
+        animator.CrossFade(state, state == "Hit" ? 0.05f : 0.12f);
     }
 
-    // Each attack direction maps to a distinct authored swing; fall back to the
-    // generic "Attack" if a directional clip is unavailable in the controller.
-    private string AttackState(CombatDirection direction)
-    {
-        string state = direction switch
-        {
-            CombatDirection.Up => "Attack_Up",
-            CombatDirection.Left => "Attack_Left",
-            CombatDirection.Thrust => "Attack_Thrust",
-            _ => "Attack_Right"
-        };
-        return HasState(state) ? state : "Attack";
-    }
-
-    private bool HasState(string state) => animator.HasState(0, Animator.StringToHash(state));
-
+    // progress is the 0..1 progress WITHIN the current phase (not a global swing).
     public void SetCombatPose(WeaponType weapon, bool blocking, CombatDirection attackDirection,
-        CombatDirection blockDirection, CombatPhase phase)
+        CombatDirection blockDirection, CombatPhase phase, float progress)
     {
-        poseWeapon = weapon;
-        poseBlocking = blocking;
         poseAttackDirection = attackDirection;
-        poseBlockDirection = blockDirection;
         posePhase = phase;
+        poseProgress = progress;
     }
 
     private void LateUpdate()
     {
-        // The AnimatorController drives the full body (idle/walk/attack/block/hit
-        // /death). The additive arm-pose override below is kept but disabled; the
-        // authored clips already convey combat, and the override fought retargeting.
-        if (!poseOverrideEnabled)
+        bool attacking = posePhase == CombatPhase.AttackWindup || posePhase == CombatPhase.AttackHold
+            || posePhase == CombatPhase.AttackRelease || posePhase == CombatPhase.AttackRecovery;
+        if (!attacking)
             return;
-        if (leftUpperArm == null || rightUpperArm == null)
+        if (rightUpperArm == null)
             CacheBones();
-        ApplyArmPose();
+        ApplyAttackSwing();
     }
-
-    private bool poseOverrideEnabled;
 
     private void CacheBones()
     {
@@ -175,77 +146,111 @@ public sealed class FighterView : MonoBehaviour
             if (!warnedMissingPoseBones && Application.isEditor)
             {
                 warnedMissingPoseBones = true;
-                Debug.LogWarning($"FighterView '{name}' cannot apply authored arm pose: animator is "
+                Debug.LogWarning($"FighterView '{name}' cannot drive procedural attacks: animator is "
                     + (animator == null ? "missing" : "not humanoid"));
             }
             return;
         }
-        poseHandler ??= new HumanPoseHandler(animator.avatar, animator.transform);
-        CacheMuscleIndices();
-        leftUpperArm = animator.GetBoneTransform(HumanBodyBones.LeftUpperArm);
-        leftLowerArm = animator.GetBoneTransform(HumanBodyBones.LeftLowerArm);
-        leftHand = animator.GetBoneTransform(HumanBodyBones.LeftHand);
         rightUpperArm = animator.GetBoneTransform(HumanBodyBones.RightUpperArm);
         rightLowerArm = animator.GetBoneTransform(HumanBodyBones.RightLowerArm);
         rightHand = animator.GetBoneTransform(HumanBodyBones.RightHand);
     }
 
-    private void ApplyArmPose()
+    // Procedurally swing the sword arm so the strike matches the aimed direction.
+    // Interpolated PER PHASE (idle -> cocked -> follow-through -> idle) rather than
+    // across one global parameter, so windup, hold, release and recovery each read
+    // distinctly. Drives only the right (sword) arm; the body keeps its animated
+    // locomotion pose. (See directional-attack design doc.)
+    private void ApplyAttackSwing()
     {
-        if (ApplyHumanoidMusclePose())
+        if (rightUpperArm == null || rightLowerArm == null || rightHand == null)
             return;
 
-        if (leftUpperArm == null || leftLowerArm == null || leftHand == null
-            || rightUpperArm == null || rightLowerArm == null || rightHand == null)
-            return;
+        Vector3 f = transform.forward;
+        Vector3 r = transform.right;
+        Vector3 u = transform.up;
 
-        Vector3 forward = transform.forward;
-        Vector3 right = transform.right;
-        Vector3 up = transform.up;
-        bool attacking = posePhase == CombatPhase.AttackWindup || posePhase == CombatPhase.AttackHold
-            || posePhase == CombatPhase.AttackRelease || posePhase == CombatPhase.AttackRecovery;
+        // Shared neutral "en garde" the swing starts from and returns to.
+        Vector3 idleUpper = (f * 0.30f + u * 0.05f).normalized;
+        Vector3 idleLower = (f * 0.65f + u * 0.05f).normalized;
 
-        Vector3 leftUpper = (-right * 0.35f - up * 0.72f + forward * 0.42f).normalized;
-        Vector3 leftLower = (forward * 0.82f - up * 0.16f + right * 0.05f).normalized;
-        Vector3 rightUpper = (right * 0.35f - up * 0.72f + forward * 0.42f).normalized;
-        Vector3 rightLower = (forward * 0.82f - up * 0.12f - right * 0.05f).normalized;
-
-        if (poseWeapon == WeaponType.Bow)
+        // cocked (windup end) and follow-through (release end) directions + blade roll.
+        Vector3 cu, cl, eu, el;
+        float roll;
+        switch (poseAttackDirection)
         {
-            leftUpper = (-right * 0.18f - up * 0.24f + forward * 0.95f).normalized;
-            leftLower = (forward * 0.98f - up * 0.04f).normalized;
-            rightUpper = (right * 0.22f - up * 0.2f + forward * 0.74f).normalized;
-            rightLower = (-right * 0.35f - up * 0.08f - forward * 0.78f).normalized;
-        }
-        else if (poseWeapon == WeaponType.TwoHandedSword)
-        {
-            float side = poseAttackDirection == CombatDirection.Left ? -0.18f
-                : poseAttackDirection == CombatDirection.Right ? 0.18f : 0f;
-            leftUpper = (-right * 0.18f - up * 0.45f + forward * 0.85f + right * side).normalized;
-            leftLower = (forward * 0.88f - up * 0.08f + right * 0.18f).normalized;
-            rightUpper = (right * 0.18f - up * 0.45f + forward * 0.85f + right * side).normalized;
-            rightLower = (forward * 0.88f - up * 0.08f - right * 0.18f).normalized;
-        }
-        else if (poseBlocking)
-        {
-            float shieldSide = poseBlockDirection == CombatDirection.Left ? -0.35f
-                : poseBlockDirection == CombatDirection.Right ? 0.2f : -0.08f;
-            leftUpper = (-right * 0.28f - up * 0.28f + forward * 0.92f + right * shieldSide).normalized;
-            leftLower = (forward * 0.98f + right * shieldSide * 0.35f).normalized;
-        }
-        else if (attacking)
-        {
-            float side = poseAttackDirection == CombatDirection.Left ? -0.35f
-                : poseAttackDirection == CombatDirection.Right ? 0.35f : 0f;
-            rightUpper = (right * 0.22f - up * 0.35f + forward * 0.86f + right * side).normalized;
-            rightLower = (forward * 0.9f + right * side * 0.45f - up * 0.08f).normalized;
+            case CombatDirection.Up: // raise overhead -> chop down forward
+                cu = u * 0.55f + f * 0.10f;
+                cl = u * 0.65f + f * 0.05f;
+                eu = f * 0.55f - u * 0.30f;
+                el = f * 0.40f - u * 0.80f;
+                roll = 0f;
+                break;
+            case CombatDirection.Left: // diagonal slash upper-right -> lower-left
+                cu = r * 0.40f + f * 0.25f + u * 0.10f;
+                cl = r * 0.10f + f * 0.55f + u * 0.10f;
+                eu = -r * 0.50f + f * 0.25f - u * 0.30f;
+                el = -r * 0.20f + f * 0.55f - u * 0.35f;
+                roll = 50f;
+                break;
+            case CombatDirection.Thrust: // stab: blade at center, push hand forward
+                cu = -f * 0.10f + u * 0.10f - r * 0.05f;
+                cl = f * 0.85f + u * 0.02f;
+                eu = f * 0.65f + u * 0.03f;
+                el = f * 0.96f + u * 0.06f;
+                roll = 0f;
+                break;
+            default: // Right: diagonal slash upper-left -> lower-right
+                cu = -r * 0.40f + f * 0.25f + u * 0.10f;
+                cl = -r * 0.10f + f * 0.55f + u * 0.10f;
+                eu = r * 0.50f + f * 0.25f - u * 0.30f;
+                el = r * 0.20f + f * 0.55f - u * 0.35f;
+                roll = -50f;
+                break;
         }
 
-        AimSegment(leftUpperArm, leftLowerArm, leftUpper);
-        AimSegment(leftLowerArm, leftHand, leftLower);
-        AimSegment(rightUpperArm, rightLowerArm, rightUpper);
-        AimSegment(rightLowerArm, rightHand, rightLower);
+        float t = Mathf.Clamp01(poseProgress);
+        Vector3 upper, lower;
+        float bladeRoll;
+        switch (posePhase)
+        {
+            case CombatPhase.AttackWindup: // idle -> cocked
+                float w = EaseOut(t);
+                upper = Vector3.Slerp(idleUpper, cu.normalized, w);
+                lower = Vector3.Slerp(idleLower, cl.normalized, w);
+                bladeRoll = Mathf.Lerp(0f, roll, w);
+                break;
+            case CombatPhase.AttackHold: // hold cocked
+                upper = cu.normalized;
+                lower = cl.normalized;
+                bladeRoll = roll;
+                break;
+            case CombatPhase.AttackRelease: // cocked -> follow-through (fast strike)
+                float s = EaseOutCubic(t);
+                upper = Vector3.Slerp(cu.normalized, eu.normalized, s);
+                lower = Vector3.Slerp(cl.normalized, el.normalized, s);
+                bladeRoll = roll;
+                break;
+            default: // AttackRecovery: follow-through -> idle
+                float rec = EaseOut(t);
+                upper = Vector3.Slerp(eu.normalized, idleUpper, rec);
+                lower = Vector3.Slerp(el.normalized, idleLower, rec);
+                bladeRoll = Mathf.Lerp(roll, 0f, rec);
+                break;
+        }
+
+        AimSegment(rightUpperArm, rightLowerArm, upper);
+        AimSegment(rightLowerArm, rightHand, lower);
+
+        // Blade leads along the forearm line; per-attack roll squares the cutting
+        // edge to the swing arc (first-class data per the design doc).
+        if (weaponPivot != null)
+            weaponPivot.rotation = Quaternion.LookRotation(lower, transform.up)
+                * Quaternion.Euler(BladeAlign.x, BladeAlign.y, BladeAlign.z + bladeRoll);
     }
+
+    private static float EaseOut(float t) => 1f - (1f - t) * (1f - t);
+    private static float EaseOutCubic(float t) { float a = 1f - t; return 1f - a * a * a; }
 
     private static void AimSegment(Transform bone, Transform child, Vector3 desiredWorldDirection)
     {
@@ -254,73 +259,5 @@ public sealed class FighterView : MonoBehaviour
             return;
         Quaternion correction = Quaternion.FromToRotation(current.normalized, desiredWorldDirection.normalized);
         bone.rotation = correction * bone.rotation;
-    }
-
-    private bool ApplyHumanoidMusclePose()
-    {
-        if (poseHandler == null || leftArmDownUp < 0 || rightArmDownUp < 0)
-            return false;
-
-        poseHandler.GetHumanPose(ref humanPose);
-        float leftFront = 0.28f;
-        float rightFront = 0.28f;
-        float leftBend = 0.55f;
-        float rightBend = 0.45f;
-
-        if (poseWeapon == WeaponType.Bow)
-        {
-            leftFront = 0.78f;
-            rightFront = -0.3f;
-            leftBend = 0.1f;
-            rightBend = 0.82f;
-        }
-        else if (poseWeapon == WeaponType.TwoHandedSword)
-        {
-            leftFront = 0.68f;
-            rightFront = 0.68f;
-            leftBend = 0.5f;
-            rightBend = 0.5f;
-        }
-        else if (poseBlocking)
-        {
-            leftFront = 0.82f;
-            leftBend = 0.25f;
-        }
-
-        SetMuscle(leftArmDownUp, -0.78f);
-        SetMuscle(rightArmDownUp, -0.78f);
-        SetMuscle(leftArmFrontBack, leftFront);
-        SetMuscle(rightArmFrontBack, rightFront);
-        SetMuscle(leftForearmStretch, leftBend);
-        SetMuscle(rightForearmStretch, rightBend);
-        poseHandler.SetHumanPose(ref humanPose);
-        return true;
-    }
-
-    private void SetMuscle(int index, float value)
-    {
-        if (index < 0 || index >= humanPose.muscles.Length)
-            return;
-        humanPose.muscles[index] = Mathf.Clamp(value, -1f, 1f);
-    }
-
-    private void CacheMuscleIndices()
-    {
-        if (leftArmDownUp >= 0)
-            return;
-        leftArmDownUp = FindMuscle("Left Arm Down-Up");
-        leftArmFrontBack = FindMuscle("Left Arm Front-Back");
-        leftForearmStretch = FindMuscle("Left Forearm Stretch");
-        rightArmDownUp = FindMuscle("Right Arm Down-Up");
-        rightArmFrontBack = FindMuscle("Right Arm Front-Back");
-        rightForearmStretch = FindMuscle("Right Forearm Stretch");
-    }
-
-    private static int FindMuscle(string muscleName)
-    {
-        for (int i = 0; i < HumanTrait.MuscleCount; i++)
-            if (HumanTrait.MuscleName[i] == muscleName)
-                return i;
-        return -1;
     }
 }
