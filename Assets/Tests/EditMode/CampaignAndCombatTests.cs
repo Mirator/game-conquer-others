@@ -128,6 +128,41 @@ public sealed class CampaignAndCombatTests
     }
 
     [Test]
+    public void ArchetypeCatalog_MapsWeaponsAndDistinctProfiles()
+    {
+        Assert.That(ArchetypeCatalog.Weapon(Archetype.Berserker), Is.EqualTo(WeaponType.TwoHandedSword));
+        Assert.That(ArchetypeCatalog.Weapon(Archetype.Archer), Is.EqualTo(WeaponType.Bow));
+        Assert.That(ArchetypeCatalog.Weapon(Archetype.Soldier), Is.EqualTo(WeaponType.SwordAndShield));
+        Assert.That(ArchetypeCatalog.Profile(Archetype.Berserker).blockChance,
+            Is.LessThan(ArchetypeCatalog.Profile(Archetype.Soldier).blockChance), "Berserkers guard less.");
+        Assert.That(ArchetypeCatalog.Profile(Archetype.Shieldbearer).blockCorrectChanceVsPlayer,
+            Is.GreaterThan(ArchetypeCatalog.Profile(Archetype.Soldier).blockCorrectChanceVsPlayer), "Shieldbearers guard better.");
+        Assert.That(ArchetypeCatalog.HealthScale(Archetype.Captain),
+            Is.GreaterThan(ArchetypeCatalog.HealthScale(Archetype.Soldier)), "Captains are tougher.");
+    }
+
+    [Test]
+    public void EnemyComposition_FillsGarrisonAndScalesWithThreat()
+    {
+        CampaignState campaign = CampaignState.CreateDefault(5);
+        BattleSetup low = campaign.BuildSetupFor(new Territory { Name = "Low", Garrison = 4, Threat = 1, Arena = ArenaType.Courtyard });
+        BattleSetup high = campaign.BuildSetupFor(new Territory { Name = "High", Garrison = 7, Threat = 5, Arena = ArenaType.Highlands });
+
+        Assert.That(low.EnemyComposition, Is.Not.Null);
+        Assert.That(low.EnemyComposition.Count, Is.EqualTo(4), "Composition fills the garrison size.");
+        Assert.That(high.EnemyComposition.Count, Is.EqualTo(7));
+
+        Assert.That(low.EnemyComposition.TrueForAll(s => s.Archetype == Archetype.Soldier),
+            Is.True, "A threat-1 garrison is all soldiers.");
+        Assert.That(low.EnemyComposition.Exists(s => s.Archetype == Archetype.Captain),
+            Is.False, "No captain at low threat.");
+        Assert.That(high.EnemyComposition.Exists(s => s.Archetype == Archetype.Captain),
+            Is.True, "A captain anchors a high-threat garrison.");
+        Assert.That(high.EnemyComposition.Exists(s => s.Archetype == Archetype.Berserker),
+            Is.True, "Highlands bias fields berserkers at high threat.");
+    }
+
+    [Test]
     public void Defeat_EndsCampaign()
     {
         CampaignState campaign = CampaignState.CreateDefault(11);

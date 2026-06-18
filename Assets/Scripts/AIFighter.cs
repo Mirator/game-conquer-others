@@ -5,7 +5,15 @@ public sealed class AIFighter : BattleFighter
     public BattleFighter CurrentTarget => target;
     public bool HasAttackPermission => hasAttackPermission;
     public bool IsRetreating => retreating;
+    public AIProfile Profile => profile;
 
+    public void SetProfile(AIProfile value)
+    {
+        if (value != null)
+            profile = value;
+    }
+
+    private AIProfile profile = AIProfile.Default();
     private BattleFighter target;
     private float decisionTimer;
     private float targetLockTimer;
@@ -44,9 +52,10 @@ public sealed class AIFighter : BattleFighter
 
     private void Start()
     {
-        preferredRange = IsRanged ? Random.Range(8.5f, 11f)
+        float baseRange = IsRanged ? Random.Range(8.5f, 11f)
             : Weapon == WeaponType.TwoHandedSword ? Random.Range(2.15f, 2.55f) : Random.Range(1.65f, 1.95f);
-        aggression = Random.Range(0.76f, 1.08f);
+        preferredRange = baseRange * profile.rangeScale;
+        aggression = Mathf.Max(0.1f, profile.aggression + Random.Range(-profile.aggressionJitter, profile.aggressionJitter));
         orbitDirection = Random.value < 0.5f ? -1f : 1f;
         attackDelay = Random.Range(0.65f, 1.8f);
         targetLockTimer = Random.Range(0.8f, 1.35f);
@@ -227,8 +236,10 @@ public sealed class AIFighter : BattleFighter
         float distance = DistanceTo(threat);
         if (distance > 2.7f)
             return;
+        if (Random.value > profile.blockChance) // aggressive archetypes rarely guard
+            return;
 
-        float correctChance = threat.IsPlayer ? 0.62f : 0.52f;
+        float correctChance = threat.IsPlayer ? profile.blockCorrectChanceVsPlayer : profile.blockCorrectChanceVsAi;
         plannedBlockDirection = Random.value < correctChance
             ? threat.AttackDirection
             : RandomWrongDirection(threat.AttackDirection);
@@ -253,9 +264,9 @@ public sealed class AIFighter : BattleFighter
 
     private CombatDirection ChooseAttackDirection()
     {
-        if (target.IsBlocking && Random.value < 0.72f)
+        if (target.IsBlocking && Random.value < profile.feintChance)
             return RandomWrongDirection(target.BlockDirection);
-        if (target.Phase == CombatPhase.AttackRecovery && Random.value < 0.55f)
+        if (target.Phase == CombatPhase.AttackRecovery && Random.value < profile.recoveryPunishChance)
             return CombatDirection.Up;
         return RandomDirection();
     }

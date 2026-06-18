@@ -195,11 +195,64 @@ public sealed class CampaignState
         EnemyCount = Mathf.Clamp(t.Garrison, 1, 12),
         EnemyVeterans = Mathf.Clamp((t.Threat - 1) / 2, 0, t.Garrison),
         EnemyGuards = t.Threat >= 4 ? 1 : 0,
+        EnemyComposition = BuildEnemyComposition(t),
         EnemyHealthScale = t.DifficultyScale,
         TargetName = t.Name.ToUpperInvariant(),
         Arena = t.Arena,
         PlayerWeapon = PlayerWeapon
     };
+
+    // Builds the garrison's archetype mix: soldiers at low threat, joined by
+    // shieldbearers, then archers/berserkers and an arena-flavored bias, with a
+    // captain anchoring the strongest holds. Tiers rise with threat.
+    private static List<UnitSpec> BuildEnemyComposition(Territory t)
+    {
+        int count = Mathf.Clamp(t.Garrison, 1, 12);
+        int threat = t.Threat;
+        List<UnitSpec> specs = new();
+
+        if (threat >= 4 && count > 1)
+            specs.Add(Enemy(Archetype.Captain, UnitType.Veteran));
+
+        List<Archetype> pool = new() { Archetype.Soldier };
+        if (threat >= 2)
+            pool.Add(Archetype.Shieldbearer);
+        if (threat >= 3)
+        {
+            pool.Add(Archetype.Archer);
+            pool.Add(Archetype.Berserker);
+            pool.Add(ArenaBias(t.Arena));
+        }
+
+        int i = 0;
+        while (specs.Count < count)
+        {
+            Archetype archetype = pool[i % pool.Count];
+            specs.Add(Enemy(archetype, TierFor(archetype, threat)));
+            i++;
+        }
+        return specs;
+    }
+
+    private static Archetype ArenaBias(ArenaType arena) => arena switch
+    {
+        ArenaType.Highlands => Archetype.Berserker,
+        ArenaType.Marsh => Archetype.Archer,
+        ArenaType.Forest => Archetype.Archer,
+        _ => Archetype.Shieldbearer
+    };
+
+    private static UnitType TierFor(Archetype archetype, int threat)
+    {
+        if (archetype == Archetype.Captain || threat >= 4)
+            return UnitType.Veteran;
+        if (threat >= 3 && (archetype == Archetype.Shieldbearer || archetype == Archetype.Berserker))
+            return UnitType.Veteran;
+        return UnitType.Militia;
+    }
+
+    private static UnitSpec Enemy(Archetype archetype, UnitType tier)
+        => new UnitSpec(tier, archetype, ArchetypeCatalog.Weapon(archetype));
 
     public BattleSetup BuildTrainingSetup() => new BattleSetup
     {

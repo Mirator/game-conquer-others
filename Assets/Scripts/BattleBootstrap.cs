@@ -33,34 +33,53 @@ public sealed class BattleBootstrap : MonoBehaviour
         return manager;
     }
 
-    private static List<UnitType> BuildAlliedRoster(BattleSetup setup)
+    // Allies keep their tier-default weapon and the baseline Soldier behavior
+    // until the player can choose archetypes (Phase 3b).
+    private static List<UnitSpec> BuildAlliedRoster(BattleSetup setup)
     {
-        List<UnitType> units = BuildRoster(setup.AllyMilitia, setup.AllyVeterans, setup.AllyGuards);
+        List<UnitSpec> units = BuildTierRoster(setup.AllyMilitia, setup.AllyVeterans, setup.AllyGuards);
         if (units.Count == 0)
             for (int i = 0; i < Mathf.Clamp(setup.AllyCount, 0, 16); i++)
-                units.Add(UnitType.Militia);
+                units.Add(Soldier(UnitType.Militia));
         return units;
     }
 
-    private static List<UnitType> BuildEnemyRoster(BattleSetup setup)
+    private static List<UnitSpec> BuildEnemyRoster(BattleSetup setup)
     {
+        if (setup.EnemyComposition != null && setup.EnemyComposition.Count > 0)
+        {
+            List<UnitSpec> composed = new();
+            foreach (UnitSpec spec in setup.EnemyComposition)
+            {
+                if (composed.Count >= 16)
+                    break;
+                composed.Add(spec);
+            }
+            return composed;
+        }
+
         int guards = Mathf.Clamp(setup.EnemyGuards, 0, setup.EnemyCount);
         int veterans = Mathf.Clamp(setup.EnemyVeterans, 0, setup.EnemyCount - guards);
         int militia = Mathf.Max(0, setup.EnemyCount - guards - veterans);
-        return BuildRoster(militia, veterans, guards);
+        return BuildTierRoster(militia, veterans, guards);
     }
 
-    private static List<UnitType> BuildRoster(int militia, int veterans, int guards)
+    // Tier-only fallback (no archetype composition): preserves the original
+    // tier-default weapons with baseline Soldier behavior.
+    private static List<UnitSpec> BuildTierRoster(int militia, int veterans, int guards)
     {
-        List<UnitType> units = new();
+        List<UnitSpec> units = new();
         for (int i = 0; i < guards && units.Count < 16; i++)
-            units.Add(UnitType.Guard);
+            units.Add(Soldier(UnitType.Guard));
         for (int i = 0; i < veterans && units.Count < 16; i++)
-            units.Add(UnitType.Veteran);
+            units.Add(Soldier(UnitType.Veteran));
         for (int i = 0; i < militia && units.Count < 16; i++)
-            units.Add(UnitType.Militia);
+            units.Add(Soldier(UnitType.Militia));
         return units;
     }
+
+    private static UnitSpec Soldier(UnitType tier)
+        => new UnitSpec(tier, Archetype.Soldier, WeaponCatalog.DefaultFor(tier));
 
     private PlayerFighter SpawnPlayer(BattleManager manager, Vector3 position, WeaponType weapon)
     {
@@ -76,7 +95,7 @@ public sealed class BattleBootstrap : MonoBehaviour
 
     // Lays soldiers out in ranks centered on each team's spawn line, scaled to
     // however many fighters the encounter calls for and clamped inside the walls.
-    private void SpawnRoster(BattleManager manager, Team team, List<UnitType> units, float healthScale,
+    private void SpawnRoster(BattleManager manager, Team team, List<UnitSpec> units, float healthScale,
         bool forceWeapon, WeaponType forcedWeapon)
     {
         const float spacing = 2.2f;
@@ -91,12 +110,14 @@ public sealed class BattleBootstrap : MonoBehaviour
             int rowCount = Mathf.Min(perRow, units.Count - row * perRow);
             float x = Mathf.Clamp((col - (rowCount - 1) * 0.5f) * spacing, -13f, 13f);
             float z = baseZ + row * rowStep;
-            WeaponType weapon = forceWeapon ? forcedWeapon : WeaponCatalog.DefaultFor(units[i]);
-            SpawnAI(manager, team, new Vector3(x, 0.05f, z), healthScale, units[i], weapon);
+            UnitSpec spec = units[i];
+            WeaponType weapon = forceWeapon ? forcedWeapon : spec.Weapon;
+            SpawnAI(manager, team, new Vector3(x, 0.05f, z), healthScale, spec.Tier, weapon, spec.Archetype);
         }
     }
 
-    private void SpawnAI(BattleManager manager, Team team, Vector3 position, float healthScale, UnitType unitType, WeaponType weapon)
+    private void SpawnAI(BattleManager manager, Team team, Vector3 position, float healthScale,
+        UnitType unitType, WeaponType weapon, Archetype archetype)
     {
         GameObject go = new GameObject(team == Team.Allies ? "Allied Soldier" : "Enemy Soldier");
         go.transform.SetParent(battleRoot.transform);
@@ -105,7 +126,8 @@ public sealed class BattleBootstrap : MonoBehaviour
         if (team == Team.Enemies)
             go.transform.rotation = Quaternion.Euler(0f, 180f, 0f);
         AIFighter fighter = go.AddComponent<AIFighter>();
-        fighter.Configure(manager, team, false, healthScale, unitType, weapon);
+        fighter.Configure(manager, team, false, healthScale, unitType, weapon, archetype);
+        fighter.SetProfile(ArchetypeCatalog.Profile(archetype));
         manager.Register(fighter);
     }
 

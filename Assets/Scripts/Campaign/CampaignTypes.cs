@@ -20,6 +20,66 @@ public enum WeaponType
     Bow
 }
 
+// A fighter's combat personality: weapon, AI behavior, and a stat modifier
+// layered on top of its UnitType stat tier. Decoupled from UnitType so any tier
+// can field any archetype.
+public enum Archetype
+{
+    Soldier,
+    Shieldbearer,
+    Berserker,
+    Archer,
+    Captain
+}
+
+public static class ArchetypeCatalog
+{
+    public static WeaponType Weapon(Archetype archetype) => archetype switch
+    {
+        Archetype.Berserker => WeaponType.TwoHandedSword,
+        Archetype.Archer => WeaponType.Bow,
+        _ => WeaponType.SwordAndShield
+    };
+
+    public static AIProfile Profile(Archetype archetype) => archetype switch
+    {
+        Archetype.Shieldbearer => AIProfile.Shieldbearer(),
+        Archetype.Berserker => AIProfile.Berserker(),
+        Archetype.Archer => AIProfile.Archer(),
+        Archetype.Captain => AIProfile.Captain(),
+        _ => AIProfile.Soldier()
+    };
+
+    // Multiplies the UnitType health/damage scale so the same archetype reads
+    // distinctly across tiers (a tanky shieldbearer, a glassy berserker, an
+    // elite captain).
+    public static float HealthScale(Archetype archetype) => archetype switch
+    {
+        Archetype.Shieldbearer => 1.15f,
+        Archetype.Berserker => 0.95f,
+        Archetype.Archer => 0.9f,
+        Archetype.Captain => 1.45f,
+        _ => 1f
+    };
+
+    public static float DamageScale(Archetype archetype) => archetype switch
+    {
+        Archetype.Shieldbearer => 0.9f,
+        Archetype.Berserker => 1.2f,
+        Archetype.Captain => 1.25f,
+        _ => 1f
+    };
+
+    public static string Label(Archetype archetype) => archetype switch
+    {
+        Archetype.Shieldbearer => "SHIELDBEARER",
+        Archetype.Berserker => "BERSERKER",
+        Archetype.Archer => "ARCHER",
+        Archetype.Captain => "CAPTAIN",
+        _ => "SOLDIER"
+    };
+}
+
 public static class WeaponCatalog
 {
     public static string Label(WeaponType type) => type switch

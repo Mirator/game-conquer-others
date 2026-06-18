@@ -4,6 +4,7 @@ public abstract class BattleFighter : MonoBehaviour
 {
     public Team Team { get; private set; }
     public UnitType UnitType { get; private set; }
+    public Archetype Archetype { get; private set; }
     public WeaponType Weapon { get; private set; }
     public bool IsPlayer { get; private set; }
     public bool IsAlive => health > 0f && !withdrawn;
@@ -77,22 +78,24 @@ public abstract class BattleFighter : MonoBehaviour
     private BattleFighterPresentation presentation;
 
     public void Configure(BattleManager owner, Team team, bool player, float healthScale = 1f,
-        UnitType unitType = UnitType.Militia, WeaponType weapon = WeaponType.SwordAndShield)
+        UnitType unitType = UnitType.Militia, WeaponType weapon = WeaponType.SwordAndShield,
+        Archetype archetype = Archetype.Soldier)
     {
         battle = owner;
         Team = team;
         IsPlayer = player;
         UnitType = unitType;
+        Archetype = archetype;
         Weapon = weapon;
         maxHealth = player ? 125f : team == Team.Allies ? 110f : 100f;
         if (!player)
         {
-            maxHealth *= healthScale * UnitCatalog.HealthScale(unitType);
-            damageScale = UnitCatalog.DamageScale(unitType);
+            maxHealth *= healthScale * UnitCatalog.HealthScale(unitType) * ArchetypeCatalog.HealthScale(archetype);
+            damageScale = UnitCatalog.DamageScale(unitType) * ArchetypeCatalog.DamageScale(archetype);
         }
         health = maxHealth;
         name = player ? $"Player - {WeaponCatalog.ShortLabel(weapon)}"
-            : $"{team} {UnitCatalog.Label(unitType)} - {WeaponCatalog.ShortLabel(weapon)}";
+            : $"{team} {ArchetypeCatalog.Label(archetype)} {UnitCatalog.Label(unitType)} - {WeaponCatalog.ShortLabel(weapon)}";
         aimDirection = transform.forward;
 
         controller = gameObject.AddComponent<CharacterController>();

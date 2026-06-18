@@ -1,3 +1,23 @@
+using System.Collections.Generic;
+
+// One spawned fighter: a stat tier crossed with a combat archetype, plus the
+// weapon it carries. Weapon is explicit so allied/fallback rosters can keep
+// their tier-default weapon while archetype-composed rosters use the
+// archetype's weapon.
+public sealed class UnitSpec
+{
+    public UnitType Tier;
+    public Archetype Archetype;
+    public WeaponType Weapon;
+
+    public UnitSpec(UnitType tier, Archetype archetype, WeaponType weapon)
+    {
+        Tier = tier;
+        Archetype = archetype;
+        Weapon = weapon;
+    }
+}
+
 // Parameters that describe a single battle encounter and the result it produces.
 // Plain data classes (not MonoBehaviours) so they can be passed between the
 // campaign layer and the battle builder without GameObject lifecycle concerns.
@@ -16,6 +36,10 @@ public sealed class BattleSetup
     public WeaponType PlayerWeapon = WeaponType.SwordAndShield;
     public WeaponType TrainingEnemyWeapon = WeaponType.SwordAndShield;
     public bool IsTraining;
+
+    // Explicit enemy archetype composition. When set it overrides the tier-count
+    // fields above; when null the builder falls back to those counts.
+    public List<UnitSpec> EnemyComposition;
 
     public static BattleSetup Default() => new BattleSetup();
 }

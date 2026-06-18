@@ -379,8 +379,11 @@ public sealed class BattleManager : MonoBehaviour
             return false;
         int allies = CountAlive(fighter.Team);
         int opponents = CountAlive(fighter.Team == Team.Allies ? Team.Enemies : Team.Allies);
-        bool shattered = allies <= Mathf.CeilToInt(initial * 0.25f);
-        bool badlyOutnumbered = allies <= Mathf.CeilToInt(initial * 0.5f) && allies * 2 <= opponents;
+        // Braver archetypes hold the line longer; the thresholds shrink as
+        // bravery rises (bravery 1 leaves the original 0.25/0.5 fractions).
+        float bravery = Mathf.Max(0.01f, fighter.Profile != null ? fighter.Profile.retreatBravery : 1f);
+        bool shattered = allies <= Mathf.CeilToInt(initial * 0.25f / bravery);
+        bool badlyOutnumbered = allies <= Mathf.CeilToInt(initial * 0.5f / bravery) && allies * 2 <= opponents;
         return shattered || badlyOutnumbered;
     }
 
