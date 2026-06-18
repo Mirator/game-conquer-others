@@ -9,13 +9,6 @@ using UnityEngine.UI;
 // Click to move; time advances while travelling; collisions trigger battles.
 public sealed class CampaignMapController : MonoBehaviour
 {
-    private const float TravelSpeed = 9f;        // map units per second while marching
-    private const float DistancePerDay = 4f;     // map units that elapse one campaign day
-    private const float EnemySightRange = 12f;   // bandits chase the player within this range
-    private const float EnemyChaseRatio = 0.55f; // bandit speed as a fraction of the player's
-    private const float EncounterRadius = 1.4f;  // party collision distance
-    private const float ThreatStrengthFactor = 0.6f; // bands below this fraction of the player ignore it
-    private const float SettlementRecruitRange = 2.4f; // how close a friendly hold must be to recruit
     private const float MinCameraHeight = 14f;
     private const float MaxCameraHeight = 78f;
     private const float ZoomStep = 6f;
@@ -23,6 +16,7 @@ public sealed class CampaignMapController : MonoBehaviour
 
     private GameDirector director;
     private CampaignState campaign;
+    private OverworldSimulation sim;
     private Camera cam;
     private GameObject trainingNode;
     private Renderer trainingRenderer;
@@ -49,14 +43,6 @@ public sealed class CampaignMapController : MonoBehaviour
     private readonly List<NodeView> nodes = new();
     private readonly List<PartyView> partyViews = new();
     private MaterialPropertyBlock nodeColorProperties;
-
-    // Travel state: while travelling the party glides toward travelTarget and the
-    // world advances; a pending territory/party resolves on arrival.
-    private bool travelling;
-    private Vector2 travelTarget;
-    private Territory pendingTerritory;
-    private EnemyParty pendingParty;
-    private float dayAccumulator;
 
     // Cached signature of the last rendered HUD state so Update can skip the
     // string rebuild and Text writes on frames where nothing relevant changed.
@@ -92,6 +78,7 @@ public sealed class CampaignMapController : MonoBehaviour
     {
         director = gameDirector;
         campaign = state;
+        sim = new OverworldSimulation(state);
         nodeColorProperties = new MaterialPropertyBlock();
         BuildVisuals();
         BuildUi();
@@ -148,7 +135,7 @@ public sealed class CampaignMapController : MonoBehaviour
     {
         partyMarker = BuildPartyFigure("Player Party", new Color(0.2f, 0.55f, 1f), true, false);
         partyMarker.transform.position = WorldOf(campaign.PartyPosition);
-        partyCountLabel = AddCountLabel(partyMarker.transform, PlayerStrength);
+        partyCountLabel = AddCountLabel(partyMarker.transform, sim.PlayerStrength);
 
         foreach (EnemyParty party in campaign.Parties)
         {
@@ -369,14 +356,31 @@ public sealed class CampaignMapController : MonoBehaviour
             return;
         }
 
-        if (travelling)
-            UpdateTravel();
+        if (sim.Travelling)
+            Dispatch(sim.Tick(Time.deltaTime));
         else if (Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame)
             HandleClick();
 
         UpdateMarkers();
         PulseNodes();
         RefreshUi();
+    }
+
+    // Routes a simulation outcome to the battle/report side effects.
+    private void Dispatch(OverworldOutcome outcome)
+    {
+        switch (outcome.Kind)
+        {
+            case OverworldOutcomeKind.FieldBattle:
+                director.LaunchFieldBattle(campaign.BuildPartySetup(outcome.Party), outcome.Party);
+                break;
+            case OverworldOutcomeKind.ArriveEnemy:
+                director.LaunchBattle(campaign.BuildSetupFor(outcome.Territory), outcome.Territory);
+                break;
+            case OverworldOutcomeKind.RestAtHold:
+                campaign.LastReport = $"The warband rests at {outcome.Territory.Name}.";
+                break;
+        }
     }
 
     // Mouse wheel zooms along the view; right-button drag pans across the map.
@@ -419,93 +423,16 @@ public sealed class CampaignMapController : MonoBehaviour
         foreach (PartyView view in partyViews)
             if (view.Marker != null && hit.collider.gameObject == view.Marker.gameObject)
             {
-                BeginTravel(view.Party.Position, null, view.Party);
+                sim.BeginTravel(view.Party.Position, null, view.Party);
                 return;
             }
         foreach (NodeView n in nodes)
             if (n.Go == hit.collider.gameObject)
             {
-                BeginTravel(n.Territory.MapPosition, n.Territory, null);
+                sim.BeginTravel(n.Territory.MapPosition, n.Territory, null);
                 return;
             }
-        BeginTravel(new Vector2(hit.point.x / 1.4f, hit.point.z / 1.4f), null, null);
-    }
-
-    private void BeginTravel(Vector2 target, Territory territory, EnemyParty party)
-    {
-        travelTarget = target;
-        pendingTerritory = territory;
-        pendingParty = party;
-        travelling = true;
-    }
-
-    private void UpdateTravel()
-    {
-        Vector2 toDest = travelTarget - campaign.PartyPosition;
-        float distance = toDest.magnitude;
-        float step = TravelSpeed * Time.deltaTime;
-        Vector2 move = distance <= step ? toDest : toDest.normalized * step;
-        campaign.PartyPosition += move;
-
-        dayAccumulator += move.magnitude;
-        while (dayAccumulator >= DistancePerDay)
-        {
-            dayAccumulator -= DistancePerDay;
-            campaign.Day++;
-        }
-
-        StepEnemyParties(move.magnitude);
-
-        // A threatening band catching the player, or any band the player is
-        // hunting, starts a battle. Weaker bands are marched past harmlessly.
-        foreach (PartyView view in partyViews)
-            if ((view.Party.Position - campaign.PartyPosition).magnitude <= EncounterRadius
-                && (IsThreat(view.Party) || view.Party == pendingParty))
-            {
-                StartFieldBattle(view.Party);
-                return;
-            }
-
-        if (distance <= step + 0.001f)
-        {
-            travelling = false;
-            if (pendingParty != null)
-                StartFieldBattle(pendingParty);
-            else if (pendingTerritory != null)
-                ArriveAtSettlement(pendingTerritory);
-            pendingTerritory = null;
-            pendingParty = null;
-        }
-    }
-
-    private void StepEnemyParties(float playerStep)
-    {
-        float chase = playerStep * EnemyChaseRatio;
-        foreach (PartyView view in partyViews)
-        {
-            if (!IsThreat(view.Party))
-                continue; // weak bands hold position rather than chase a stronger host
-            Vector2 toPlayer = campaign.PartyPosition - view.Party.Position;
-            float d = toPlayer.magnitude;
-            if (d > 0.001f && d < EnemySightRange)
-                view.Party.Position += toPlayer.normalized * Mathf.Min(chase, d);
-        }
-    }
-
-    private void StartFieldBattle(EnemyParty party)
-    {
-        travelling = false;
-        pendingTerritory = null;
-        pendingParty = null;
-        director.LaunchFieldBattle(campaign.BuildPartySetup(party), party);
-    }
-
-    private void ArriveAtSettlement(Territory t)
-    {
-        if (t.Owner == TerritoryOwner.Enemy)
-            director.LaunchBattle(campaign.BuildSetupFor(t), t);
-        else
-            campaign.LastReport = $"The warband rests at {t.Name}.";
+        sim.BeginTravel(new Vector2(hit.point.x / 1.4f, hit.point.z / 1.4f), null, null);
     }
 
     private void UpdateMarkers()
@@ -515,22 +442,6 @@ public sealed class CampaignMapController : MonoBehaviour
         foreach (PartyView view in partyViews)
             if (view.Marker != null)
                 view.Marker.position = WorldOf(view.Party.Position);
-    }
-
-    // The player's fighting strength: the captain plus the warband.
-    private int PlayerStrength => campaign.Roster + 1;
-
-    // Bands much weaker than the player ignore it (no point ambushing a host they
-    // cannot beat); the player can still choose to hunt them down.
-    private bool IsThreat(EnemyParty party) => party.Strength >= Mathf.CeilToInt(PlayerStrength * ThreatStrengthFactor);
-
-    private bool AtFriendlyCity()
-    {
-        foreach (Territory t in campaign.Territories)
-            if (t.Owner == TerritoryOwner.Player
-                && (t.MapPosition - campaign.PartyPosition).sqrMagnitude <= SettlementRecruitRange * SettlementRecruitRange)
-                return true;
-        return false;
     }
 
     private void PulseNodes()
@@ -630,7 +541,7 @@ public sealed class CampaignMapController : MonoBehaviour
         int rosterTotal = campaign.Roster;
         if (uiInitialized && ended == uiEnded && campaign.Gold == uiGold && rosterTotal == uiRosterTotal
             && selectedTier == uiSelectedTier && campaign.PlayerWeapon == uiWeapon
-            && campaign.Day == uiDay && travelling == uiTravelling)
+            && campaign.Day == uiDay && sim.Travelling == uiTravelling)
             return;
         uiInitialized = true;
         uiEnded = ended;
@@ -639,7 +550,7 @@ public sealed class CampaignMapController : MonoBehaviour
         uiSelectedTier = selectedTier;
         uiWeapon = campaign.PlayerWeapon;
         uiDay = campaign.Day;
-        uiTravelling = travelling;
+        uiTravelling = sim.Travelling;
 
         endScreen.gameObject.SetActive(ended);
         if (ended)
@@ -652,9 +563,10 @@ public sealed class CampaignMapController : MonoBehaviour
         reportText.text = campaign.LastReport;
         equipmentText.text = $"{WeaponCatalog.Label(campaign.PlayerWeapon)}\n{WeaponCatalog.Description(campaign.PlayerWeapon)}";
         if (partyCountLabel != null)
-            partyCountLabel.text = PlayerStrength.ToString();
+            partyCountLabel.text = sim.PlayerStrength.ToString();
 
-        bool atCity = AtFriendlyCity();
+        bool travelling = sim.Travelling;
+        bool atCity = sim.AtFriendlyCity();
         tierButtonText.text = $"TIER  <  {UnitCatalog.Label(selectedTier)}  >    {UnitCatalog.Cost(selectedTier)} GOLD";
         foreach (KeyValuePair<Archetype, RecruitWidget> entry in recruitButtons)
         {
@@ -683,16 +595,8 @@ public sealed class CampaignMapController : MonoBehaviour
     // warband while it holds position.
     private void PerformSelectedAction()
     {
-        if (travelling)
+        if (sim.Travelling)
             return;
-        campaign.Day++;
-        StepEnemyParties(DistancePerDay);
-        foreach (PartyView view in partyViews)
-            if (IsThreat(view.Party)
-                && (view.Party.Position - campaign.PartyPosition).magnitude <= EncounterRadius)
-            {
-                StartFieldBattle(view.Party);
-                return;
-            }
+        Dispatch(sim.WaitOneDay());
     }
 }

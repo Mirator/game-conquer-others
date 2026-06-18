@@ -19,15 +19,15 @@ public sealed class CampaignAndCombatTests
         }
 
         Assert.That(visited.Count, Is.EqualTo(campaign.Territories.Count));
-        Assert.That(campaign.PlayerTerritoryCount(), Is.EqualTo(1));
-        Assert.That(campaign.AttackableTargets(), Is.Not.Empty);
+        Assert.That(campaign.Territories.Exists(t => t.Owner == TerritoryOwner.Enemy), Is.True,
+            "The map offers enemy holds to take.");
     }
 
     [Test]
     public void RecruitmentAndVictory_PersistTypedSurvivorsAndEconomy()
     {
         CampaignState campaign = CampaignState.CreateDefault(11);
-        Territory target = FirstAttackable(campaign);
+        Territory target = FirstEnemyTerritory(campaign);
         int startingGold = campaign.Gold;
 
         Assert.That(campaign.Recruit(UnitType.Veteran), Is.True);
@@ -88,7 +88,7 @@ public sealed class CampaignAndCombatTests
     public void Victory_GrowsIncomeAndPaysRewardPlusIncome()
     {
         CampaignState campaign = CampaignState.CreateDefault(11);
-        Territory target = FirstAttackable(campaign);
+        Territory target = FirstEnemyTerritory(campaign);
         int incomeBefore = campaign.IncomePerVictory();
         int goldBefore = campaign.Gold;
         int reward = target.RewardGold;
@@ -105,7 +105,7 @@ public sealed class CampaignAndCombatTests
     {
         CampaignSaveService.Delete();
         CampaignState original = CampaignState.CreateDefault(11);
-        Territory target = FirstAttackable(original);
+        Territory target = FirstEnemyTerritory(original);
         int targetId = target.Id;
         original.Recruit(UnitType.Veteran);
         original.PlayerWeapon = WeaponType.Bow;
@@ -124,7 +124,8 @@ public sealed class CampaignAndCombatTests
         Assert.That(loaded.Territories.Count, Is.EqualTo(original.Territories.Count));
         Assert.That(loaded.GetById(targetId).Owner, Is.EqualTo(TerritoryOwner.Player));
         Assert.That(loaded.PlayerTerritoryCount(), Is.EqualTo(original.PlayerTerritoryCount()));
-        Assert.That(loaded.AttackableTargets(), Is.Not.Empty, "Adjacency must survive the round trip.");
+        Assert.That(loaded.GetById(targetId).AdjacentIds.Count,
+            Is.EqualTo(original.GetById(targetId).AdjacentIds.Count), "Adjacency must survive the round trip.");
     }
 
     [Test]
@@ -146,7 +147,7 @@ public sealed class CampaignAndCombatTests
     public void Victory_PreservesSurvivingArchetypes()
     {
         CampaignState campaign = CampaignState.CreateDefault(3);
-        Territory target = FirstAttackable(campaign);
+        Territory target = FirstEnemyTerritory(campaign);
         campaign.ApplyVictory(target, new BattleResult
         {
             PlayerWon = true,
@@ -214,6 +215,44 @@ public sealed class CampaignAndCombatTests
     }
 
     [Test]
+    public void CreateDefault_PlayerStartsAloneWithNoHolds()
+    {
+        CampaignState campaign = CampaignState.CreateDefault(9);
+        Assert.That(campaign.PlayerTerritoryCount(), Is.EqualTo(0), "Player owns no hold at the start.");
+        Assert.That(campaign.IncomePerVictory(), Is.EqualTo(0), "No income before capturing a hold.");
+        Assert.That(campaign.Parties, Is.Not.Empty, "Roaming bands seed the map.");
+        foreach (Territory t in campaign.Territories)
+            Assert.That(t.Owner, Is.EqualTo(TerritoryOwner.Enemy), "Every hold begins enemy-held.");
+    }
+
+    [Test]
+    public void CreateDefault_IsDeterministicForSeed()
+    {
+        CampaignState a = CampaignState.CreateDefault(42);
+        CampaignState b = CampaignState.CreateDefault(42);
+        Assert.That(b.Territories.Count, Is.EqualTo(a.Territories.Count));
+        Assert.That(b.Parties.Count, Is.EqualTo(a.Parties.Count));
+        Assert.That(b.PartyPosition, Is.EqualTo(a.PartyPosition));
+        for (int i = 0; i < a.Territories.Count; i++)
+        {
+            Assert.That(b.Territories[i].MapPosition, Is.EqualTo(a.Territories[i].MapPosition));
+            Assert.That(b.Territories[i].Threat, Is.EqualTo(a.Territories[i].Threat));
+            Assert.That(b.Territories[i].Garrison, Is.EqualTo(a.Territories[i].Garrison));
+        }
+    }
+
+    [Test]
+    public void CampaignSave_DeleteClearsSave()
+    {
+        CampaignSaveService.Delete();
+        CampaignSaveService.Save(CampaignState.CreateDefault(4));
+        Assert.That(CampaignSaveService.HasSave, Is.True);
+        CampaignSaveService.Delete();
+        Assert.That(CampaignSaveService.HasSave, Is.False);
+        Assert.That(CampaignSaveService.Load(), Is.Null);
+    }
+
+    [Test]
     public void Defeat_EndsCampaign()
     {
         CampaignState campaign = CampaignState.CreateDefault(11);
@@ -266,10 +305,11 @@ public sealed class CampaignAndCombatTests
         Assert.That(CombatGesture.TryResolve(new Vector2(10f, 9f), out _), Is.False);
     }
 
-    private static Territory FirstAttackable(CampaignState campaign)
+    private static Territory FirstEnemyTerritory(CampaignState campaign)
     {
-        foreach (Territory territory in campaign.AttackableTargets())
-            return territory;
+        foreach (Territory territory in campaign.Territories)
+            if (territory.Owner == TerritoryOwner.Enemy)
+                return territory;
         return null;
     }
 }
