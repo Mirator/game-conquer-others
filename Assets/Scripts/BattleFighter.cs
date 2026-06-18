@@ -292,7 +292,10 @@ public abstract class BattleFighter : MonoBehaviour
             battle.RecordDamage(attacker, this, appliedDamage, health <= 0f);
 
         if (health <= 0f)
+        {
+            battle.ReportKill(attacker, this);
             Die();
+        }
     }
 
     public float DistanceTo(BattleFighter other)

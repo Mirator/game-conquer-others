@@ -48,13 +48,15 @@ public sealed class BattleEffects : MonoBehaviour
 
         hitClip = RandomClip(catalog != null ? catalog.impacts : null) ?? Tone("Hit", 115f, 0.12f, true);
         blockClip = RandomClip(catalog != null ? catalog.blocks : null) ?? Tone("Block", 620f, 0.13f, true);
-        perfectBlockClip = Tone("Perfect Block", 920f, 0.2f, true);
-        counterClip = Tone("Counter Strike", 360f, 0.18f, false);
+        // Signature cues prefer curated CC0 clips from Resources, falling back to
+        // the synthesized tone when a clip is absent.
+        perfectBlockClip = LoadClip("Audio/metalPot1") ?? Tone("Perfect Block", 920f, 0.2f, true);
+        counterClip = LoadClip("Audio/metalPot2") ?? Tone("Counter Strike", 360f, 0.18f, false);
         swingClip = RandomClip(catalog != null ? catalog.swings : null) ?? Tone("Swing", 240f, 0.11f, false);
         heavySwingClip = Tone("Heavy Swing", 155f, 0.18f, false);
         bowReleaseClip = RuntimeAssets.Audio("Bow Release", CreateBowRelease);
         arrowImpactClip = Tone("Arrow Impact", 430f, 0.1f, true);
-        whiffClip = Tone("Whiff", 150f, 0.16f, true);
+        whiffClip = LoadClip("Audio/cloth1") ?? Tone("Whiff", 150f, 0.16f, true);
         footstepClip = RandomClip(catalog != null ? catalog.footsteps : null) ?? Tone("Footstep", 72f, 0.09f, true);
         victoryClip = Tone("Victory", 440f, 0.55f, false);
         for (int i = 0; i < 8; i++)
@@ -123,6 +125,15 @@ public sealed class BattleEffects : MonoBehaviour
         uiSource.pitch = 1f;
         uiSource.PlayOneShot(victoryClip, 0.7f);
     }
+
+    // A heavier blood burst punctuating a lethal blow; the killing hit's own
+    // impact sound already plays through PlayImpact.
+    public void PlayKill(Vector3 position)
+    {
+        SpawnSparks(position + Vector3.up * 1.1f, new Color(0.5f, 0.02f, 0.01f), 20);
+    }
+
+    private static AudioClip LoadClip(string resourcePath) => Resources.Load<AudioClip>(resourcePath);
 
     private void PlaySpatial(AudioClip clip, Vector3 position, float volume, float pitch, float maxDistance)
     {

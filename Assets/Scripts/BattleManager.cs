@@ -284,6 +284,20 @@ public sealed class BattleManager : MonoBehaviour
         arrow.AddComponent<BattleProjectile>().Configure(this, attacker, direction, damage);
     }
 
+    // Extra weight for a lethal blow: a meaty finisher pause on the player's
+    // killing strike, a blood burst, and a camera kick when the player is
+    // involved. The killing hit's normal impact feedback fires via ReportImpact.
+    public void ReportKill(BattleFighter attacker, BattleFighter victim)
+    {
+        if (victim == null)
+            return;
+        effects?.PlayKill(victim.transform.position);
+        if (attacker != null && attacker.IsPlayer)
+            attacker.ApplyHitStop(0.13f);
+        if (victim.IsPlayer || (attacker != null && attacker.IsPlayer))
+            cameraRig?.AddShake(victim.IsPlayer ? 0.22f : 0.16f);
+    }
+
     public BattleFighter FindProjectileTarget(BattleFighter attacker, Vector3 start, Vector3 end, float radius)
         => FindSweptStrikeTarget(attacker, start, end, radius);
 
