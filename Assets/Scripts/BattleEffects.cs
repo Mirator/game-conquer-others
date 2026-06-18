@@ -3,9 +3,15 @@ using UnityEngine;
 
 public sealed class BattleEffects : MonoBehaviour
 {
+    private const int SpatialVoices = 16;
+    private const float AmbienceBaseVolume = 0.11f;
+    private const float DrumBaseVolume = 0.12f;
+
     private readonly List<ParticleSystem> particlePool = new();
+    private readonly List<AudioSource> spatialPool = new();
     private PresentationCatalog catalog;
     private int particleCursor;
+    private int spatialCursor;
     private AudioSource uiSource;
     private AudioSource ambienceSource;
     private AudioSource drumSource;
@@ -31,13 +37,13 @@ public sealed class BattleEffects : MonoBehaviour
         ambienceSource = gameObject.AddComponent<AudioSource>();
         ambienceSource.clip = RuntimeAssets.Audio("Courtyard Wind", () => CreateAmbience(4f));
         ambienceSource.loop = true;
-        ambienceSource.volume = 0.11f;
+        ambienceSource.volume = AmbienceBaseVolume * MusicVolume;
         ambienceSource.Play();
 
         drumSource = gameObject.AddComponent<AudioSource>();
         drumSource.clip = RuntimeAssets.Audio("Distant War Drums", CreateDrumLoop);
         drumSource.loop = true;
-        drumSource.volume = 0.12f;
+        drumSource.volume = DrumBaseVolume * MusicVolume;
         drumSource.Play();
 
         hitClip = RandomClip(catalog != null ? catalog.impacts : null) ?? Tone("Hit", 115f, 0.12f, true);
@@ -53,7 +59,23 @@ public sealed class BattleEffects : MonoBehaviour
         victoryClip = Tone("Victory", 440f, 0.55f, false);
         for (int i = 0; i < 8; i++)
             particlePool.Add(CreateParticleEmitter(i));
+        for (int i = 0; i < SpatialVoices; i++)
+            spatialPool.Add(CreateSpatialVoice(i));
     }
+
+    // The looping ambience and drum bed are the closest thing to music, so the
+    // music-volume setting scales them live (it can change from the pause menu).
+    private void Update()
+    {
+        float music = MusicVolume;
+        if (ambienceSource != null)
+            ambienceSource.volume = AmbienceBaseVolume * music;
+        if (drumSource != null)
+            drumSource.volume = DrumBaseVolume * music;
+    }
+
+    private static float MusicVolume => SettingsService.Current != null ? SettingsService.Current.musicVolume : 1f;
+    private static float EffectsVolume => SettingsService.Current != null ? SettingsService.Current.effectsVolume : 1f;
 
     public void PlayAttack(Vector3 position, bool player, WeaponType weapon)
     {
@@ -104,19 +126,28 @@ public sealed class BattleEffects : MonoBehaviour
 
     private void PlaySpatial(AudioClip clip, Vector3 position, float volume, float pitch, float maxDistance)
     {
-        GameObject soundObject = new GameObject($"Sound - {clip.name}");
-        soundObject.transform.position = position;
-        soundObject.transform.SetParent(transform);
-        AudioSource source = soundObject.AddComponent<AudioSource>();
+        if (clip == null || spatialPool.Count == 0)
+            return;
+        AudioSource source = spatialPool[spatialCursor++ % spatialPool.Count];
+        source.Stop();
+        source.transform.position = position;
         source.clip = clip;
-        source.volume = volume * (SettingsService.Current != null ? SettingsService.Current.effectsVolume : 1f);
+        source.volume = volume * EffectsVolume;
         source.pitch = pitch;
+        source.maxDistance = maxDistance;
+        source.Play();
+    }
+
+    private AudioSource CreateSpatialVoice(int index)
+    {
+        GameObject go = new($"Spatial Voice {index}");
+        go.transform.SetParent(transform);
+        AudioSource source = go.AddComponent<AudioSource>();
+        source.playOnAwake = false;
         source.spatialBlend = 1f;
         source.rolloffMode = AudioRolloffMode.Linear;
         source.minDistance = 1.2f;
-        source.maxDistance = maxDistance;
-        source.Play();
-        Destroy(soundObject, clip.length / Mathf.Max(0.1f, Mathf.Abs(pitch)) + 0.15f);
+        return source;
     }
 
     private void SpawnSparks(Vector3 position, Color color, int count)

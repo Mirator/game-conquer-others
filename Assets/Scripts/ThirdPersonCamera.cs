@@ -5,7 +5,6 @@ public sealed class ThirdPersonCamera : MonoBehaviour
 {
     public Vector3 FlatForward => Vector3.ProjectOnPlane(transform.forward, Vector3.up).normalized;
     public Vector3 FlatRight => Vector3.ProjectOnPlane(transform.right, Vector3.up).normalized;
-    public Vector3 AimDirection => transform.forward;
 
     public Vector3 GetProjectileAim(Vector3 origin)
     {
@@ -23,6 +22,7 @@ public sealed class ThirdPersonCamera : MonoBehaviour
     private float shake;
     private float movementAmount;
     private float stride;
+    private int cameraCollisionMask = ~0;
 
     public void SetTarget(Transform followTarget)
     {
@@ -32,6 +32,7 @@ public sealed class ThirdPersonCamera : MonoBehaviour
         attachedCamera = GetComponent<Camera>();
         previousTargetPosition = followTarget.position;
         smoothPosition = transform.position;
+        cameraCollisionMask = ~LayerMask.GetMask("Ignore Raycast");
     }
 
     public void AddShake(float amount)
@@ -79,7 +80,6 @@ public sealed class ThirdPersonCamera : MonoBehaviour
         Vector3 wanted = focus - forward * distance + right * (shoulder + sway) + Vector3.up * bob;
         Vector3 castStart = focus + right * 0.25f;
         Vector3 castDirection = wanted - castStart;
-        int cameraCollisionMask = ~LayerMask.GetMask("Ignore Raycast");
         if (Physics.SphereCast(castStart, 0.24f, castDirection.normalized, out RaycastHit hit, castDirection.magnitude,
             cameraCollisionMask, QueryTriggerInteraction.Ignore))
             wanted = hit.point + hit.normal * 0.28f;

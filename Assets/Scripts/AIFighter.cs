@@ -21,6 +21,27 @@ public sealed class AIFighter : BattleFighter
     private float retreatTimer;
     private CombatDirection plannedBlockDirection = CombatDirection.Right;
 
+    // Collision mask for tactical pathing: everything except the built-in
+    // "Ignore Raycast" layer. Resolved lazily on first use rather than in a
+    // field initializer, since LayerMask.NameToLayer is illegal during the
+    // MonoBehaviour construction that triggers static initialization.
+    private static int obstacleMask;
+    private static bool obstacleMaskReady;
+
+    private static int ObstacleMask
+    {
+        get
+        {
+            if (!obstacleMaskReady)
+            {
+                int ignoreRaycast = LayerMask.NameToLayer("Ignore Raycast");
+                obstacleMask = ignoreRaycast >= 0 ? ~(1 << ignoreRaycast) : ~0;
+                obstacleMaskReady = true;
+            }
+            return obstacleMask;
+        }
+    }
+
     private void Start()
     {
         preferredRange = IsRanged ? Random.Range(8.5f, 11f)
@@ -220,10 +241,8 @@ public sealed class AIFighter : BattleFighter
         planar.y = 0f;
         if (planar.sqrMagnitude > 0.01f)
         {
-            int ignoreRaycast = LayerMask.NameToLayer("Ignore Raycast");
-            int mask = ignoreRaycast >= 0 ? ~(1 << ignoreRaycast) : ~0;
             Vector3 origin = transform.position + Vector3.up * 0.75f;
-            if (Physics.SphereCast(origin, 0.32f, planar.normalized, out RaycastHit hit, 1.15f, mask, QueryTriggerInteraction.Ignore))
+            if (Physics.SphereCast(origin, 0.32f, planar.normalized, out RaycastHit hit, 1.15f, ObstacleMask, QueryTriggerInteraction.Ignore))
             {
                 Vector3 tangent = Vector3.Cross(Vector3.up, hit.normal) * orbitDirection;
                 planar = Vector3.ProjectOnPlane(planar, hit.normal) + tangent * planar.magnitude * 0.7f;

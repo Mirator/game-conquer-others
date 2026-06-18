@@ -46,6 +46,96 @@ public sealed class CampaignAndCombatTests
         Assert.That(campaign.Gold, Is.GreaterThan(startingGold - UnitCatalog.Cost(UnitType.Veteran)));
     }
 
+    [Test]
+    public void Recruit_FailsWithoutGoldOrWarbandSpace()
+    {
+        CampaignState campaign = CampaignState.CreateDefault(11);
+
+        campaign.Gold = UnitCatalog.Cost(UnitType.Guard) - 1;
+        Assert.That(campaign.CanRecruit(UnitType.Guard), Is.False);
+        Assert.That(campaign.Recruit(UnitType.Guard), Is.False, "Recruiting with too little gold should fail.");
+        Assert.That(campaign.Gold, Is.EqualTo(UnitCatalog.Cost(UnitType.Guard) - 1), "A failed recruit must not spend gold.");
+
+        campaign.Gold = 100000;
+        int guard = 0;
+        while (campaign.Recruit(UnitType.Militia) && guard++ < 100) { }
+        Assert.That(campaign.Roster, Is.EqualTo(CampaignState.WarbandCap), "Recruiting should stop at the warband cap.");
+        Assert.That(campaign.CanRecruit(UnitType.Militia), Is.False);
+        Assert.That(campaign.Recruit(UnitType.Militia), Is.False, "Recruiting past the warband cap should fail.");
+    }
+
+    [Test]
+    public void ThreatScaling_KeepsHomeSafeAndEnemiesWithinBounds()
+    {
+        CampaignState campaign = CampaignState.CreateDefault(7);
+        foreach (Territory t in campaign.Territories)
+        {
+            Assert.That(t.Threat, Is.InRange(1, 5), $"{t.Name} threat must stay within [1,5].");
+            if (t.Owner == TerritoryOwner.Player)
+            {
+                Assert.That(t.Threat, Is.EqualTo(1), "The home territory should be the safest.");
+            }
+            else
+            {
+                Assert.That(t.Garrison, Is.InRange(2, 10), $"{t.Name} garrison must stay within [2,10].");
+                Assert.That(t.DifficultyScale, Is.GreaterThanOrEqualTo(1f), $"{t.Name} should never be easier than baseline.");
+                Assert.That(t.RewardGold, Is.GreaterThan(0), $"{t.Name} should award conquest gold.");
+            }
+        }
+    }
+
+    [Test]
+    public void Victory_GrowsIncomeAndPaysRewardPlusIncome()
+    {
+        CampaignState campaign = CampaignState.CreateDefault(11);
+        Territory target = FirstAttackable(campaign);
+        int incomeBefore = campaign.IncomePerVictory();
+        int goldBefore = campaign.Gold;
+        int reward = target.RewardGold;
+
+        campaign.ApplyVictory(target, new BattleResult { PlayerWon = true });
+
+        Assert.That(campaign.IncomePerVictory(), Is.GreaterThan(incomeBefore), "Capturing a territory should grow income.");
+        Assert.That(campaign.Gold, Is.EqualTo(goldBefore + reward + campaign.IncomePerVictory()),
+            "Victory should pay the conquest reward plus the new total income.");
+    }
+
+    [Test]
+    public void Defeat_EndsCampaign()
+    {
+        CampaignState campaign = CampaignState.CreateDefault(11);
+        Assert.That(campaign.CampaignOver, Is.False);
+        campaign.ApplyDefeat();
+        Assert.That(campaign.CampaignOver, Is.True);
+    }
+
+    [TestCase(UnitType.Militia, 35)]
+    [TestCase(UnitType.Veteran, 70)]
+    [TestCase(UnitType.Guard, 110)]
+    public void UnitCatalog_HasExpectedCosts(UnitType type, int cost)
+    {
+        Assert.That(UnitCatalog.Cost(type), Is.EqualTo(cost));
+    }
+
+    [TestCase(UnitType.Militia, WeaponType.SwordAndShield)]
+    [TestCase(UnitType.Veteran, WeaponType.TwoHandedSword)]
+    [TestCase(UnitType.Guard, WeaponType.Bow)]
+    public void WeaponCatalog_MapsDefaultWeaponPerUnit(UnitType type, WeaponType weapon)
+    {
+        Assert.That(WeaponCatalog.DefaultFor(type), Is.EqualTo(weapon));
+    }
+
+    [Test]
+    public void WeaponCatalog_NextAndPreviousCycleAndInvert()
+    {
+        foreach (WeaponType weapon in System.Enum.GetValues(typeof(WeaponType)))
+        {
+            Assert.That(WeaponCatalog.Previous(WeaponCatalog.Next(weapon)), Is.EqualTo(weapon),
+                "Previous should undo Next.");
+            Assert.That(WeaponCatalog.Next(weapon), Is.Not.EqualTo(weapon), "Next should always advance.");
+        }
+    }
+
     [TestCase(12f, 0f, CombatDirection.Right)]
     [TestCase(-12f, 0f, CombatDirection.Left)]
     [TestCase(0f, 12f, CombatDirection.Up)]

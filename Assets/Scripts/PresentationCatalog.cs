@@ -38,18 +38,6 @@ public sealed class PresentationCatalog : ScriptableObject
     [Header("Frontend")]
     public Sprite panelBorder;
     public Sprite buttonBorder;
-    public GameObject titlePrefab;
-    public GameObject settingsPrefab;
-    public GameObject pausePrefab;
-    public GameObject battleHudPrefab;
-    public GameObject campaignHudPrefab;
-
-    [Header("Effects")]
-    public ParticleSystem fleshHit;
-    public ParticleSystem metalBlock;
-    public ParticleSystem perfectBlock;
-    public ParticleSystem arrowImpact;
-    public ParticleSystem dust;
 
     [Header("Audio")]
     public AudioClip mapMusic;

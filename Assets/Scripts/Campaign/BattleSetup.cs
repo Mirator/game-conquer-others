@@ -23,7 +23,6 @@ public sealed class BattleSetup
 public sealed class BattleResult
 {
     public bool PlayerWon;
-    public int AlliesSurvived;
     public int MilitiaSurvived;
     public int VeteransSurvived;
     public int GuardsSurvived;

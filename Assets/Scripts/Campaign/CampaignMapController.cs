@@ -26,16 +26,34 @@ public sealed class CampaignMapController : MonoBehaviour
     private RectTransform endScreen;
     private Button actionButton;
     private Text actionButtonText;
-    private readonly Dictionary<UnitType, Button> recruitButtons = new();
+    private readonly Dictionary<UnitType, RecruitWidget> recruitButtons = new();
 
     private readonly List<NodeView> nodes = new();
     private MaterialPropertyBlock nodeColorProperties;
+
+    // Cached signature of the last rendered HUD state so Update can skip the
+    // string rebuild and Text writes on frames where nothing relevant changed.
+    private bool uiInitialized;
+    private int uiGold = -1;
+    private int uiMilitia = -1;
+    private int uiVeterans = -1;
+    private int uiGuards = -1;
+    private WeaponType uiWeapon;
+    private Territory uiSelected;
+    private bool uiSelectedTraining;
+    private bool uiEnded;
 
     private struct NodeView
     {
         public GameObject Go;
         public Territory Territory;
         public Renderer Renderer;
+    }
+
+    private struct RecruitWidget
+    {
+        public Button Button;
+        public Text Label;
     }
 
     public void Configure(GameDirector gameDirector, CampaignState state)
@@ -348,7 +366,7 @@ public sealed class CampaignMapController : MonoBehaviour
     {
         Button button = MedievalUi.Button(parent, type.ToString(), "", new Vector2(0.07f, y),
             new Vector2(0.93f, y + 0.17f), Vector2.zero, Vector2.zero, () => campaign.Recruit(type));
-        recruitButtons[type] = button;
+        recruitButtons[type] = new RecruitWidget { Button = button, Label = button.GetComponentInChildren<Text>() };
     }
 
     private void RefreshUi()
@@ -356,6 +374,23 @@ public sealed class CampaignMapController : MonoBehaviour
         if (campaignCanvas == null || campaign == null)
             return;
         bool ended = campaign.AllConquered() || campaign.CampaignOver;
+        int militia = campaign.Units.Militia;
+        int veterans = campaign.Units.Veterans;
+        int guards = campaign.Units.Guards;
+        if (uiInitialized && ended == uiEnded && campaign.Gold == uiGold && militia == uiMilitia
+            && veterans == uiVeterans && guards == uiGuards && campaign.PlayerWeapon == uiWeapon
+            && selected == uiSelected && selectedTraining == uiSelectedTraining)
+            return;
+        uiInitialized = true;
+        uiEnded = ended;
+        uiGold = campaign.Gold;
+        uiMilitia = militia;
+        uiVeterans = veterans;
+        uiGuards = guards;
+        uiWeapon = campaign.PlayerWeapon;
+        uiSelected = selected;
+        uiSelectedTraining = selectedTraining;
+
         endScreen.gameObject.SetActive(ended);
         if (ended)
         {
@@ -366,10 +401,10 @@ public sealed class CampaignMapController : MonoBehaviour
             $"WARBAND {campaign.Roster}/{CampaignState.WarbandCap}    LANDS {campaign.PlayerTerritoryCount()}/{campaign.Territories.Count}";
         reportText.text = campaign.LastReport;
         equipmentText.text = $"{WeaponCatalog.Label(campaign.PlayerWeapon)}\n{WeaponCatalog.Description(campaign.PlayerWeapon)}";
-        foreach (KeyValuePair<UnitType, Button> entry in recruitButtons)
+        foreach (KeyValuePair<UnitType, RecruitWidget> entry in recruitButtons)
         {
-            entry.Value.interactable = campaign.CanRecruit(entry.Key);
-            entry.Value.GetComponentInChildren<Text>().text =
+            entry.Value.Button.interactable = campaign.CanRecruit(entry.Key);
+            entry.Value.Label.text =
                 $"+ {UnitCatalog.Label(entry.Key)}    {UnitCatalog.Cost(entry.Key)} GOLD    OWNED {campaign.Units.Get(entry.Key)}";
         }
 

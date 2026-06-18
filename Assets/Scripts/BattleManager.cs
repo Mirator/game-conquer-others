@@ -401,7 +401,6 @@ public sealed class BattleManager : MonoBehaviour
         OnBattleConcluded?.Invoke(new BattleResult
         {
             PlayerWon = State == BattleState.Victory,
-            AlliesSurvived = AlliedSoldiersAlive,
             MilitiaSurvived = CountAlliedSurvivors(UnitType.Militia),
             VeteransSurvived = CountAlliedSurvivors(UnitType.Veteran),
             GuardsSurvived = CountAlliedSurvivors(UnitType.Guard)
@@ -467,7 +466,7 @@ public sealed class BattleManager : MonoBehaviour
     // end-of-battle scoreboard.
     public void RecordDamage(BattleFighter attacker, BattleFighter victim, float amount, bool killed)
     {
-        if (attacker == null || amount <= 0f)
+        if (attacker == null || victim == null || amount <= 0f || victim.Team == attacker.Team)
             return;
         if (attacker.IsPlayer)
             playerDamageDealt += amount;
@@ -477,7 +476,7 @@ public sealed class BattleManager : MonoBehaviour
             enemiesDamageDealt += amount;
         if (victim.IsPlayer)
             playerDamageTaken += amount;
-        if (killed && attacker.IsPlayer && victim.Team != attacker.Team)
+        if (killed && attacker.IsPlayer)
             playerKills++;
     }
 

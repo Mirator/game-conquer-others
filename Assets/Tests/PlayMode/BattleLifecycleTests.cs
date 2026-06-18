@@ -36,6 +36,30 @@ public sealed class BattleLifecycleTests
         yield return null;
     }
 
+    [UnityTest]
+    public IEnumerator BattleManager_TransitionsToDefeatWhenPlayerFalls()
+    {
+        GameObject root = new("Battle Defeat Test");
+        BattleManager manager = root.AddComponent<BattleManager>();
+        manager.Configure(null, null);
+        CreateFighter<PlayerFighter>(root, manager, Team.Allies, true);
+        CreateFighter<AIFighter>(root, manager, Team.Enemies, false);
+        BattleResult result = null;
+        manager.OnBattleConcluded = value => result = value;
+
+        manager.BeginBattle();
+        manager.DebugEliminateTeam(Team.Allies);
+        yield return null;
+
+        Assert.That(manager.State, Is.EqualTo(BattleManager.BattleState.Defeat));
+        manager.ConfirmResult();
+        Assert.That(result, Is.Not.Null);
+        Assert.That(result.PlayerWon, Is.False);
+
+        Object.Destroy(root);
+        yield return null;
+    }
+
     private static T CreateFighter<T>(GameObject root, BattleManager manager, Team team, bool player)
         where T : BattleFighter
     {

@@ -119,10 +119,10 @@ public abstract class BattleFighter : MonoBehaviour
 
         if (battle.IsBattleRunning)
         {
-            counterWindowTimer = Mathf.Max(0f, counterWindowTimer - Time.unscaledDeltaTime);
-            damageDisplayTimer = Mathf.Max(0f, damageDisplayTimer - Time.unscaledDeltaTime);
+            counterWindowTimer = Mathf.Max(0f, counterWindowTimer - Time.deltaTime);
+            damageDisplayTimer = Mathf.Max(0f, damageDisplayTimer - Time.deltaTime);
             if (IsBlocking)
-                blockAge += Time.unscaledDeltaTime;
+                blockAge += Time.deltaTime;
             stamina = Mathf.Min(MaxStamina, stamina + (IsBlocking ? CombatBalance.StaminaRegenBlocking : CombatBalance.StaminaRegenIdle) * Time.deltaTime);
             staggerTimer = Mathf.Max(0f, staggerTimer - Time.deltaTime);
             if (IsRanged && IsChargingAttack)
@@ -162,7 +162,7 @@ public abstract class BattleFighter : MonoBehaviour
 
     protected bool PrepareAttack(CombatDirection direction)
     {
-        bool useCounter = counterWindowTimer > 0f;
+        bool useCounter = counterWindowTimer > 0f && !IsRanged;
         float staminaCost = IsRanged ? CombatBalance.AttackCostRanged
             : useCounter ? CombatBalance.AttackCostCounter
             : Weapon == WeaponType.TwoHandedSword ? CombatBalance.AttackCostTwoHanded : CombatBalance.AttackCostOneHanded;
@@ -281,7 +281,7 @@ public abstract class BattleFighter : MonoBehaviour
             Phase = CombatPhase.HitReaction;
             IsBlocking = false;
             counterWindowTimer = 0f;
-            if (controller.enabled && toAttacker.sqrMagnitude > 0.01f)
+            if (controller != null && controller.enabled && toAttacker.sqrMagnitude > 0.01f)
                 controller.Move(-toAttacker.normalized * 0.32f);
         }
 
@@ -555,6 +555,8 @@ public abstract class BattleFighter : MonoBehaviour
     }
 
     public void DebugRestoreStamina() => stamina = MaxStamina;
+
+    public void DebugSetStamina(float value) => stamina = Mathf.Clamp(value, 0f, MaxStamina);
 
     public void DebugTeleport(Vector3 position)
     {

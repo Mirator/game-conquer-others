@@ -194,6 +194,43 @@ public sealed class CombatRulesTests
         yield return DestroyRoot(root);
     }
 
+    [UnityTest]
+    public IEnumerator Attack_ConsumesStamina()
+    {
+        BattleManager battle = CreateFacingDuel(out GameObject root, out _);
+        battle.Player.DebugRestoreStamina();
+        float before = battle.Player.StaminaNormalized;
+        Assert.That(battle.Player.DebugPrepareAttack(CombatDirection.Right), Is.True);
+        Assert.That(battle.Player.StaminaNormalized, Is.LessThan(before), "Preparing an attack should spend stamina.");
+        yield return DestroyRoot(root);
+    }
+
+    [UnityTest]
+    public IEnumerator Attack_RequiresStamina()
+    {
+        BattleManager battle = CreateFacingDuel(out GameObject root, out _);
+        battle.Player.DebugSetStamina(0f);
+        Assert.That(battle.Player.DebugPrepareAttack(CombatDirection.Right), Is.False,
+            "An exhausted fighter should not be able to attack.");
+        yield return DestroyRoot(root);
+    }
+
+    [UnityTest]
+    public IEnumerator NonPerfectBlock_DrainsStaminaButStillBlocks()
+    {
+        BattleManager battle = CreateFacingDuel(out GameObject root, out BattleFighter attacker);
+        battle.Player.DebugRestoreStamina();
+        float startingHealth = battle.Player.CurrentHealth;
+        float before = battle.Player.StaminaNormalized;
+        battle.Player.DebugSetBlock(true, CombatDirection.Right);
+        battle.Player.DebugExpirePerfectBlock();
+        battle.Player.ReceiveHit(25f, attacker, CombatDirection.Right);
+        Assert.That(battle.Player.StaminaNormalized, Is.LessThan(before), "A non-perfect block should cost stamina.");
+        Assert.That(Mathf.Approximately(battle.Player.CurrentHealth, startingHealth), Is.True,
+            "A non-perfect block with stamina to spare should still stop the damage.");
+        yield return DestroyRoot(root);
+    }
+
     private static BattleManager CreateFacingDuel(out GameObject root, out BattleFighter attacker)
     {
         BattleManager battle = CreateDuel(out root);

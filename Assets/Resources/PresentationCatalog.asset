@@ -40,16 +40,6 @@ MonoBehaviour:
   bush: {fileID: 919132149155446097, guid: b86c9e5aaa5bec746bfdccf31def4031, type: 3}
   panelBorder: {fileID: 21300000, guid: 2ed30cb3fd7b3c247b516f5312174731, type: 3}
   buttonBorder: {fileID: 21300000, guid: e78f9dcae071b9245ae4458737842000, type: 3}
-  titlePrefab: {fileID: 0}
-  settingsPrefab: {fileID: 0}
-  pausePrefab: {fileID: 0}
-  battleHudPrefab: {fileID: 0}
-  campaignHudPrefab: {fileID: 0}
-  fleshHit: {fileID: 0}
-  metalBlock: {fileID: 0}
-  perfectBlock: {fileID: 0}
-  arrowImpact: {fileID: 0}
-  dust: {fileID: 0}
   mapMusic: {fileID: 0}
   battleMusic: {fileID: 0}
   victoryMusic: {fileID: 0}
