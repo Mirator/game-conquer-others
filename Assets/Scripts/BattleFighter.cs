@@ -213,6 +213,8 @@ public abstract class BattleFighter : MonoBehaviour
         bool wasBlocking = IsBlocking;
         bool changedDirection = direction != BlockDirection;
         IsBlocking = active && canBlock;
+        // Raising the guard or re-aiming it to a new direction re-arms the perfect-block
+        // window (re-aiming to meet an incoming attack is an intended defensive read).
         if (IsBlocking && (!wasBlocking || changedDirection))
             blockAge = 0f;
         if (active)
@@ -249,7 +251,7 @@ public abstract class BattleFighter : MonoBehaviour
         if (!IsAlive)
             return;
 
-        Vector3 toAttacker = attacker.transform.position - transform.position;
+        Vector3 toAttacker = attacker != null ? attacker.transform.position - transform.position : Vector3.zero;
         toAttacker.y = 0f;
         bool facingAttack = toAttacker.sqrMagnitude < 0.01f || Vector3.Dot(transform.forward, toAttacker.normalized) >= 0.707f;
         bool guarded = IsBlocking && facingAttack
@@ -262,7 +264,7 @@ public abstract class BattleFighter : MonoBehaviour
             staggerTimer = perfectBlock ? 0.025f : 0.08f;
             if (perfectBlock)
                 counterWindowTimer = CounterWindow;
-            attacker.OnAttackBlocked(perfectBlock);
+            attacker?.OnAttackBlocked(perfectBlock);
         }
         else
         {
@@ -506,6 +508,7 @@ public abstract class BattleFighter : MonoBehaviour
         Phase = CombatPhase.Idle;
         IsBlocking = false;
         counterAttack = false;
+        counterWindowTimer = 0f;
         stamina = MaxStamina;
         bool prepared = PrepareAttack(direction);
         if (prepared)

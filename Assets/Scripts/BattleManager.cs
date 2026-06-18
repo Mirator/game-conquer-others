@@ -335,6 +335,9 @@ public sealed class BattleManager : MonoBehaviour
 
     public void NotifyDeath(BattleFighter dead)
     {
+        tactics.OnFighterRemoved(dead);
+        if (dead is AIFighter deadAi)
+            holdPositions.Remove(deadAi);
         if (dead.IsPlayer)
         {
             State = BattleState.Defeat;
@@ -367,6 +370,8 @@ public sealed class BattleManager : MonoBehaviour
     {
         if (fighter == null || !fighter.IsAlive)
             return;
+        tactics.OnFighterRemoved(fighter);
+        holdPositions.Remove(fighter);
         Team team = fighter.Team;
         fighter.WithdrawFromBattle();
         retreats++;

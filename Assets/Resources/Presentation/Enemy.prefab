@@ -54,7 +54,6 @@ MonoBehaviour:
     footsteps: {fileID: 1107739860203386977}
   teamTintRenderers:
   - {fileID: 6062124733255760262}
-  weaponTrail: {fileID: 0}
 --- !u!1001 &4290902806559366697
 PrefabInstance:
   m_ObjectHideFlags: 0

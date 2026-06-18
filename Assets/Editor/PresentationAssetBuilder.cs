@@ -30,11 +30,10 @@ public static class PresentationAssetBuilder
         new("Walk", "Walk", "Armature|Walk_Loop"),
         new("FormationWalk", "FormationWalk", "Armature|Walk_Formal_Loop"),
         new("Jog", "Jog", "Armature|Jog_Fwd_Loop"),
+        // Attacks are animated procedurally (FighterView.ApplyAttackSwing); the body
+        // only needs locomotion/idle/hit/death/block clips. A single generic "Attack"
+        // clip is kept for the primitive fallback rig and validation.
         new("Attack", "Sword_Attack", "Armature|Sword_Regular_A", "Armature|Sword_Attack"),
-        new("Attack_Up", "Sword_Attack_Up", "Armature|Sword_Regular_B"),
-        new("Attack_Left", "Sword_Attack_Left", "Armature|Sword_Regular_C"),
-        // Attack_Right is the Attack_Left swing mirrored (added in EnsureFighterController).
-        new("Attack_Thrust", "Sword_Attack_Thrust", "Armature|Sword_Dash_RM", "Armature|Sword_Regular_Combo"),
         new("Block", "Sword_Block", "Armature|Sword_Block"),
         new("Hit", "Hit", "Armature|Hit_Knockback", "Armature|Hit_Chest"),
         new("Death", "Death", "Armature|Death01")
@@ -223,18 +222,8 @@ public static class PresentationAssetBuilder
             AssetDatabase.DeleteAsset(path);
             AnimatorController controller = AnimatorController.CreateAnimatorControllerAtPath(path);
             AnimatorStateMachine machine = controller.layers[0].stateMachine;
-            AnimationClip leftAttack = null;
             foreach (AnimationClipSpec spec in FighterAnimationSpecs)
-            {
-                AnimationClip clip = EnsureAnimationClip(spec);
-                AddState(machine, spec.StateName, clip);
-                if (spec.StateName == "Attack_Left")
-                    leftAttack = clip;
-            }
-            // The right-hand slash is the left swing mirrored so the two read as a
-            // matched pair pointing in opposite directions.
-            if (leftAttack != null)
-                AddState(machine, "Attack_Right", leftAttack).mirror = true;
+                AddState(machine, spec.StateName, EnsureAnimationClip(spec));
             machine.defaultState = machine.states[0].state;
             return controller;
         }

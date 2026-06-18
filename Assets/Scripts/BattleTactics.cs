@@ -71,6 +71,16 @@ public sealed class BattleTactics
             attackers.Remove(attacker);
     }
 
+    // Eagerly drop a fighter from tactics state when it dies or retreats: release any
+    // attack slot it holds and remove its own target slot list, so survivors are not
+    // stalled waiting on a permission held by someone who has left the battle.
+    public void OnFighterRemoved(BattleFighter fighter)
+    {
+        if (fighter is AIFighter ai)
+            ReleaseAttackPermission(ai);
+        attackPermissions.Remove(fighter);
+    }
+
     public Vector3 GetEngagementPosition(AIFighter seeker, BattleFighter target, bool activeAttacker, float preferredRange)
     {
         Vector3 radial = seeker.transform.position - target.transform.position;

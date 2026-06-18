@@ -16,7 +16,6 @@ public sealed class FighterView : MonoBehaviour
     public Animator animator;
     public FighterViewAnchors anchors = new();
     public Renderer[] teamTintRenderers;
-    public TrailRenderer weaponTrail;
 
     private MaterialPropertyBlock properties;
     private string currentState;

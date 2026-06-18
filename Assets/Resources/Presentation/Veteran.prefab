@@ -57,7 +57,6 @@ MonoBehaviour:
   - {fileID: 470467807486969778}
   - {fileID: 8338559013068374525}
   - {fileID: 5806831790461418125}
-  weaponTrail: {fileID: 0}
 --- !u!1001 &3069831242158227481
 PrefabInstance:
   m_ObjectHideFlags: 0
