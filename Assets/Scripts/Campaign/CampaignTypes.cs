@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 public enum UnitType
 {
     Militia,
@@ -145,35 +147,74 @@ public static class UnitCatalog
     };
 }
 
+[System.Serializable]
+public sealed class RosterEntry
+{
+    public UnitType Tier;
+    public Archetype Archetype;
+    public int Count;
+}
+
+// The warband as counts per (tier x archetype). Stored as a list so it stays
+// JsonUtility-serializable for saves. Read-only tier views keep tier-only
+// callers and tests working.
 public sealed class UnitRoster
 {
-    public int Militia;
-    public int Veterans;
-    public int Guards;
+    public List<RosterEntry> Entries = new();
 
-    public int Total => Militia + Veterans + Guards;
-
-    public int Get(UnitType type) => type switch
+    public int Total
     {
-        UnitType.Veteran => Veterans,
-        UnitType.Guard => Guards,
-        _ => Militia
-    };
-
-    public void Add(UnitType type, int count = 1)
-    {
-        if (type == UnitType.Veteran)
-            Veterans += count;
-        else if (type == UnitType.Guard)
-            Guards += count;
-        else
-            Militia += count;
+        get
+        {
+            int total = 0;
+            foreach (RosterEntry entry in Entries)
+                total += entry.Count;
+            return total;
+        }
     }
 
-    public UnitRoster Copy() => new UnitRoster
+    public int TierCount(UnitType tier)
     {
-        Militia = Militia,
-        Veterans = Veterans,
-        Guards = Guards
-    };
+        int total = 0;
+        foreach (RosterEntry entry in Entries)
+            if (entry.Tier == tier)
+                total += entry.Count;
+        return total;
+    }
+
+    public int Militia => TierCount(UnitType.Militia);
+    public int Veterans => TierCount(UnitType.Veteran);
+    public int Guards => TierCount(UnitType.Guard);
+
+    public int Count(UnitType tier, Archetype archetype)
+    {
+        foreach (RosterEntry entry in Entries)
+            if (entry.Tier == tier && entry.Archetype == archetype)
+                return entry.Count;
+        return 0;
+    }
+
+    public void Add(UnitType tier, Archetype archetype, int count = 1)
+    {
+        if (count == 0)
+            return;
+        foreach (RosterEntry entry in Entries)
+            if (entry.Tier == tier && entry.Archetype == archetype)
+            {
+                entry.Count = System.Math.Max(0, entry.Count + count);
+                return;
+            }
+        if (count > 0)
+            Entries.Add(new RosterEntry { Tier = tier, Archetype = archetype, Count = count });
+    }
+
+    public void Clear() => Entries.Clear();
+
+    public UnitRoster Copy()
+    {
+        UnitRoster copy = new UnitRoster();
+        foreach (RosterEntry entry in Entries)
+            copy.Entries.Add(new RosterEntry { Tier = entry.Tier, Archetype = entry.Archetype, Count = entry.Count });
+        return copy;
+    }
 }

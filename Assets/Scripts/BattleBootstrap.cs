@@ -33,10 +33,20 @@ public sealed class BattleBootstrap : MonoBehaviour
         return manager;
     }
 
-    // Allies keep their tier-default weapon and the baseline Soldier behavior
-    // until the player can choose archetypes (Phase 3b).
     private static List<UnitSpec> BuildAlliedRoster(BattleSetup setup)
     {
+        if (setup.AllyComposition != null && setup.AllyComposition.Count > 0)
+        {
+            List<UnitSpec> composed = new();
+            foreach (UnitSpec spec in setup.AllyComposition)
+            {
+                if (composed.Count >= 16)
+                    break;
+                composed.Add(spec);
+            }
+            return composed;
+        }
+
         List<UnitSpec> units = BuildTierRoster(setup.AllyMilitia, setup.AllyVeterans, setup.AllyGuards);
         if (units.Count == 0)
             for (int i = 0; i < Mathf.Clamp(setup.AllyCount, 0, 16); i++)

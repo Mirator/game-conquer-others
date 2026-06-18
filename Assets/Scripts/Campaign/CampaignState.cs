@@ -27,7 +27,7 @@ public sealed class CampaignState
     {
         System.Random rng = new System.Random(seed);
         CampaignState state = new CampaignState { Seed = seed, Gold = 150 };
-        state.Units.Militia = 3;
+        state.Units.Add(UnitType.Militia, Archetype.Soldier, 3);
 
         const int count = 8;
         List<Vector2> positions = new List<Vector2>();
@@ -192,6 +192,7 @@ public sealed class CampaignState
         AllyMilitia = Units.Militia,
         AllyVeterans = Units.Veterans,
         AllyGuards = Units.Guards,
+        AllyComposition = BuildAllyComposition(),
         EnemyCount = Mathf.Clamp(t.Garrison, 1, 12),
         EnemyVeterans = Mathf.Clamp((t.Threat - 1) / 2, 0, t.Garrison),
         EnemyGuards = t.Threat >= 4 ? 1 : 0,
@@ -254,6 +255,17 @@ public sealed class CampaignState
     private static UnitSpec Enemy(Archetype archetype, UnitType tier)
         => new UnitSpec(tier, archetype, ArchetypeCatalog.Weapon(archetype));
 
+    // Expands the warband roster into one UnitSpec per fighter, each carrying its
+    // archetype's weapon, so allies fight with their chosen personalities.
+    private List<UnitSpec> BuildAllyComposition()
+    {
+        List<UnitSpec> specs = new();
+        foreach (RosterEntry entry in Units.Entries)
+            for (int i = 0; i < entry.Count && specs.Count < 16; i++)
+                specs.Add(new UnitSpec(entry.Tier, entry.Archetype, ArchetypeCatalog.Weapon(entry.Archetype)));
+        return specs;
+    }
+
     public BattleSetup BuildTrainingSetup() => new BattleSetup
     {
         AllyCount = 0,
@@ -266,16 +278,22 @@ public sealed class CampaignState
         IsTraining = true
     };
 
-    public bool CanRecruit(UnitType type) => Roster < WarbandCap && Gold >= UnitCatalog.Cost(type);
+    // Cost is set by the stat tier; the archetype is a free choice of behavior.
+    public bool CanRecruit(UnitType tier) => CanRecruit(tier, Archetype.Soldier);
 
-    public bool Recruit(UnitType type)
+    public bool CanRecruit(UnitType tier, Archetype archetype)
+        => Roster < WarbandCap && Gold >= UnitCatalog.Cost(tier);
+
+    public bool Recruit(UnitType tier) => Recruit(tier, Archetype.Soldier);
+
+    public bool Recruit(UnitType tier, Archetype archetype)
     {
-        int cost = UnitCatalog.Cost(type);
-        if (!CanRecruit(type))
+        int cost = UnitCatalog.Cost(tier);
+        if (!CanRecruit(tier, archetype))
             return false;
         Gold -= cost;
-        Units.Add(type);
-        LastReport = $"{UnitCatalog.Label(type)} recruited for {cost} gold.";
+        Units.Add(tier, archetype, 1);
+        LastReport = $"{ArchetypeCatalog.Label(archetype)} {UnitCatalog.Label(tier)} recruited for {cost} gold.";
         return true;
     }
 
@@ -283,9 +301,17 @@ public sealed class CampaignState
     {
         int reward = t.RewardGold;
         t.Owner = TerritoryOwner.Player;
-        Units.Militia = Mathf.Max(0, result.MilitiaSurvived);
-        Units.Veterans = Mathf.Max(0, result.VeteransSurvived);
-        Units.Guards = Mathf.Max(0, result.GuardsSurvived);
+        Units.Clear();
+        if (result.SurvivingUnits != null && result.SurvivingUnits.Count > 0)
+            foreach (RosterEntry entry in result.SurvivingUnits)
+                Units.Add(entry.Tier, entry.Archetype, Mathf.Max(0, entry.Count));
+        else
+        {
+            // Fallback for tier-only results (smoke/tests): rebuild as soldiers.
+            Units.Add(UnitType.Militia, Archetype.Soldier, Mathf.Max(0, result.MilitiaSurvived));
+            Units.Add(UnitType.Veteran, Archetype.Soldier, Mathf.Max(0, result.VeteransSurvived));
+            Units.Add(UnitType.Guard, Archetype.Soldier, Mathf.Max(0, result.GuardsSurvived));
+        }
         int income = IncomePerVictory();
         Gold += reward + income;
         LastReport = $"{t.Name} captured. Earned {reward} conquest gold and {income} income.";

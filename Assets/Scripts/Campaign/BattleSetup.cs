@@ -37,9 +37,10 @@ public sealed class BattleSetup
     public WeaponType TrainingEnemyWeapon = WeaponType.SwordAndShield;
     public bool IsTraining;
 
-    // Explicit enemy archetype composition. When set it overrides the tier-count
+    // Explicit archetype composition. When set it overrides the tier-count
     // fields above; when null the builder falls back to those counts.
     public List<UnitSpec> EnemyComposition;
+    public List<UnitSpec> AllyComposition;
 
     public static BattleSetup Default() => new BattleSetup();
 }
@@ -50,4 +51,8 @@ public sealed class BattleResult
     public int MilitiaSurvived;
     public int VeteransSurvived;
     public int GuardsSurvived;
+
+    // Allied survivors by tier x archetype. Authoritative when set; the tier
+    // counts above remain as a fallback for tier-only callers.
+    public List<RosterEntry> SurvivingUnits;
 }

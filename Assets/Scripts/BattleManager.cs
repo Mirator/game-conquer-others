@@ -39,6 +39,29 @@ public sealed class BattleManager : MonoBehaviour
         return count;
     }
 
+    // Allied survivors tallied by tier x archetype, so the warband keeps its
+    // archetype makeup across battles.
+    private List<RosterEntry> BuildAlliedSurvivors()
+    {
+        List<RosterEntry> survivors = new();
+        foreach (BattleFighter fighter in fighters)
+        {
+            if (fighter == null || fighter.IsPlayer || fighter.Team != Team.Allies || !fighter.SurvivedBattle)
+                continue;
+            bool merged = false;
+            foreach (RosterEntry entry in survivors)
+                if (entry.Tier == fighter.UnitType && entry.Archetype == fighter.Archetype)
+                {
+                    entry.Count++;
+                    merged = true;
+                    break;
+                }
+            if (!merged)
+                survivors.Add(new RosterEntry { Tier = fighter.UnitType, Archetype = fighter.Archetype, Count = 1 });
+        }
+        return survivors;
+    }
+
     // Raised when the player dismisses a result screen. The GameDirector listens
     // and applies the outcome to the campaign.
     public System.Action<BattleResult> OnBattleConcluded;
@@ -424,7 +447,8 @@ public sealed class BattleManager : MonoBehaviour
             PlayerWon = State == BattleState.Victory,
             MilitiaSurvived = CountAlliedSurvivors(UnitType.Militia),
             VeteransSurvived = CountAlliedSurvivors(UnitType.Veteran),
-            GuardsSurvived = CountAlliedSurvivors(UnitType.Guard)
+            GuardsSurvived = CountAlliedSurvivors(UnitType.Guard),
+            SurvivingUnits = BuildAlliedSurvivors()
         });
     }
 

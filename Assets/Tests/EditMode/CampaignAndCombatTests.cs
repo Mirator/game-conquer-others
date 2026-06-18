@@ -128,6 +128,41 @@ public sealed class CampaignAndCombatTests
     }
 
     [Test]
+    public void Recruit_TracksTierAndArchetypeIndependently()
+    {
+        CampaignState campaign = CampaignState.CreateDefault(3);
+        campaign.Gold = 100000;
+        Assert.That(campaign.Recruit(UnitType.Veteran, Archetype.Berserker), Is.True);
+        Assert.That(campaign.Recruit(UnitType.Veteran, Archetype.Shieldbearer), Is.True);
+        Assert.That(campaign.Recruit(UnitType.Militia, Archetype.Archer), Is.True);
+
+        Assert.That(campaign.Units.Count(UnitType.Veteran, Archetype.Berserker), Is.EqualTo(1));
+        Assert.That(campaign.Units.Count(UnitType.Veteran, Archetype.Shieldbearer), Is.EqualTo(1));
+        Assert.That(campaign.Units.Count(UnitType.Militia, Archetype.Archer), Is.EqualTo(1));
+        Assert.That(campaign.Units.Veterans, Is.EqualTo(2), "Tier view sums archetypes of that tier.");
+    }
+
+    [Test]
+    public void Victory_PreservesSurvivingArchetypes()
+    {
+        CampaignState campaign = CampaignState.CreateDefault(3);
+        Territory target = FirstAttackable(campaign);
+        campaign.ApplyVictory(target, new BattleResult
+        {
+            PlayerWon = true,
+            SurvivingUnits = new List<RosterEntry>
+            {
+                new RosterEntry { Tier = UnitType.Veteran, Archetype = Archetype.Berserker, Count = 2 },
+                new RosterEntry { Tier = UnitType.Militia, Archetype = Archetype.Archer, Count = 1 }
+            }
+        });
+
+        Assert.That(campaign.Units.Count(UnitType.Veteran, Archetype.Berserker), Is.EqualTo(2));
+        Assert.That(campaign.Units.Count(UnitType.Militia, Archetype.Archer), Is.EqualTo(1));
+        Assert.That(campaign.Units.Total, Is.EqualTo(3));
+    }
+
+    [Test]
     public void ArchetypeCatalog_MapsWeaponsAndDistinctProfiles()
     {
         Assert.That(ArchetypeCatalog.Weapon(Archetype.Berserker), Is.EqualTo(WeaponType.TwoHandedSword));

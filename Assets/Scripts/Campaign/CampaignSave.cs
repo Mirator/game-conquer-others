@@ -8,7 +8,7 @@ using UnityEngine;
 [Serializable]
 public sealed class CampaignSaveData
 {
-    public const int CurrentVersion = 1;
+    public const int CurrentVersion = 2;
 
     public int version = CurrentVersion;
     public int seed;
@@ -17,9 +17,7 @@ public sealed class CampaignSaveData
     public string lastReport;
     public int playerWeapon;
     public int trainingEnemyWeapon;
-    public int militia;
-    public int veterans;
-    public int guards;
+    public RosterEntry[] units;
     public TerritorySaveData[] territories;
 }
 
@@ -57,9 +55,7 @@ public static class CampaignSaveService
             lastReport = state.LastReport,
             playerWeapon = (int)state.PlayerWeapon,
             trainingEnemyWeapon = (int)state.TrainingEnemyWeapon,
-            militia = state.Units.Militia,
-            veterans = state.Units.Veterans,
-            guards = state.Units.Guards,
+            units = state.Units.Entries.ToArray(),
             territories = new TerritorySaveData[state.Territories.Count]
         };
         for (int i = 0; i < state.Territories.Count; i++)
@@ -105,9 +101,9 @@ public static class CampaignSaveService
             PlayerWeapon = (WeaponType)data.playerWeapon,
             TrainingEnemyWeapon = (WeaponType)data.trainingEnemyWeapon
         };
-        state.Units.Militia = data.militia;
-        state.Units.Veterans = data.veterans;
-        state.Units.Guards = data.guards;
+        if (data.units != null)
+            foreach (RosterEntry entry in data.units)
+                state.Units.Add(entry.Tier, entry.Archetype, entry.Count);
         foreach (TerritorySaveData t in data.territories)
         {
             Territory territory = new Territory

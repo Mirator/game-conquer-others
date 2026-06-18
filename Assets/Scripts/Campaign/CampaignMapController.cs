@@ -26,7 +26,13 @@ public sealed class CampaignMapController : MonoBehaviour
     private RectTransform endScreen;
     private Button actionButton;
     private Text actionButtonText;
-    private readonly Dictionary<UnitType, RecruitWidget> recruitButtons = new();
+    private readonly Dictionary<Archetype, RecruitWidget> recruitButtons = new();
+    private Button tierButton;
+    private Text tierButtonText;
+    private UnitType selectedTier = UnitType.Militia;
+
+    private static readonly Archetype[] RecruitableArchetypes =
+        { Archetype.Soldier, Archetype.Shieldbearer, Archetype.Berserker, Archetype.Archer };
 
     private readonly List<NodeView> nodes = new();
     private MaterialPropertyBlock nodeColorProperties;
@@ -35,9 +41,8 @@ public sealed class CampaignMapController : MonoBehaviour
     // string rebuild and Text writes on frames where nothing relevant changed.
     private bool uiInitialized;
     private int uiGold = -1;
-    private int uiMilitia = -1;
-    private int uiVeterans = -1;
-    private int uiGuards = -1;
+    private int uiRosterTotal = -1;
+    private UnitType uiSelectedTier;
     private WeaponType uiWeapon;
     private Territory uiSelected;
     private bool uiSelectedTraining;
@@ -331,9 +336,15 @@ public sealed class CampaignMapController : MonoBehaviour
             new Vector2(0.05f, 0.82f), new Vector2(0.95f, 0.98f), Vector2.zero, Vector2.zero, MedievalUi.Gold);
         MedievalUi.Divider(recruit, "Recruit Divider", new Vector2(0.12f, 0.795f), new Vector2(0.88f, 0.818f),
             Vector2.zero, Vector2.zero);
-        AddRecruitButton(recruit, UnitType.Militia, 0.62f);
-        AddRecruitButton(recruit, UnitType.Veteran, 0.39f);
-        AddRecruitButton(recruit, UnitType.Guard, 0.16f);
+        tierButton = MedievalUi.Button(recruit, "Tier", "", new Vector2(0.07f, 0.66f),
+            new Vector2(0.93f, 0.78f), Vector2.zero, Vector2.zero, CycleRecruitTier);
+        tierButtonText = tierButton.GetComponentInChildren<Text>();
+        float recruitY = 0.5f;
+        foreach (Archetype archetype in RecruitableArchetypes)
+        {
+            AddRecruitButton(recruit, archetype, recruitY);
+            recruitY -= 0.14f;
+        }
 
         RectTransform equipment = MedievalUi.Frame(campaignCanvas.transform, "Equipment", new Vector2(0.75f, 0.61f),
             new Vector2(0.988f, 0.88f), Vector2.zero, Vector2.zero);
@@ -366,31 +377,30 @@ public sealed class CampaignMapController : MonoBehaviour
             new Vector2(0.25f, 0.31f), new Vector2(0.75f, 0.43f), Vector2.zero, Vector2.zero);
     }
 
-    private void AddRecruitButton(Transform parent, UnitType type, float y)
+    private void AddRecruitButton(Transform parent, Archetype archetype, float y)
     {
-        Button button = MedievalUi.Button(parent, type.ToString(), "", new Vector2(0.07f, y),
-            new Vector2(0.93f, y + 0.17f), Vector2.zero, Vector2.zero, () => campaign.Recruit(type));
-        recruitButtons[type] = new RecruitWidget { Button = button, Label = button.GetComponentInChildren<Text>() };
+        Button button = MedievalUi.Button(parent, archetype.ToString(), "", new Vector2(0.07f, y),
+            new Vector2(0.93f, y + 0.12f), Vector2.zero, Vector2.zero, () => campaign.Recruit(selectedTier, archetype));
+        recruitButtons[archetype] = new RecruitWidget { Button = button, Label = button.GetComponentInChildren<Text>() };
     }
+
+    private void CycleRecruitTier() => selectedTier = (UnitType)(((int)selectedTier + 1) % 3);
 
     private void RefreshUi()
     {
         if (campaignCanvas == null || campaign == null)
             return;
         bool ended = campaign.AllConquered() || campaign.CampaignOver;
-        int militia = campaign.Units.Militia;
-        int veterans = campaign.Units.Veterans;
-        int guards = campaign.Units.Guards;
-        if (uiInitialized && ended == uiEnded && campaign.Gold == uiGold && militia == uiMilitia
-            && veterans == uiVeterans && guards == uiGuards && campaign.PlayerWeapon == uiWeapon
+        int rosterTotal = campaign.Roster;
+        if (uiInitialized && ended == uiEnded && campaign.Gold == uiGold && rosterTotal == uiRosterTotal
+            && selectedTier == uiSelectedTier && campaign.PlayerWeapon == uiWeapon
             && selected == uiSelected && selectedTraining == uiSelectedTraining)
             return;
         uiInitialized = true;
         uiEnded = ended;
         uiGold = campaign.Gold;
-        uiMilitia = militia;
-        uiVeterans = veterans;
-        uiGuards = guards;
+        uiRosterTotal = rosterTotal;
+        uiSelectedTier = selectedTier;
         uiWeapon = campaign.PlayerWeapon;
         uiSelected = selected;
         uiSelectedTraining = selectedTraining;
@@ -405,11 +415,12 @@ public sealed class CampaignMapController : MonoBehaviour
             $"WARBAND {campaign.Roster}/{CampaignState.WarbandCap}    LANDS {campaign.PlayerTerritoryCount()}/{campaign.Territories.Count}";
         reportText.text = campaign.LastReport;
         equipmentText.text = $"{WeaponCatalog.Label(campaign.PlayerWeapon)}\n{WeaponCatalog.Description(campaign.PlayerWeapon)}";
-        foreach (KeyValuePair<UnitType, RecruitWidget> entry in recruitButtons)
+        tierButtonText.text = $"TIER  <  {UnitCatalog.Label(selectedTier)}  >    {UnitCatalog.Cost(selectedTier)} GOLD";
+        foreach (KeyValuePair<Archetype, RecruitWidget> entry in recruitButtons)
         {
-            entry.Value.Button.interactable = campaign.CanRecruit(entry.Key);
+            entry.Value.Button.interactable = campaign.CanRecruit(selectedTier, entry.Key);
             entry.Value.Label.text =
-                $"+ {UnitCatalog.Label(entry.Key)}    {UnitCatalog.Cost(entry.Key)} GOLD    OWNED {campaign.Units.Get(entry.Key)}";
+                $"+ {ArchetypeCatalog.Label(entry.Key)}    OWNED {campaign.Units.Count(selectedTier, entry.Key)}";
         }
 
         if (selectedTraining)
