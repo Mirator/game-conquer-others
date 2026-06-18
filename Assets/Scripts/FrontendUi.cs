@@ -46,6 +46,8 @@ public sealed class FrontendUi : MonoBehaviour
             new Vector2(0.2f, 0.68f), new Vector2(0.8f, 0.88f), Vector2.zero, Vector2.zero, MedievalUi.Gold);
         MedievalUi.Label(title, "Subtitle", "A HEROIC MEDIEVAL CAMPAIGN", 26, TextAnchor.MiddleCenter,
             new Vector2(0.25f, 0.61f), new Vector2(0.75f, 0.69f), Vector2.zero, Vector2.zero);
+        MedievalUi.Divider(title, "Title Divider", new Vector2(0.32f, 0.575f), new Vector2(0.68f, 0.6f),
+            Vector2.zero, Vector2.zero);
         continueButton = AddMenuButton(title, "CONTINUE", 0.5f, () => director.ContinueCampaign());
         AddMenuButton(title, "NEW CAMPAIGN", 0.39f, () => director.StartNewCampaign());
         AddMenuButton(title, "SETTINGS", 0.28f, () => ToggleSettings(true));
@@ -55,6 +57,8 @@ public sealed class FrontendUi : MonoBehaviour
         pause = FullPanel("Pause Screen");
         MedievalUi.Label(pause, "Title", "BATTLE PAUSED", 62, TextAnchor.MiddleCenter,
             new Vector2(0.25f, 0.67f), new Vector2(0.75f, 0.85f), Vector2.zero, Vector2.zero, MedievalUi.Gold);
+        MedievalUi.Divider(pause, "Pause Divider", new Vector2(0.32f, 0.62f), new Vector2(0.68f, 0.645f),
+            Vector2.zero, Vector2.zero);
         AddMenuButton(pause, "RESUME", 0.51f, director.Resume);
         AddMenuButton(pause, "SETTINGS", 0.40f, () => ToggleSettings(true));
         AddMenuButton(pause, "RETURN TO TITLE", 0.29f, director.ReturnToTitle);
