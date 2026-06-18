@@ -40,7 +40,8 @@ public sealed class BattleFighterPresentation
     private float walkCycle;
     private float previousWalkCycle;
 
-    public BattleFighterPresentation(Transform fighterTransform, Team team, UnitType unitType, WeaponType fighterWeapon)
+    public BattleFighterPresentation(Transform fighterTransform, Team team, UnitType unitType, WeaponType fighterWeapon,
+        Archetype archetype = Archetype.Soldier)
     {
         fighter = fighterTransform;
         weapon = fighterWeapon;
@@ -49,10 +50,15 @@ public sealed class BattleFighterPresentation
         Color cloth = team == Team.Allies ? new Color(0.08f, 0.17f, 0.32f) : new Color(0.32f, 0.07f, 0.05f);
         Color metal = new Color(0.55f, 0.6f, 0.65f);
         Color leather = new Color(0.2f, 0.1f, 0.04f);
-        Color rankColor = unitType == UnitType.Guard ? new Color(0.92f, 0.72f, 0.18f)
+        // Captains wear a bright crest so they read as the elite target.
+        Color rankColor = archetype == Archetype.Captain ? new Color(0.96f, 0.84f, 0.26f)
+            : unitType == UnitType.Guard ? new Color(0.92f, 0.72f, 0.18f)
             : unitType == UnitType.Veteran ? new Color(0.62f, 0.66f, 0.68f) : leather;
         modelRoot = new GameObject("Animated Model").transform;
         modelRoot.SetParent(fighter, false);
+        // A larger silhouette marks the captain without touching the collider.
+        if (archetype == Archetype.Captain)
+            modelRoot.localScale = Vector3.one * 1.18f;
         PresentationCatalog catalog = PresentationCatalog.Load();
         GameObject authoredPrefab = UseAuthoredFighterBodies && catalog != null
             ? catalog.Fighter(unitType, team, fighter.name.StartsWith("Player")) : null;

@@ -105,7 +105,7 @@ public abstract class BattleFighter : MonoBehaviour
         controller.stepOffset = 0.32f;
         controller.skinWidth = 0.04f;
 
-        presentation = new BattleFighterPresentation(transform, Team, UnitType, Weapon);
+        presentation = new BattleFighterPresentation(transform, Team, UnitType, Weapon, Archetype);
     }
 
     protected virtual void Update()
