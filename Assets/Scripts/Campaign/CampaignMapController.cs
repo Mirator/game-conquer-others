@@ -9,11 +9,17 @@ using UnityEngine.UI;
 // Click to move; time advances while travelling; collisions trigger battles.
 public sealed class CampaignMapController : MonoBehaviour
 {
-    private const float TravelSpeed = 6f;        // map units per second while marching
-    private const float DistancePerDay = 3f;     // map units that elapse one campaign day
-    private const float EnemySightRange = 7f;    // bandits chase the player within this range
+    private const float TravelSpeed = 9f;        // map units per second while marching
+    private const float DistancePerDay = 4f;     // map units that elapse one campaign day
+    private const float EnemySightRange = 12f;   // bandits chase the player within this range
     private const float EnemyChaseRatio = 0.55f; // bandit speed as a fraction of the player's
-    private const float EncounterRadius = 1.1f;  // party collision distance
+    private const float EncounterRadius = 1.4f;  // party collision distance
+    private const float ThreatStrengthFactor = 0.6f; // bands below this fraction of the player ignore it
+    private const float SettlementRecruitRange = 2.4f; // how close a friendly hold must be to recruit
+    private const float MinCameraHeight = 14f;
+    private const float MaxCameraHeight = 78f;
+    private const float ZoomStep = 6f;
+    private const float PanSpeed = 0.05f;
 
     private GameDirector director;
     private CampaignState campaign;
@@ -21,6 +27,7 @@ public sealed class CampaignMapController : MonoBehaviour
     private GameObject trainingNode;
     private Renderer trainingRenderer;
     private GameObject partyMarker;
+    private TextMesh partyCountLabel;
     private Canvas campaignCanvas;
     private Text campaignSummary;
     private Text reportText;
@@ -107,8 +114,8 @@ public sealed class CampaignMapController : MonoBehaviour
         GameObject camObject = new GameObject("Map Camera");
         camObject.transform.SetParent(transform);
         camObject.tag = "MainCamera";
-        camObject.transform.position = new Vector3(0f, 30f, -14f);
-        camObject.transform.rotation = Quaternion.Euler(64f, 0f, 0f);
+        camObject.transform.position = new Vector3(0f, 52f, -24f);
+        camObject.transform.rotation = Quaternion.Euler(62f, 0f, 0f);
         cam = camObject.AddComponent<Camera>();
         cam.fieldOfView = 50f;
         cam.farClipPlane = 200f;
@@ -120,7 +127,7 @@ public sealed class CampaignMapController : MonoBehaviour
         table.name = "Map Table";
         table.transform.SetParent(transform);
         table.transform.position = new Vector3(0f, -0.5f, 2f);
-        table.transform.localScale = new Vector3(46f, 1f, 38f);
+        table.transform.localScale = new Vector3(92f, 1f, 76f);
         table.GetComponent<Renderer>().sharedMaterial = RuntimeAssets.Material(new Color(0.18f, 0.2f, 0.16f));
 
         foreach (Territory t in campaign.Territories)
@@ -139,24 +146,67 @@ public sealed class CampaignMapController : MonoBehaviour
 
     private void BuildPartyMarkers()
     {
-        partyMarker = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-        partyMarker.name = "Player Party";
-        Destroy(partyMarker.GetComponent<Collider>());
-        partyMarker.transform.SetParent(transform);
-        partyMarker.transform.localScale = new Vector3(0.7f, 0.9f, 0.7f);
-        partyMarker.transform.position = WorldOf(campaign.PartyPosition) + Vector3.up * 0.9f;
-        partyMarker.GetComponent<Renderer>().sharedMaterial = RuntimeAssets.Material(new Color(0.2f, 0.55f, 1f), true);
+        partyMarker = BuildPartyFigure("Player Party", new Color(0.2f, 0.55f, 1f), true, false);
+        partyMarker.transform.position = WorldOf(campaign.PartyPosition);
+        partyCountLabel = AddCountLabel(partyMarker.transform, PlayerStrength);
 
         foreach (EnemyParty party in campaign.Parties)
         {
-            GameObject marker = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-            marker.name = $"Party {party.Name}";
-            marker.transform.SetParent(transform);
-            marker.transform.localScale = new Vector3(0.62f, 0.8f, 0.62f);
-            marker.transform.position = WorldOf(party.Position) + Vector3.up * 0.8f;
-            marker.GetComponent<Renderer>().sharedMaterial = RuntimeAssets.Material(new Color(0.85f, 0.2f, 0.12f), true);
-            partyViews.Add(new PartyView { Party = party, Marker = marker.transform });
+            GameObject figure = BuildPartyFigure($"Party {party.Name}", new Color(0.85f, 0.2f, 0.12f), false, true);
+            figure.transform.position = WorldOf(party.Position);
+            AddCountLabel(figure.transform, party.Strength);
+            partyViews.Add(new PartyView { Party = party, Marker = figure.transform });
         }
+    }
+
+    // A small captain-style soldier (body, head, crest). The player wears a gold
+    // crest; clickable figures get a root collider so the band can be selected.
+    private GameObject BuildPartyFigure(string name, Color color, bool captainCrest, bool clickable)
+    {
+        GameObject root = new GameObject(name);
+        root.transform.SetParent(transform);
+        MakePart(root.transform, "Body", PrimitiveType.Capsule,
+            new Vector3(0f, 0.7f, 0f), new Vector3(0.5f, 0.55f, 0.5f), color);
+        MakePart(root.transform, "Head", PrimitiveType.Sphere,
+            new Vector3(0f, 1.28f, 0f), Vector3.one * 0.32f, new Color(0.72f, 0.5f, 0.32f));
+        MakePart(root.transform, "Crest", PrimitiveType.Cube,
+            new Vector3(0f, 1.5f, 0f), new Vector3(0.1f, 0.2f, 0.36f),
+            captainCrest ? new Color(0.96f, 0.84f, 0.26f) : color);
+        if (clickable)
+        {
+            BoxCollider collider = root.AddComponent<BoxCollider>();
+            collider.center = new Vector3(0f, 0.85f, 0f);
+            collider.size = new Vector3(0.9f, 1.8f, 0.9f);
+        }
+        return root;
+    }
+
+    private static void MakePart(Transform parent, string name, PrimitiveType type,
+        Vector3 localPosition, Vector3 localScale, Color color)
+    {
+        GameObject part = GameObject.CreatePrimitive(type);
+        part.name = name;
+        Destroy(part.GetComponent<Collider>());
+        part.transform.SetParent(parent, false);
+        part.transform.localPosition = localPosition;
+        part.transform.localScale = localScale;
+        part.GetComponent<Renderer>().sharedMaterial = RuntimeAssets.Material(color);
+    }
+
+    private static TextMesh AddCountLabel(Transform parent, int count)
+    {
+        GameObject labelObject = new GameObject("Count");
+        labelObject.transform.SetParent(parent, false);
+        labelObject.transform.localPosition = new Vector3(0f, 2.05f, 0f);
+        labelObject.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+        TextMesh label = labelObject.AddComponent<TextMesh>();
+        label.text = count.ToString();
+        label.anchor = TextAnchor.MiddleCenter;
+        label.alignment = TextAlignment.Center;
+        label.fontSize = 40;
+        label.characterSize = 0.07f;
+        label.color = Color.white;
+        return label;
     }
 
     private void BuildNode(Territory t)
@@ -310,6 +360,8 @@ public sealed class CampaignMapController : MonoBehaviour
         if (campaign == null || cam == null)
             return;
 
+        CameraControls();
+
         if (campaign.CampaignOver)
         {
             if (Keyboard.current != null && Keyboard.current.rKey.wasPressedThisFrame)
@@ -325,6 +377,32 @@ public sealed class CampaignMapController : MonoBehaviour
         UpdateMarkers();
         PulseNodes();
         RefreshUi();
+    }
+
+    // Mouse wheel zooms along the view; right-button drag pans across the map.
+    private void CameraControls()
+    {
+        if (Mouse.current == null)
+            return;
+        Transform t = cam.transform;
+
+        float scroll = Mouse.current.scroll.ReadValue().y;
+        if (Mathf.Abs(scroll) > 0.01f)
+        {
+            Vector3 desired = t.position + t.forward * Mathf.Sign(scroll) * ZoomStep;
+            if (desired.y >= MinCameraHeight && desired.y <= MaxCameraHeight)
+                t.position = desired;
+        }
+
+        if (Mouse.current.rightButton.isPressed)
+        {
+            Vector2 delta = Mouse.current.delta.ReadValue();
+            Vector3 planarForward = Vector3.ProjectOnPlane(t.forward, Vector3.up).normalized;
+            float scale = PanSpeed * (t.position.y / 30f);
+            Vector3 move = (-t.right * delta.x - planarForward * delta.y) * scale;
+            move.y = 0f;
+            t.position += move;
+        }
     }
 
     private void HandleClick()
@@ -378,9 +456,11 @@ public sealed class CampaignMapController : MonoBehaviour
 
         StepEnemyParties(move.magnitude);
 
-        // A bandit catching the player (or being marched into) starts a battle.
+        // A threatening band catching the player, or any band the player is
+        // hunting, starts a battle. Weaker bands are marched past harmlessly.
         foreach (PartyView view in partyViews)
-            if ((view.Party.Position - campaign.PartyPosition).magnitude <= EncounterRadius)
+            if ((view.Party.Position - campaign.PartyPosition).magnitude <= EncounterRadius
+                && (IsThreat(view.Party) || view.Party == pendingParty))
             {
                 StartFieldBattle(view.Party);
                 return;
@@ -403,6 +483,8 @@ public sealed class CampaignMapController : MonoBehaviour
         float chase = playerStep * EnemyChaseRatio;
         foreach (PartyView view in partyViews)
         {
+            if (!IsThreat(view.Party))
+                continue; // weak bands hold position rather than chase a stronger host
             Vector2 toPlayer = campaign.PartyPosition - view.Party.Position;
             float d = toPlayer.magnitude;
             if (d > 0.001f && d < EnemySightRange)
@@ -429,10 +511,26 @@ public sealed class CampaignMapController : MonoBehaviour
     private void UpdateMarkers()
     {
         if (partyMarker != null)
-            partyMarker.transform.position = WorldOf(campaign.PartyPosition) + Vector3.up * 0.9f;
+            partyMarker.transform.position = WorldOf(campaign.PartyPosition);
         foreach (PartyView view in partyViews)
             if (view.Marker != null)
-                view.Marker.position = WorldOf(view.Party.Position) + Vector3.up * 0.8f;
+                view.Marker.position = WorldOf(view.Party.Position);
+    }
+
+    // The player's fighting strength: the captain plus the warband.
+    private int PlayerStrength => campaign.Roster + 1;
+
+    // Bands much weaker than the player ignore it (no point ambushing a host they
+    // cannot beat); the player can still choose to hunt them down.
+    private bool IsThreat(EnemyParty party) => party.Strength >= Mathf.CeilToInt(PlayerStrength * ThreatStrengthFactor);
+
+    private bool AtFriendlyCity()
+    {
+        foreach (Territory t in campaign.Territories)
+            if (t.Owner == TerritoryOwner.Player
+                && (t.MapPosition - campaign.PartyPosition).sqrMagnitude <= SettlementRecruitRange * SettlementRecruitRange)
+                return true;
+        return false;
     }
 
     private void PulseNodes()
@@ -553,10 +651,14 @@ public sealed class CampaignMapController : MonoBehaviour
             $"WARBAND {campaign.Roster}/{CampaignState.WarbandCap}    HOLDS {campaign.PlayerTerritoryCount()}/{campaign.Territories.Count}";
         reportText.text = campaign.LastReport;
         equipmentText.text = $"{WeaponCatalog.Label(campaign.PlayerWeapon)}\n{WeaponCatalog.Description(campaign.PlayerWeapon)}";
+        if (partyCountLabel != null)
+            partyCountLabel.text = PlayerStrength.ToString();
+
+        bool atCity = AtFriendlyCity();
         tierButtonText.text = $"TIER  <  {UnitCatalog.Label(selectedTier)}  >    {UnitCatalog.Cost(selectedTier)} GOLD";
         foreach (KeyValuePair<Archetype, RecruitWidget> entry in recruitButtons)
         {
-            entry.Value.Button.interactable = !travelling && campaign.CanRecruit(selectedTier, entry.Key);
+            entry.Value.Button.interactable = !travelling && atCity && campaign.CanRecruit(selectedTier, entry.Key);
             entry.Value.Label.text =
                 $"+ {ArchetypeCatalog.Label(entry.Key)}    OWNED {campaign.Units.Count(selectedTier, entry.Key)}";
         }
@@ -569,7 +671,9 @@ public sealed class CampaignMapController : MonoBehaviour
         else
         {
             selectionTitle.text = $"DAY {campaign.Day}";
-            selectionBody.text = "Click a hold to assault, a red band to hunt, or open ground to march. Click the Training Arena to spar.";
+            selectionBody.text = atCity
+                ? "Resting in a hold - recruit your warband, then march out."
+                : "Click a hold to assault, a red band to hunt, or open ground to march. Recruit only in a hold you own.";
         }
         actionButtonText.text = "WAIT A DAY";
         actionButton.interactable = !travelling;
@@ -584,7 +688,8 @@ public sealed class CampaignMapController : MonoBehaviour
         campaign.Day++;
         StepEnemyParties(DistancePerDay);
         foreach (PartyView view in partyViews)
-            if ((view.Party.Position - campaign.PartyPosition).magnitude <= EncounterRadius)
+            if (IsThreat(view.Party)
+                && (view.Party.Position - campaign.PartyPosition).magnitude <= EncounterRadius)
             {
                 StartFieldBattle(view.Party);
                 return;

@@ -37,10 +37,10 @@ public sealed class CampaignState
         int guard = 0;
         while (positions.Count < count && guard++ < 2000)
         {
-            Vector2 p = new Vector2((float)(rng.NextDouble() * 24 - 12), (float)(rng.NextDouble() * 18 - 8));
+            Vector2 p = new Vector2((float)(rng.NextDouble() * 48 - 24), (float)(rng.NextDouble() * 36 - 16));
             bool spaced = true;
             foreach (Vector2 q in positions)
-                if ((p - q).sqrMagnitude < 36f) { spaced = false; break; } // keep nodes >= 6 apart
+                if ((p - q).sqrMagnitude < 100f) { spaced = false; break; } // keep nodes >= 10 apart
             if (spaced)
                 positions.Add(p);
         }
@@ -56,17 +56,18 @@ public sealed class CampaignState
                 Id = i,
                 Name = Names[i % Names.Length],
                 MapPosition = positions[i],
-                Owner = i == homeIndex ? TerritoryOwner.Player : TerritoryOwner.Enemy,
+                Owner = TerritoryOwner.Enemy,         // the player owns nothing at the start
                 Garrison = i == homeIndex ? 2 : 2 + rng.Next(0, 5),
                 Arena = (ArenaType)(i % 4),
-                RewardGold = i == homeIndex ? 0 : 55 + rng.Next(0, 6) * 10,
-                Income = i == homeIndex ? 20 : 8 + rng.Next(0, 4) * 4,
-                Threat = i == homeIndex ? 1 : 1 + rng.Next(0, 3)
+                RewardGold = 55 + rng.Next(0, 6) * 10,
+                Income = 8 + rng.Next(0, 4) * 4,
+                Threat = i == homeIndex ? 1 : 1 + rng.Next(0, 3)   // southernmost hold is the weakest
             });
 
         state.ConnectGraph(homeIndex);
         state.ScaleThreatFromHome(homeIndex);
-        state.PartyPosition = positions[homeIndex];
+        // Start alone in open ground just south of the weakest hold.
+        state.PartyPosition = new Vector2(positions[homeIndex].x, positions[homeIndex].y - 5f);
         state.SpawnInitialParties(rng);
         return state;
     }
@@ -79,7 +80,7 @@ public sealed class CampaignState
         for (int i = 0; i < count; i++)
             Parties.Add(new EnemyParty
             {
-                Position = new Vector2((float)(rng.NextDouble() * 24 - 12), (float)(rng.NextDouble() * 18 - 8)),
+                Position = new Vector2((float)(rng.NextDouble() * 48 - 24), (float)(rng.NextDouble() * 36 - 16)),
                 Strength = 2 + rng.Next(0, 3),
                 Name = PartyNames[i % PartyNames.Length],
                 Arena = (ArenaType)rng.Next(0, 4)
