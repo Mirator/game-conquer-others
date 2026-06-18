@@ -12,6 +12,9 @@ public static class CombatBalance
     public const float AttackCostCounter = 10f;
     public const float AttackCostTwoHanded = 24f;
     public const float AttackCostOneHanded = 18f;
+    // Stamina spent per point of damage absorbed by a (non-perfect) block. An
+    // exhausted guard is broken and the blow lands, so turtling has a cost.
+    public const float BlockStaminaDamageFactor = 0.55f;
 
     // Counter
     public const float CounterDamageMultiplier = 1.45f;

@@ -11,6 +11,9 @@ public sealed class BattleTactics
     private readonly Dictionary<BattleFighter, List<AIFighter>> attackPermissions = new();
     private readonly Dictionary<BattleFighter, Vector3> separationByFighter = new();
     private readonly List<BattleFighter> emptyPermissionTargets = new();
+    private readonly Dictionary<AIFighter, int> engagementSlots = new();
+    private readonly Dictionary<BattleFighter, List<AIFighter>> engagementGroups = new();
+    private int engagementSlotFrame = -1;
     private int separationFrame = -1;
     private int maxPlayerAttackers;
     private int maxTargetAttackers;
@@ -91,12 +94,9 @@ public sealed class BattleTactics
         if (activeAttacker)
             return target.transform.position + radial * preferredRange;
 
-        int index = 0;
-        int seekerId = seeker.GetInstanceID();
-        foreach (BattleFighter fighter in fighters)
-            if (fighter is AIFighter ai && ai.IsAlive && ai != seeker && ai.CurrentTarget == target
-                && !ai.HasAttackPermission && ai.GetInstanceID() < seekerId)
-                index++;
+        if (engagementSlotFrame != Time.frameCount)
+            RebuildEngagementSlots();
+        int index = engagementSlots.TryGetValue(seeker, out int slot) ? slot : 0;
         float angle = SupportAngles[index % SupportAngles.Length] + index / SupportAngles.Length * 18f;
         Vector3 slotDirection = Quaternion.AngleAxis(angle, Vector3.up) * target.transform.forward;
         return target.transform.position + slotDirection.normalized * Mathf.Lerp(2.8f, 3.5f, index % 3 / 2f);
@@ -230,6 +230,35 @@ public sealed class BattleTactics
         foreach (BattleFighter target in emptyPermissionTargets)
             attackPermissions.Remove(target);
     }
+
+    // Assigns each non-attacking supporter a stable support-slot index (its rank by
+    // instance id among fighters sharing the same target), rebuilt once per frame so
+    // GetEngagementPosition is O(1) per call instead of an O(n) scan per fighter.
+    private void RebuildEngagementSlots()
+    {
+        engagementSlotFrame = Time.frameCount;
+        engagementSlots.Clear();
+        foreach (List<AIFighter> group in engagementGroups.Values)
+            group.Clear();
+        foreach (BattleFighter fighter in fighters)
+            if (fighter is AIFighter ai && ai.IsAlive && ai.CurrentTarget != null && !ai.HasAttackPermission)
+            {
+                if (!engagementGroups.TryGetValue(ai.CurrentTarget, out List<AIFighter> group))
+                {
+                    group = new List<AIFighter>();
+                    engagementGroups[ai.CurrentTarget] = group;
+                }
+                group.Add(ai);
+            }
+        foreach (List<AIFighter> group in engagementGroups.Values)
+        {
+            group.Sort(CompareByInstanceId);
+            for (int i = 0; i < group.Count; i++)
+                engagementSlots[group[i]] = i;
+        }
+    }
+
+    private static int CompareByInstanceId(AIFighter a, AIFighter b) => a.GetInstanceID().CompareTo(b.GetInstanceID());
 
     private static readonly float[] SupportAngles = { -72f, 72f, -138f, 138f, 180f, -105f, 105f };
 }

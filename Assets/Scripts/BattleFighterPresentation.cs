@@ -279,68 +279,69 @@ public sealed class BattleFighterPresentation
             return;
         }
 
-        Vector3 prepared = attackDirection switch
-        {
-            CombatDirection.Left => new Vector3(-25f, -80f, -45f),
-            CombatDirection.Right => new Vector3(-25f, 80f, 45f),
-            CombatDirection.Up => new Vector3(-145f, 0f, -12f),
-            _ => new Vector3(-5f, 0f, -8f)
-        };
-        Vector3 released = attackDirection switch
-        {
-            CombatDirection.Left => new Vector3(25f, 95f, 50f),
-            CombatDirection.Right => new Vector3(25f, -95f, -50f),
-            CombatDirection.Up => new Vector3(95f, 0f, -8f),
-            _ => new Vector3(-5f, 0f, -8f)
-        };
-
-        Vector3 swordEuler = new Vector3(72f, 0f, 8f);
-        swordPivot.localPosition = swordBasePosition;
-        if (isBlocking && weapon == WeaponType.TwoHandedSword)
-            swordEuler = GetTwoHandedBlockPose(blockDirection);
-        else if (phase == CombatPhase.AttackWindup)
-            swordEuler = Vector3.Lerp(new Vector3(72f, 0f, 8f), prepared, progress);
-        else if (phase == CombatPhase.AttackHold)
-            swordEuler = prepared;
-        else if (phase == CombatPhase.AttackRelease)
-        {
-            swordEuler = Vector3.Lerp(prepared, released, progress);
-            if (attackDirection == CombatDirection.Thrust)
-                swordPivot.localPosition = swordBasePosition + Vector3.forward * Mathf.Sin(progress * Mathf.PI) * 0.7f;
-        }
-        else if (phase == CombatPhase.AttackRecovery)
-        {
-            Vector3 recoveryStart = whiffRecovery ? released + new Vector3(18f, 0f, 0f) : released;
-            swordEuler = Vector3.Lerp(recoveryStart, new Vector3(72f, 0f, 8f), progress);
-        }
-
-        // Authored fighters carry the sword in a fixed blade-up grip on the hand
-        // bone and let the Sword_Idle/Attack/Block clips swing the arm. The
-        // procedural per-phase angles below are tuned for the primitive rig and
-        // would force the blade flat-forward (a "lance") on the authored hand.
         if (hasAuthoredModel)
         {
-            swordEuler = new Vector3(-90f, 0f, 0f);
+            // FighterView drives the sword arm procedurally, so the primitive-rig swing
+            // math below is skipped (it would only be computed and discarded). Hold the
+            // fixed blade grip and orient the shield on the hand.
             swordPivot.localPosition = swordBasePosition;
-        }
-        swordPivot.localRotation = Quaternion.Euler(swordEuler);
-        shieldPivot.localRotation = Quaternion.Euler(isBlocking ? GetBlockPose(blockDirection) : new Vector3(-12f, 0f, -8f));
-        if (weapon == WeaponType.TwoHandedSword)
-        {
-            bool activeGrip = isBlocking || IsAttacking(phase);
-            float grip = activeGrip ? 1f : 0.55f;
-            leftArm.localPosition = Vector3.Lerp(leftArmBasePosition, new Vector3(-0.17f, 1.48f, 0.08f), grip);
-            rightArm.localPosition = Vector3.Lerp(rightArmBasePosition, new Vector3(0.18f, 1.48f, 0.08f), grip);
-            Vector3 gripPose = GetTwoHandedGripPose(isBlocking ? blockDirection : attackDirection,
-                activeGrip);
-            leftArm.localRotation = Quaternion.Euler(gripPose);
-            rightArm.localRotation = Quaternion.Euler(gripPose + new Vector3(8f, 0f, -16f));
+            swordPivot.localRotation = Quaternion.Euler(-90f, 0f, 0f);
+            shieldPivot.localRotation = Quaternion.Euler(isBlocking ? GetBlockPose(blockDirection) : new Vector3(-12f, 0f, -8f));
         }
         else
         {
-            leftArm.localRotation = Quaternion.Euler(isBlocking ? -55f : -32f, 0f, isBlocking ? -20f : -12f);
-            rightArm.localRotation = Quaternion.Euler(IsAttacking(phase) ? swordEuler.x * 0.25f : 18f,
-                0f, IsAttacking(phase) ? swordEuler.z * 0.16f - 8f : -18f);
+            Vector3 prepared = attackDirection switch
+            {
+                CombatDirection.Left => new Vector3(-25f, -80f, -45f),
+                CombatDirection.Right => new Vector3(-25f, 80f, 45f),
+                CombatDirection.Up => new Vector3(-145f, 0f, -12f),
+                _ => new Vector3(-5f, 0f, -8f)
+            };
+            Vector3 released = attackDirection switch
+            {
+                CombatDirection.Left => new Vector3(25f, 95f, 50f),
+                CombatDirection.Right => new Vector3(25f, -95f, -50f),
+                CombatDirection.Up => new Vector3(95f, 0f, -8f),
+                _ => new Vector3(-5f, 0f, -8f)
+            };
+
+            Vector3 swordEuler = new Vector3(72f, 0f, 8f);
+            swordPivot.localPosition = swordBasePosition;
+            if (isBlocking && weapon == WeaponType.TwoHandedSword)
+                swordEuler = GetTwoHandedBlockPose(blockDirection);
+            else if (phase == CombatPhase.AttackWindup)
+                swordEuler = Vector3.Lerp(new Vector3(72f, 0f, 8f), prepared, progress);
+            else if (phase == CombatPhase.AttackHold)
+                swordEuler = prepared;
+            else if (phase == CombatPhase.AttackRelease)
+            {
+                swordEuler = Vector3.Lerp(prepared, released, progress);
+                if (attackDirection == CombatDirection.Thrust)
+                    swordPivot.localPosition = swordBasePosition + Vector3.forward * Mathf.Sin(progress * Mathf.PI) * 0.7f;
+            }
+            else if (phase == CombatPhase.AttackRecovery)
+            {
+                Vector3 recoveryStart = whiffRecovery ? released + new Vector3(18f, 0f, 0f) : released;
+                swordEuler = Vector3.Lerp(recoveryStart, new Vector3(72f, 0f, 8f), progress);
+            }
+            swordPivot.localRotation = Quaternion.Euler(swordEuler);
+            shieldPivot.localRotation = Quaternion.Euler(isBlocking ? GetBlockPose(blockDirection) : new Vector3(-12f, 0f, -8f));
+            if (weapon == WeaponType.TwoHandedSword)
+            {
+                bool activeGrip = isBlocking || IsAttacking(phase);
+                float grip = activeGrip ? 1f : 0.55f;
+                leftArm.localPosition = Vector3.Lerp(leftArmBasePosition, new Vector3(-0.17f, 1.48f, 0.08f), grip);
+                rightArm.localPosition = Vector3.Lerp(rightArmBasePosition, new Vector3(0.18f, 1.48f, 0.08f), grip);
+                Vector3 gripPose = GetTwoHandedGripPose(isBlocking ? blockDirection : attackDirection, activeGrip);
+                leftArm.localRotation = Quaternion.Euler(gripPose);
+                rightArm.localRotation = Quaternion.Euler(gripPose + new Vector3(8f, 0f, -16f));
+            }
+            else
+            {
+                leftArm.localRotation = Quaternion.Euler(isBlocking ? -55f : -32f, 0f, isBlocking ? -20f : -12f);
+                rightArm.localRotation = Quaternion.Euler(IsAttacking(phase) ? swordEuler.x * 0.25f : 18f,
+                    0f, IsAttacking(phase) ? swordEuler.z * 0.16f - 8f : -18f);
+            }
         }
         // The view interpolates the swing per phase, so it just needs the phase and
         // the 0..1 progress within that phase.

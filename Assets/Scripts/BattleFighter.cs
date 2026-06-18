@@ -258,6 +258,11 @@ public abstract class BattleFighter : MonoBehaviour
             && (projectile ? Weapon == WeaponType.SwordAndShield : BlockDirection == incomingDirection);
         bool perfectBlock = guarded && blockAge <= PerfectBlockWindow;
 
+        // A non-perfect block drains stamina to absorb the blow; if the guard is too
+        // exhausted to pay, it breaks and the hit lands. Perfect blocks are free.
+        if (guarded && !perfectBlock && !TrySpendStamina(damage * CombatBalance.BlockStaminaDamageFactor))
+            guarded = false;
+
         float appliedDamage = 0f;
         if (guarded)
         {
