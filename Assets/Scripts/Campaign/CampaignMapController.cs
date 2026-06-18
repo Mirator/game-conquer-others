@@ -4,18 +4,24 @@ using UnityEngine.InputSystem;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
-// Builds and runs the campaign map: an overhead view of territory nodes the
-// player clicks to select and assault. Uses shared runtime materials and the
-// same IMGUI HUD style as the battle.
+// Builds and runs the campaign overworld: an overhead map where the player
+// marches a warband party between settlements and hunts roaming bandit parties.
+// Click to move; time advances while travelling; collisions trigger battles.
 public sealed class CampaignMapController : MonoBehaviour
 {
+    private const float TravelSpeed = 6f;        // map units per second while marching
+    private const float DistancePerDay = 3f;     // map units that elapse one campaign day
+    private const float EnemySightRange = 7f;    // bandits chase the player within this range
+    private const float EnemyChaseRatio = 0.55f; // bandit speed as a fraction of the player's
+    private const float EncounterRadius = 1.1f;  // party collision distance
+
     private GameDirector director;
     private CampaignState campaign;
     private Camera cam;
-    private Territory selected;
+    private GameObject mapTable;
     private GameObject trainingNode;
     private Renderer trainingRenderer;
-    private bool selectedTraining;
+    private GameObject partyMarker;
     private Canvas campaignCanvas;
     private Text campaignSummary;
     private Text reportText;
@@ -35,18 +41,33 @@ public sealed class CampaignMapController : MonoBehaviour
         { Archetype.Soldier, Archetype.Shieldbearer, Archetype.Berserker, Archetype.Archer };
 
     private readonly List<NodeView> nodes = new();
+    private readonly List<PartyView> partyViews = new();
     private MaterialPropertyBlock nodeColorProperties;
+
+    // Travel state: while travelling the party glides toward travelTarget and the
+    // world advances; a pending territory/party resolves on arrival.
+    private bool travelling;
+    private Vector2 travelTarget;
+    private Territory pendingTerritory;
+    private EnemyParty pendingParty;
+    private float dayAccumulator;
 
     // Cached signature of the last rendered HUD state so Update can skip the
     // string rebuild and Text writes on frames where nothing relevant changed.
     private bool uiInitialized;
     private int uiGold = -1;
     private int uiRosterTotal = -1;
+    private int uiDay = -1;
+    private bool uiTravelling;
     private UnitType uiSelectedTier;
     private WeaponType uiWeapon;
-    private Territory uiSelected;
-    private bool uiSelectedTraining;
     private bool uiEnded;
+
+    private struct PartyView
+    {
+        public EnemyParty Party;
+        public Transform Marker;
+    }
 
     private struct NodeView
     {
@@ -96,12 +117,12 @@ public sealed class CampaignMapController : MonoBehaviour
         cam.backgroundColor = new Color(0.05f, 0.06f, 0.08f);
         camObject.AddComponent<AudioListener>();
 
-        GameObject table = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        table.name = "Map Table";
-        table.transform.SetParent(transform);
-        table.transform.position = new Vector3(0f, -0.5f, 2f);
-        table.transform.localScale = new Vector3(46f, 1f, 38f);
-        table.GetComponent<Renderer>().sharedMaterial = RuntimeAssets.Material(new Color(0.18f, 0.2f, 0.16f));
+        mapTable = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        mapTable.name = "Map Table";
+        mapTable.transform.SetParent(transform);
+        mapTable.transform.position = new Vector3(0f, -0.5f, 2f);
+        mapTable.transform.localScale = new Vector3(46f, 1f, 38f);
+        mapTable.GetComponent<Renderer>().sharedMaterial = RuntimeAssets.Material(new Color(0.18f, 0.2f, 0.16f));
 
         foreach (Territory t in campaign.Territories)
             foreach (int adj in t.AdjacentIds)
@@ -111,9 +132,33 @@ public sealed class CampaignMapController : MonoBehaviour
         foreach (Territory t in campaign.Territories)
             BuildNode(t);
         BuildTrainingNode();
+        BuildPartyMarkers();
     }
 
-    private static Vector3 WorldOf(Territory t) => new Vector3(t.MapPosition.x * 1.4f, 0.2f, t.MapPosition.y * 1.4f);
+    private static Vector3 WorldOf(Territory t) => WorldOf(t.MapPosition);
+    private static Vector3 WorldOf(Vector2 mapPosition) => new Vector3(mapPosition.x * 1.4f, 0.2f, mapPosition.y * 1.4f);
+
+    private void BuildPartyMarkers()
+    {
+        partyMarker = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+        partyMarker.name = "Player Party";
+        Destroy(partyMarker.GetComponent<Collider>());
+        partyMarker.transform.SetParent(transform);
+        partyMarker.transform.localScale = new Vector3(0.7f, 0.9f, 0.7f);
+        partyMarker.transform.position = WorldOf(campaign.PartyPosition) + Vector3.up * 0.9f;
+        partyMarker.GetComponent<Renderer>().sharedMaterial = RuntimeAssets.Material(new Color(0.2f, 0.55f, 1f), true);
+
+        foreach (EnemyParty party in campaign.Parties)
+        {
+            GameObject marker = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+            marker.name = $"Party {party.Name}";
+            marker.transform.SetParent(transform);
+            marker.transform.localScale = new Vector3(0.62f, 0.8f, 0.62f);
+            marker.transform.position = WorldOf(party.Position) + Vector3.up * 0.8f;
+            marker.GetComponent<Renderer>().sharedMaterial = RuntimeAssets.Material(new Color(0.85f, 0.2f, 0.12f), true);
+            partyViews.Add(new PartyView { Party = party, Marker = marker.transform });
+        }
+    }
 
     private void BuildNode(Territory t)
     {
@@ -266,56 +311,150 @@ public sealed class CampaignMapController : MonoBehaviour
         if (campaign == null || cam == null)
             return;
 
-        bool ended = campaign.AllConquered() || campaign.CampaignOver;
-        if (ended)
+        if (campaign.CampaignOver)
         {
             if (Keyboard.current != null && Keyboard.current.rKey.wasPressedThisFrame)
                 director.RestartCampaign();
             return;
         }
 
-        if (Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame)
+        if (travelling)
+            UpdateTravel();
+        else if (Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame)
+            HandleClick();
+
+        UpdateMarkers();
+        PulseNodes();
+        RefreshUi();
+    }
+
+    private void HandleClick()
+    {
+        bool overUi = EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
+        if (overUi || !Physics.Raycast(cam.ScreenPointToRay(Mouse.current.position.ReadValue()), out RaycastHit hit, 200f))
+            return;
+
+        if (hit.collider.gameObject == trainingNode)
         {
-            Vector2 mouse = Mouse.current.position.ReadValue();
-            bool overUi = EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
-            if (!overUi && Physics.Raycast(cam.ScreenPointToRay(mouse), out RaycastHit hit, 200f))
+            director.LaunchBattle(campaign.BuildTrainingSetup());
+            return;
+        }
+        foreach (PartyView view in partyViews)
+            if (view.Marker != null && hit.collider.gameObject == view.Marker.gameObject)
             {
-                if (hit.collider.gameObject == trainingNode)
-                {
-                    selectedTraining = true;
-                    selected = null;
-                }
-                foreach (NodeView n in nodes)
-                    if (n.Go == hit.collider.gameObject)
-                    {
-                        selected = n.Territory;
-                        selectedTraining = false;
-                        break;
-                    }
+                BeginTravel(view.Party.Position, null, view.Party);
+                return;
             }
+        foreach (NodeView n in nodes)
+            if (n.Go == hit.collider.gameObject)
+            {
+                BeginTravel(n.Territory.MapPosition, n.Territory, null);
+                return;
+            }
+        BeginTravel(new Vector2(hit.point.x / 1.4f, hit.point.z / 1.4f), null, null);
+    }
+
+    private void BeginTravel(Vector2 target, Territory territory, EnemyParty party)
+    {
+        travelTarget = target;
+        pendingTerritory = territory;
+        pendingParty = party;
+        travelling = true;
+    }
+
+    private void UpdateTravel()
+    {
+        Vector2 toDest = travelTarget - campaign.PartyPosition;
+        float distance = toDest.magnitude;
+        float step = TravelSpeed * Time.deltaTime;
+        Vector2 move = distance <= step ? toDest : toDest.normalized * step;
+        campaign.PartyPosition += move;
+
+        dayAccumulator += move.magnitude;
+        while (dayAccumulator >= DistancePerDay)
+        {
+            dayAccumulator -= DistancePerDay;
+            campaign.Day++;
         }
 
+        StepEnemyParties(move.magnitude);
+
+        // A bandit catching the player (or being marched into) starts a battle.
+        foreach (PartyView view in partyViews)
+            if ((view.Party.Position - campaign.PartyPosition).magnitude <= EncounterRadius)
+            {
+                StartFieldBattle(view.Party);
+                return;
+            }
+
+        if (distance <= step + 0.001f)
+        {
+            travelling = false;
+            if (pendingParty != null)
+                StartFieldBattle(pendingParty);
+            else if (pendingTerritory != null)
+                ArriveAtSettlement(pendingTerritory);
+            pendingTerritory = null;
+            pendingParty = null;
+        }
+    }
+
+    private void StepEnemyParties(float playerStep)
+    {
+        float chase = playerStep * EnemyChaseRatio;
+        foreach (PartyView view in partyViews)
+        {
+            Vector2 toPlayer = campaign.PartyPosition - view.Party.Position;
+            float d = toPlayer.magnitude;
+            if (d > 0.001f && d < EnemySightRange)
+                view.Party.Position += toPlayer.normalized * Mathf.Min(chase, d);
+        }
+    }
+
+    private void StartFieldBattle(EnemyParty party)
+    {
+        travelling = false;
+        pendingTerritory = null;
+        pendingParty = null;
+        director.LaunchFieldBattle(campaign.BuildPartySetup(party), party);
+    }
+
+    private void ArriveAtSettlement(Territory t)
+    {
+        if (t.Owner == TerritoryOwner.Enemy)
+            director.LaunchBattle(campaign.BuildSetupFor(t), t);
+        else
+            campaign.LastReport = $"The warband rests at {t.Name}.";
+    }
+
+    private void UpdateMarkers()
+    {
+        if (partyMarker != null)
+            partyMarker.transform.position = WorldOf(campaign.PartyPosition) + Vector3.up * 0.9f;
+        foreach (PartyView view in partyViews)
+            if (view.Marker != null)
+                view.Marker.position = WorldOf(view.Party.Position) + Vector3.up * 0.8f;
+    }
+
+    private void PulseNodes()
+    {
         float pulse = 0.35f + 0.25f * Mathf.Sin(Time.unscaledTime * 4f);
         foreach (NodeView n in nodes)
         {
             Color color = ColorFor(n.Territory);
-            if (campaign.IsAttackable(n.Territory))
-                color = Color.Lerp(color, Color.white, pulse);
-            if (n.Territory == selected)
-                color = Color.Lerp(color, new Color(1f, 0.9f, 0.4f), 0.5f);
+            if (n.Territory.Owner == TerritoryOwner.Enemy)
+                color = Color.Lerp(color, Color.white, pulse * 0.5f);
             nodeColorProperties.SetColor("_BaseColor", color);
             nodeColorProperties.SetColor("_Color", color);
             n.Renderer.SetPropertyBlock(nodeColorProperties);
         }
         if (trainingRenderer != null)
         {
-            Color color = selectedTraining ? new Color(1f, 0.78f, 0.22f)
-                : Color.Lerp(new Color(0.72f, 0.55f, 0.14f), Color.white, pulse * 0.4f);
+            Color color = Color.Lerp(new Color(0.72f, 0.55f, 0.14f), Color.white, pulse * 0.4f);
             nodeColorProperties.SetColor("_BaseColor", color);
             nodeColorProperties.SetColor("_Color", color);
             trainingRenderer.SetPropertyBlock(nodeColorProperties);
         }
-        RefreshUi();
     }
 
     private void BuildUi()
@@ -390,11 +529,11 @@ public sealed class CampaignMapController : MonoBehaviour
     {
         if (campaignCanvas == null || campaign == null)
             return;
-        bool ended = campaign.AllConquered() || campaign.CampaignOver;
+        bool ended = campaign.CampaignOver;
         int rosterTotal = campaign.Roster;
         if (uiInitialized && ended == uiEnded && campaign.Gold == uiGold && rosterTotal == uiRosterTotal
             && selectedTier == uiSelectedTier && campaign.PlayerWeapon == uiWeapon
-            && selected == uiSelected && selectedTraining == uiSelectedTraining)
+            && campaign.Day == uiDay && travelling == uiTravelling)
             return;
         uiInitialized = true;
         uiEnded = ended;
@@ -402,66 +541,54 @@ public sealed class CampaignMapController : MonoBehaviour
         uiRosterTotal = rosterTotal;
         uiSelectedTier = selectedTier;
         uiWeapon = campaign.PlayerWeapon;
-        uiSelected = selected;
-        uiSelectedTraining = selectedTraining;
+        uiDay = campaign.Day;
+        uiTravelling = travelling;
 
         endScreen.gameObject.SetActive(ended);
         if (ended)
         {
-            endTitle.text = campaign.AllConquered() ? "THE LAND IS YOURS" : "THE CAMPAIGN IS LOST";
+            endTitle.text = "THE CAMPAIGN IS LOST";
             return;
         }
-        campaignSummary.text = $"GOLD {campaign.Gold}    INCOME +{campaign.IncomePerVictory()}    " +
-            $"WARBAND {campaign.Roster}/{CampaignState.WarbandCap}    LANDS {campaign.PlayerTerritoryCount()}/{campaign.Territories.Count}";
+        campaignSummary.text = $"DAY {campaign.Day}    GOLD {campaign.Gold}    INCOME +{campaign.IncomePerVictory()}    " +
+            $"WARBAND {campaign.Roster}/{CampaignState.WarbandCap}    HOLDS {campaign.PlayerTerritoryCount()}/{campaign.Territories.Count}";
         reportText.text = campaign.LastReport;
         equipmentText.text = $"{WeaponCatalog.Label(campaign.PlayerWeapon)}\n{WeaponCatalog.Description(campaign.PlayerWeapon)}";
         tierButtonText.text = $"TIER  <  {UnitCatalog.Label(selectedTier)}  >    {UnitCatalog.Cost(selectedTier)} GOLD";
         foreach (KeyValuePair<Archetype, RecruitWidget> entry in recruitButtons)
         {
-            entry.Value.Button.interactable = campaign.CanRecruit(selectedTier, entry.Key);
+            entry.Value.Button.interactable = !travelling && campaign.CanRecruit(selectedTier, entry.Key);
             entry.Value.Label.text =
                 $"+ {ArchetypeCatalog.Label(entry.Key)}    OWNED {campaign.Units.Count(selectedTier, entry.Key)}";
         }
 
-        if (selectedTraining)
+        if (travelling)
         {
-            selectionTitle.text = "TRAINING ARENA  -  1v1 PRACTICE";
-            selectionBody.text = $"YOU: {WeaponCatalog.ShortLabel(campaign.PlayerWeapon)}    OPPONENT: {WeaponCatalog.ShortLabel(campaign.TrainingEnemyWeapon)}";
-            actionButtonText.text = "START TRAINING";
-            actionButton.interactable = true;
-        }
-        else if (selected != null)
-        {
-            selectionTitle.text = $"{selected.Name.ToUpperInvariant()}  -  {ArenaLabel(selected.Arena)}";
-            selectionBody.text = $"THREAT {ThreatLabel(selected.Threat)}    GARRISON {selected.Garrison}    REWARD {selected.RewardGold} GOLD";
-            actionButtonText.text = campaign.IsAttackable(selected) ? "ASSAULT" : "UNAVAILABLE";
-            actionButton.interactable = campaign.IsAttackable(selected);
+            selectionTitle.text = "ON THE MARCH";
+            selectionBody.text = $"Day {campaign.Day}  -  the warband moves across the land.";
         }
         else
         {
-            selectionTitle.text = "CHOOSE YOUR NEXT MOVE";
-            selectionBody.text = "Select a glowing enemy territory or the Training Arena.";
-            actionButtonText.text = "SELECT A TERRITORY";
-            actionButton.interactable = false;
+            selectionTitle.text = $"DAY {campaign.Day}";
+            selectionBody.text = "Click a hold to assault, a red band to hunt, or open ground to march. Click the Training Arena to spar.";
         }
+        actionButtonText.text = "WAIT A DAY";
+        actionButton.interactable = !travelling;
     }
 
+    // The action button passes a day in place: roaming bands advance toward the
+    // warband while it holds position.
     private void PerformSelectedAction()
     {
-        if (selectedTraining)
-            director.LaunchBattle(campaign.BuildTrainingSetup());
-        else if (selected != null && campaign.IsAttackable(selected))
-            director.LaunchBattle(campaign.BuildSetupFor(selected), selected);
+        if (travelling)
+            return;
+        campaign.Day++;
+        StepEnemyParties(DistancePerDay);
+        foreach (PartyView view in partyViews)
+            if ((view.Party.Position - campaign.PartyPosition).magnitude <= EncounterRadius)
+            {
+                StartFieldBattle(view.Party);
+                return;
+            }
     }
-
-    private static string ArenaLabel(ArenaType arena) => arena switch
-    {
-        ArenaType.Forest => "DEEP FOREST",
-        ArenaType.Marsh => "FOGGY MARSH",
-        ArenaType.Highlands => "ROCKY HIGHLANDS",
-        _ => "FORTIFIED COURTYARD"
-    };
-
-    private static string ThreatLabel(int threat) => new string('*', Mathf.Clamp(threat, 1, 5));
-
 }

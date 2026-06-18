@@ -25,6 +25,7 @@ public sealed class GameDirector : MonoBehaviour
     private FrontendUi frontend;
     private BattleSetup currentSetup = BattleSetup.Default();
     private Territory pendingTarget;
+    private EnemyParty pendingParty;
     private int campaignSeed = 1;
     private bool transitioning;
     private bool smokeStarted;
@@ -69,7 +70,17 @@ public sealed class GameDirector : MonoBehaviour
     {
         currentSetup = setup;
         pendingTarget = target;
+        pendingParty = null;
         SaveCampaign(); // capture map-side changes (recruits, weapon choice) before the fight
+        StartCoroutine(TransitionTo(Mode.Battle));
+    }
+
+    public void LaunchFieldBattle(BattleSetup setup, EnemyParty party)
+    {
+        currentSetup = setup;
+        pendingTarget = null;
+        pendingParty = party;
+        SaveCampaign();
         StartCoroutine(TransitionTo(Mode.Battle));
     }
 
@@ -224,22 +235,25 @@ public sealed class GameDirector : MonoBehaviour
     {
         if (currentSetup.IsTraining)
             campaign.LastReport = $"Training completed with {WeaponCatalog.Label(currentSetup.PlayerWeapon)}.";
+        else if (result.PlayerWon && pendingParty != null)
+            campaign.ResolveFieldBattle(pendingParty, result);
         else if (result.PlayerWon && pendingTarget != null)
             campaign.ApplyVictory(pendingTarget, result);
         else if (!result.PlayerWon)
             campaign.ApplyDefeat();
         pendingTarget = null;
+        pendingParty = null;
         SaveCampaign();
         EnterMap();
     }
 
-    // Persist an in-progress campaign; a finished one (won or lost) clears the
-    // save so the title screen does not offer to continue it.
+    // Persist an in-progress campaign; a lost one clears the save so the title
+    // screen does not offer to continue it. Free-roam has no victory end.
     private void SaveCampaign()
     {
         if (campaign == null)
             return;
-        if (campaign.CampaignOver || campaign.AllConquered())
+        if (campaign.CampaignOver)
             CampaignSaveService.Delete();
         else
             CampaignSaveService.Save(campaign);
