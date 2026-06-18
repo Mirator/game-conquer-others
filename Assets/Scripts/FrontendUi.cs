@@ -8,6 +8,7 @@ public sealed class FrontendUi : MonoBehaviour
     private RectTransform title;
     private RectTransform settings;
     private RectTransform pause;
+    private Button continueButton;
 
     public void Configure(GameDirector owner)
     {
@@ -21,6 +22,8 @@ public sealed class FrontendUi : MonoBehaviour
             settings.gameObject.SetActive(false);
         if (title != null)
             title.gameObject.SetActive(visible);
+        if (continueButton != null)
+            continueButton.gameObject.SetActive(visible && director.HasSavedCampaign);
         if (canvas != null)
             canvas.gameObject.SetActive(visible || director.IsPaused);
     }
@@ -43,9 +46,11 @@ public sealed class FrontendUi : MonoBehaviour
             new Vector2(0.2f, 0.68f), new Vector2(0.8f, 0.88f), Vector2.zero, Vector2.zero, MedievalUi.Gold);
         MedievalUi.Label(title, "Subtitle", "A HEROIC MEDIEVAL CAMPAIGN", 26, TextAnchor.MiddleCenter,
             new Vector2(0.25f, 0.61f), new Vector2(0.75f, 0.69f), Vector2.zero, Vector2.zero);
-        AddMenuButton(title, "NEW CAMPAIGN", 0.48f, () => director.StartNewCampaign());
-        AddMenuButton(title, "SETTINGS", 0.37f, () => ToggleSettings(true));
-        AddMenuButton(title, "QUIT", 0.26f, director.Quit);
+        continueButton = AddMenuButton(title, "CONTINUE", 0.5f, () => director.ContinueCampaign());
+        AddMenuButton(title, "NEW CAMPAIGN", 0.39f, () => director.StartNewCampaign());
+        AddMenuButton(title, "SETTINGS", 0.28f, () => ToggleSettings(true));
+        AddMenuButton(title, "QUIT", 0.17f, director.Quit);
+        continueButton.gameObject.SetActive(false);
 
         pause = FullPanel("Pause Screen");
         MedievalUi.Label(pause, "Title", "BATTLE PAUSED", 62, TextAnchor.MiddleCenter,
@@ -66,11 +71,9 @@ public sealed class FrontendUi : MonoBehaviour
     private RectTransform FullPanel(string name)
         => MedievalUi.Panel(canvas.transform, name, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero, new Color(0.018f, 0.014f, 0.012f, 0.96f));
 
-    private static void AddMenuButton(Transform parent, string label, float centerY, UnityEngine.Events.UnityAction action)
-    {
-        MedievalUi.Button(parent, label, label, new Vector2(0.37f, centerY - 0.04f), new Vector2(0.63f, centerY + 0.04f),
+    private static Button AddMenuButton(Transform parent, string label, float centerY, UnityEngine.Events.UnityAction action)
+        => MedievalUi.Button(parent, label, label, new Vector2(0.37f, centerY - 0.04f), new Vector2(0.63f, centerY + 0.04f),
             Vector2.zero, Vector2.zero, action);
-    }
 
     private void BuildSettings()
     {

@@ -12,6 +12,7 @@ public sealed class GameDirector : MonoBehaviour
     public enum Mode { Title, Map, Battle }
     public Mode CurrentMode { get; private set; }
     public CampaignState Campaign => campaign;
+    public bool HasSavedCampaign => CampaignSaveService.HasSave;
     public bool IsPaused { get; private set; }
     public bool IsModeReady(Mode mode) => !transitioning && CurrentMode == mode
         && (mode == Mode.Title ? frontend != null : mode == Mode.Map ? mapRoot != null : battleRoot != null);
@@ -68,6 +69,7 @@ public sealed class GameDirector : MonoBehaviour
     {
         currentSetup = setup;
         pendingTarget = target;
+        SaveCampaign(); // capture map-side changes (recruits, weapon choice) before the fight
         StartCoroutine(TransitionTo(Mode.Battle));
     }
 
@@ -77,6 +79,21 @@ public sealed class GameDirector : MonoBehaviour
     {
         campaignSeed++;
         campaign = CampaignState.CreateDefault(campaignSeed);
+        pendingTarget = null;
+        SaveCampaign();
+        EnterMap();
+    }
+
+    public void ContinueCampaign()
+    {
+        CampaignState loaded = CampaignSaveService.Load();
+        if (loaded == null)
+        {
+            StartNewCampaign();
+            return;
+        }
+        campaign = loaded;
+        campaignSeed = loaded.Seed;
         pendingTarget = null;
         EnterMap();
     }
@@ -125,6 +142,7 @@ public sealed class GameDirector : MonoBehaviour
     public void ReturnToTitle()
     {
         Resume();
+        SaveCampaign(); // preserve any map-side progress (e.g. recruiting then leaving)
         StartCoroutine(TransitionTo(Mode.Title));
     }
 
@@ -211,8 +229,23 @@ public sealed class GameDirector : MonoBehaviour
         else if (!result.PlayerWon)
             campaign.ApplyDefeat();
         pendingTarget = null;
+        SaveCampaign();
         EnterMap();
     }
+
+    // Persist an in-progress campaign; a finished one (won or lost) clears the
+    // save so the title screen does not offer to continue it.
+    private void SaveCampaign()
+    {
+        if (campaign == null)
+            return;
+        if (campaign.CampaignOver || campaign.AllConquered())
+            CampaignSaveService.Delete();
+        else
+            CampaignSaveService.Save(campaign);
+    }
+
+    private void OnApplicationQuit() => SaveCampaign();
 
     private void MaybeStartSmoke()
     {

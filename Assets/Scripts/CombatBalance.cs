@@ -1,48 +1,57 @@
 using UnityEngine;
 
-// Central combat tuning numbers extracted verbatim from BattleFighter. Values
-// are unchanged; this is the single place to adjust melee/bow feel. Promoting
-// this to a ScriptableObject later enables in-editor tuning without a rebuild.
+// Central combat tuning access. Values come from a CombatBalanceData asset in
+// Resources when present (enabling live in-editor tuning without a rebuild) and
+// otherwise fall back to CombatBalanceData's baked defaults. Call sites read
+// CombatBalance.X exactly as before.
 public static class CombatBalance
 {
+    private static CombatBalanceData active;
+
+    public static CombatBalanceData Active => active != null
+        ? active
+        : (active = Resources.Load<CombatBalanceData>(CombatBalanceData.ResourceName)
+            ?? ScriptableObject.CreateInstance<CombatBalanceData>());
+
+    // Lets tests or tuning tools swap (or, with null, reset) the active set.
+    public static void Override(CombatBalanceData data) => active = data;
+
     // Stamina
-    public const float StaminaRegenBlocking = 12f;
-    public const float StaminaRegenIdle = 25f;
-    public const float AttackCostRanged = 12f;
-    public const float AttackCostCounter = 10f;
-    public const float AttackCostTwoHanded = 24f;
-    public const float AttackCostOneHanded = 18f;
-    // Stamina spent per point of damage absorbed by a (non-perfect) block. An
-    // exhausted guard is broken and the blow lands, so turtling has a cost.
-    public const float BlockStaminaDamageFactor = 0.55f;
+    public static float StaminaRegenBlocking => Active.staminaRegenBlocking;
+    public static float StaminaRegenIdle => Active.staminaRegenIdle;
+    public static float AttackCostRanged => Active.attackCostRanged;
+    public static float AttackCostCounter => Active.attackCostCounter;
+    public static float AttackCostTwoHanded => Active.attackCostTwoHanded;
+    public static float AttackCostOneHanded => Active.attackCostOneHanded;
+    public static float BlockStaminaDamageFactor => Active.blockStaminaDamageFactor;
 
     // Counter
-    public const float CounterDamageMultiplier = 1.45f;
+    public static float CounterDamageMultiplier => Active.counterDamageMultiplier;
 
     // Windup (seconds)
-    public const float WindupRanged = 0.62f;
-    public const float WindupUp = 0.5f;
-    public const float WindupThrust = 0.3f;
-    public const float WindupDefault = 0.35f;
-    public const float WindupTwoHandedScale = 1.22f;
+    public static float WindupRanged => Active.windupRanged;
+    public static float WindupUp => Active.windupUp;
+    public static float WindupThrust => Active.windupThrust;
+    public static float WindupDefault => Active.windupDefault;
+    public static float WindupTwoHandedScale => Active.windupTwoHandedScale;
 
     // Release (seconds)
-    public const float ReleaseRanged = 0.08f;
-    public const float ReleaseThrust = 0.2f;
-    public const float ReleaseDefault = 0.25f;
-    public const float ReleaseTwoHandedScale = 1.08f;
+    public static float ReleaseRanged => Active.releaseRanged;
+    public static float ReleaseThrust => Active.releaseThrust;
+    public static float ReleaseDefault => Active.releaseDefault;
+    public static float ReleaseTwoHandedScale => Active.releaseTwoHandedScale;
 
     // Recovery (seconds)
-    public const float RecoveryRanged = 0.42f;
-    public const float RecoveryUp = 0.6f;
-    public const float RecoveryThrust = 0.4f;
-    public const float RecoveryDefault = 0.45f;
-    public const float RecoveryTwoHandedScale = 1.25f;
+    public static float RecoveryRanged => Active.recoveryRanged;
+    public static float RecoveryUp => Active.recoveryUp;
+    public static float RecoveryThrust => Active.recoveryThrust;
+    public static float RecoveryDefault => Active.recoveryDefault;
+    public static float RecoveryTwoHandedScale => Active.recoveryTwoHandedScale;
 
     // Damage
-    public const float DamageRanged = 32f;
-    public const float DamageUp = 35f;
-    public const float DamageThrust = 20f;
-    public const float DamageDefault = 25f;
-    public const float DamageTwoHandedScale = 1.38f;
+    public static float DamageRanged => Active.damageRanged;
+    public static float DamageUp => Active.damageUp;
+    public static float DamageThrust => Active.damageThrust;
+    public static float DamageDefault => Active.damageDefault;
+    public static float DamageTwoHandedScale => Active.damageTwoHandedScale;
 }

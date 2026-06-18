@@ -101,6 +101,33 @@ public sealed class CampaignAndCombatTests
     }
 
     [Test]
+    public void CampaignSave_RoundTripsProgress()
+    {
+        CampaignSaveService.Delete();
+        CampaignState original = CampaignState.CreateDefault(11);
+        Territory target = FirstAttackable(original);
+        int targetId = target.Id;
+        original.Recruit(UnitType.Veteran);
+        original.PlayerWeapon = WeaponType.Bow;
+        original.ApplyVictory(target, new BattleResult { PlayerWon = true, VeteransSurvived = 1 });
+
+        CampaignSaveService.Save(original);
+        Assert.That(CampaignSaveService.HasSave, Is.True);
+        CampaignState loaded = CampaignSaveService.Load();
+        CampaignSaveService.Delete();
+
+        Assert.That(loaded, Is.Not.Null);
+        Assert.That(loaded.Seed, Is.EqualTo(original.Seed));
+        Assert.That(loaded.Gold, Is.EqualTo(original.Gold));
+        Assert.That(loaded.PlayerWeapon, Is.EqualTo(WeaponType.Bow));
+        Assert.That(loaded.Units.Veterans, Is.EqualTo(original.Units.Veterans));
+        Assert.That(loaded.Territories.Count, Is.EqualTo(original.Territories.Count));
+        Assert.That(loaded.GetById(targetId).Owner, Is.EqualTo(TerritoryOwner.Player));
+        Assert.That(loaded.PlayerTerritoryCount(), Is.EqualTo(original.PlayerTerritoryCount()));
+        Assert.That(loaded.AttackableTargets(), Is.Not.Empty, "Adjacency must survive the round trip.");
+    }
+
+    [Test]
     public void Defeat_EndsCampaign()
     {
         CampaignState campaign = CampaignState.CreateDefault(11);
