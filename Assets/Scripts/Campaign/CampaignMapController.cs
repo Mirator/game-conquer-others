@@ -316,7 +316,7 @@ public sealed class CampaignMapController : MonoBehaviour
     private void BuildUi()
     {
         campaignCanvas = MedievalUi.CreateCanvas(transform, "Campaign HUD Canvas", 20);
-        RectTransform top = MedievalUi.Panel(campaignCanvas.transform, "Campaign Header", new Vector2(0.22f, 0.9f),
+        RectTransform top = MedievalUi.Frame(campaignCanvas.transform, "Campaign Header", new Vector2(0.22f, 0.9f),
             new Vector2(0.78f, 0.985f), Vector2.zero, Vector2.zero);
         MedievalUi.Label(top, "Title", "CONQUER OTHERS  -  PLAN YOUR NEXT ASSAULT", 30, TextAnchor.MiddleCenter,
             new Vector2(0f, 0.48f), Vector2.one, Vector2.zero, Vector2.zero, MedievalUi.Gold);
@@ -325,18 +325,22 @@ public sealed class CampaignMapController : MonoBehaviour
         reportText = MedievalUi.Label(campaignCanvas.transform, "Report", "", 18, TextAnchor.MiddleCenter,
             new Vector2(0.25f, 0.855f), new Vector2(0.75f, 0.9f), Vector2.zero, Vector2.zero);
 
-        RectTransform recruit = MedievalUi.Panel(campaignCanvas.transform, "Recruitment", new Vector2(0.012f, 0.55f),
+        RectTransform recruit = MedievalUi.Frame(campaignCanvas.transform, "Recruitment", new Vector2(0.012f, 0.55f),
             new Vector2(0.25f, 0.88f), Vector2.zero, Vector2.zero);
         MedievalUi.Label(recruit, "Title", "RECRUIT WARBAND", 27, TextAnchor.MiddleCenter,
             new Vector2(0.05f, 0.82f), new Vector2(0.95f, 0.98f), Vector2.zero, Vector2.zero, MedievalUi.Gold);
+        MedievalUi.Divider(recruit, "Recruit Divider", new Vector2(0.12f, 0.795f), new Vector2(0.88f, 0.818f),
+            Vector2.zero, Vector2.zero);
         AddRecruitButton(recruit, UnitType.Militia, 0.62f);
         AddRecruitButton(recruit, UnitType.Veteran, 0.39f);
         AddRecruitButton(recruit, UnitType.Guard, 0.16f);
 
-        RectTransform equipment = MedievalUi.Panel(campaignCanvas.transform, "Equipment", new Vector2(0.75f, 0.61f),
+        RectTransform equipment = MedievalUi.Frame(campaignCanvas.transform, "Equipment", new Vector2(0.75f, 0.61f),
             new Vector2(0.988f, 0.88f), Vector2.zero, Vector2.zero);
         MedievalUi.Label(equipment, "Title", "CAPTAIN EQUIPMENT", 27, TextAnchor.MiddleCenter,
             new Vector2(0.05f, 0.72f), new Vector2(0.95f, 0.96f), Vector2.zero, Vector2.zero, MedievalUi.Gold);
+        MedievalUi.Divider(equipment, "Equipment Divider", new Vector2(0.12f, 0.695f), new Vector2(0.88f, 0.718f),
+            Vector2.zero, Vector2.zero);
         equipmentText = MedievalUi.Label(equipment, "Weapon", "", 22, TextAnchor.MiddleCenter,
             new Vector2(0.12f, 0.35f), new Vector2(0.88f, 0.72f), Vector2.zero, Vector2.zero);
         MedievalUi.Button(equipment, "Previous Weapon", "<", new Vector2(0.08f, 0.08f), new Vector2(0.32f, 0.31f),
@@ -344,7 +348,7 @@ public sealed class CampaignMapController : MonoBehaviour
         MedievalUi.Button(equipment, "Next Weapon", ">", new Vector2(0.68f, 0.08f), new Vector2(0.92f, 0.31f),
             Vector2.zero, Vector2.zero, () => campaign.PlayerWeapon = WeaponCatalog.Next(campaign.PlayerWeapon));
 
-        RectTransform action = MedievalUi.Panel(campaignCanvas.transform, "Selection", new Vector2(0.26f, 0.02f),
+        RectTransform action = MedievalUi.Frame(campaignCanvas.transform, "Selection", new Vector2(0.26f, 0.02f),
             new Vector2(0.74f, 0.19f), Vector2.zero, Vector2.zero);
         selectionTitle = MedievalUi.Label(action, "Title", "", 27, TextAnchor.MiddleCenter,
             new Vector2(0.04f, 0.66f), new Vector2(0.96f, 0.96f), Vector2.zero, Vector2.zero, MedievalUi.Gold);
