@@ -17,6 +17,8 @@ public sealed class Territory
     public int RewardGold;
     public int Income;
     public int Threat;
+    public SettlementType Settlement;  // size class: sets recruit ceiling and pool
+    public int Recruits;               // volunteers currently available to recruit
     public readonly List<int> AdjacentIds = new();
 }
 

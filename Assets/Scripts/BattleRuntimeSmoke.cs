@@ -62,12 +62,14 @@ public sealed class BattleRuntimeSmoke : MonoBehaviour
 
         int startingGold = director.Campaign.Gold;
         int startingRoster = director.Campaign.Roster;
-        bool recruited = director.Campaign.Recruit(UnitType.Veteran);
+        Territory recruitSite = FindRecruitSite(director.Campaign, UnitType.Veteran);
+        bool recruited = recruitSite != null
+            && director.Campaign.Recruit(UnitType.Veteran, Archetype.Soldier, recruitSite);
         bool variedArenas = HasAllArenaTypes(director.Campaign);
         Require(recruited
             && director.Campaign.Gold == startingGold - UnitCatalog.Cost(UnitType.Veteran)
             && director.Campaign.Roster == startingRoster + 1
-            && director.Campaign.IncomePerVictory() > 0
+            && director.Campaign.DailyIncome() > 0
             && variedArenas, "campaign progression");
 
         if (HasArgument("-smokeweapons"))
@@ -415,7 +417,7 @@ public sealed class BattleRuntimeSmoke : MonoBehaviour
         int rounds = 0;
         while (director.Campaign.PlayerTerritoryCount() < desiredTerritories && rounds++ < 5)
         {
-            director.Campaign.Recruit(UnitType.Militia);
+            director.Campaign.Recruit(UnitType.Militia, Archetype.Soldier, FindRecruitSite(director.Campaign, UnitType.Militia));
             Territory next = director.FirstAttackableTarget();
             if (next == null)
                 break;
@@ -513,6 +515,16 @@ public sealed class BattleRuntimeSmoke : MonoBehaviour
             highlands |= territory.Arena == ArenaType.Highlands;
         }
         return courtyard && forest && marsh && highlands;
+    }
+
+    // First settlement on the map that offers volunteers of at least the given tier
+    // and still has any in its pool — used so the smoke can recruit deterministically.
+    private static Territory FindRecruitSite(CampaignState campaign, UnitType tier)
+    {
+        foreach (Territory territory in campaign.Territories)
+            if (territory.Recruits > 0 && SettlementCatalog.Allows(territory.Settlement, tier))
+                return territory;
+        return null;
     }
 
     private static ArenaType ArenaOverride(ArenaType fallback)

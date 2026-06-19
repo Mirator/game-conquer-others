@@ -3,31 +3,50 @@
 ## Strategic Loop
 
 1. March the overworld, sizing up holds and roaming bands by threat, garrison,
-   arena, reward, and future income.
-2. Rest in an owned hold to recruit a warband by tier and archetype.
+   arena, reward, and future income — while daily wages quietly drain the purse.
+2. Recruit volunteers at any settlement in range and promote blooded veterans.
 3. Hunt a bandit party for loot, or assault an enemy hold to capture it.
-4. Preserve valuable soldiers during the battle.
-5. Capture a hold for its conquest reward plus ongoing owned-land income (income
-   stays at zero until the first capture), then march on to the next encounter.
+4. Preserve valuable soldiers during the battle; survivors keep their banked
+   experience.
+5. Capture a hold for its conquest reward and renown, then march on — the hold's
+   income now offsets the daily wage bill.
 
 ## Economy
 
 - A campaign begins with 150 gold.
 - Capturing a territory grants its one-time conquest reward.
 - Defeating a bandit party loots `25 + 15 * strength` gold but captures no land.
-- Every victory also collects income from all player-owned territories; income is
-  zero until the first hold is captured.
-- Gold persists across the campaign and is spent on recruitment.
+- Each campaign day, owned-land income is collected and troop wages are paid, so
+  the net daily cashflow is `income - wages`. Income is zero until the first hold
+  is captured, so an idle warband bleeds gold.
+- Daily wages are `2 / 4 / 6` gold per Militia / Veteran / Guard.
+- If the purse cannot cover a day's wages it empties and morale takes a hit.
+- Gold persists across the campaign and is spent on recruitment and promotions.
+
+## Morale, Renown, and Leadership
+
+- **Morale** runs 0–100, starting at 60. Each day it drifts toward a target set by
+  whether wages were paid (unpaid craters it) and whether the warband is over its
+  leadership cap. Winning a battle lifts it (capture +10, field win +5). When
+  morale falls below 25 the least-committed soldier deserts overnight.
+  (This is the *campaign* party morale; the separate in-battle morale that drives
+  retreats and formations lives in spec 15.)
+- **Renown** is earned by capturing holds (`20 + 5 * threat`), winning field
+  battles (`5 + 2 * strength`), and passively from each held hold per day.
+- **Leadership** caps the warband size. It starts at 6 and rises with Renown up to
+  a ceiling of 24 (the battlefield deployment limit), so a growing host must be
+  earned through victories and territory.
 
 ## Warband
 
-The warband cap is 12 soldiers, excluding the player captain.
+The warband size is capped by Leadership (see above), from 6 up to 24 soldiers,
+excluding the player captain.
 
-| Unit | Cost | Role |
-|---|---:|---|
-| Militia | 35 gold | Affordable numbers; lower health and damage. |
-| Veteran | 70 gold | Durable, stronger line fighter. |
-| Guard | 110 gold | Elite fighter with the highest health and damage. |
+| Unit | Cost | Upkeep/day | Role |
+|---|---:|---:|---|
+| Militia | 35 gold | 2 gold | Affordable numbers; lower health and damage. |
+| Veteran | 70 gold | 4 gold | Durable, stronger line fighter. |
+| Guard | 110 gold | 6 gold | Elite fighter with the highest health and damage. |
 
 Each fighter also has an archetype chosen at recruitment — Soldier, Shieldbearer,
 Berserker, or Archer (Captain appears only in strong enemy garrisons). The
@@ -36,6 +55,36 @@ sword and shield), the AI behavior, and a health/damage modifier layered on the
 tier. Cost depends only on the tier.
 
 Survivors persist by tier and archetype, while deaths remain permanent.
+
+## Troop Progression
+
+Soldiers earn battle experience and can be promoted up the tiers — a Mount &
+Blade-style growth loop. Progression is by troop *type*, not individual character
+sheets.
+
+- A surviving warband banks experience after each win, pooled per
+  (tier × archetype) stack and proportional to the enemy strength defeated.
+- A stack with enough banked experience can be promoted one soldier at a time:
+  Militia → Veteran (100 XP, 25 gold) → Guard (200 XP, 50 gold). The archetype is
+  preserved; Guard is the top tier.
+- Promotion is a manual choice (it costs gold as well as experience), surfaced in
+  the campaign UI. Banked experience persists across battles and saves.
+
+## Settlement Recruitment
+
+Settlements come in three size classes that gate recruitment:
+
+| Settlement | Volunteers | Tiers offered |
+|---|---:|---|
+| Village | up to 3 | Militia |
+| Town | up to 5 | Militia, Veteran |
+| Castle | up to 6 | Militia, Veteran, Guard |
+
+- Volunteers can be recruited at **any** settlement the warband stands near,
+  regardless of who holds it; the size class sets the highest tier on offer.
+- Each settlement holds a limited pool that depletes as you recruit and refills by
+  one volunteer per day.
+- Recruiting still costs gold by tier and is bounded by the leadership cap.
 
 ## Territory Progression
 
@@ -56,12 +105,18 @@ Survivors persist by tier and archetype, while deaths remain permanent.
 
 ## Acceptance
 
-- The player can buy each unit type when gold and capacity allow.
-- Fighters can be recruited as any archetype of the selected tier, but only while
-  standing in an owned hold.
+- The player can buy each unit type when gold, leadership space, and the
+  settlement's tier ceiling and volunteer pool allow.
+- Fighters can be recruited as any archetype of an offered tier at any settlement
+  in range; the pool depletes per recruit and refills over days.
 - Recruitment changes the roster and the next deployed army.
+- Each day on the map collects owned-land income and pays troop wages; an unpaid
+  day empties the purse and lowers morale, and low morale causes desertion.
+- Renown rises with victories and held land, raising the leadership cap.
+- A blooded soldier can be promoted to the next tier for banked experience plus
+  gold, keeping its archetype; banked experience survives saves.
 - Defeating a bandit party loots gold without capturing territory.
 - Victory preserves surviving unit types, captures the territory, and awards
-  conquest gold plus owned-territory income.
+  conquest gold and renown.
 - All four arena types build and support stable natural combat.
 - Several consecutive conquests complete without resetting campaign state.

@@ -28,9 +28,10 @@ public sealed class CampaignAndCombatTests
     {
         CampaignState campaign = CampaignState.CreateDefault(11);
         Territory target = FirstEnemyTerritory(campaign);
+        Territory site = RecruitSiteFor(campaign, UnitType.Veteran);
         int startingGold = campaign.Gold;
 
-        Assert.That(campaign.Recruit(UnitType.Veteran), Is.True);
+        Assert.That(campaign.Recruit(UnitType.Veteran, Archetype.Soldier, site), Is.True);
         Assert.That(campaign.Gold, Is.EqualTo(startingGold - UnitCatalog.Cost(UnitType.Veteran)));
         campaign.ApplyVictory(target, new BattleResult
         {
@@ -47,21 +48,51 @@ public sealed class CampaignAndCombatTests
     }
 
     [Test]
-    public void Recruit_FailsWithoutGoldOrWarbandSpace()
+    public void Recruit_FailsWithoutGoldOrLeadershipSpace()
     {
         CampaignState campaign = CampaignState.CreateDefault(11);
+        Territory castle = SettlementOfType(campaign, SettlementType.Castle);
 
         campaign.Gold = UnitCatalog.Cost(UnitType.Guard) - 1;
-        Assert.That(campaign.CanRecruit(UnitType.Guard), Is.False);
-        Assert.That(campaign.Recruit(UnitType.Guard), Is.False, "Recruiting with too little gold should fail.");
+        Assert.That(campaign.CanRecruit(UnitType.Guard, Archetype.Soldier, castle), Is.False);
+        Assert.That(campaign.Recruit(UnitType.Guard, Archetype.Soldier, castle), Is.False, "Recruiting with too little gold should fail.");
         Assert.That(campaign.Gold, Is.EqualTo(UnitCatalog.Cost(UnitType.Guard) - 1), "A failed recruit must not spend gold.");
 
+        // Renown lifts the leadership cap to its ceiling, then fill the warband.
         campaign.Gold = 100000;
+        campaign.Renown = 1000;
         int guard = 0;
-        while (campaign.Recruit(UnitType.Militia) && guard++ < 100) { }
-        Assert.That(campaign.Roster, Is.EqualTo(CampaignState.WarbandCap), "Recruiting should stop at the warband cap.");
-        Assert.That(campaign.CanRecruit(UnitType.Militia), Is.False);
-        Assert.That(campaign.Recruit(UnitType.Militia), Is.False, "Recruiting past the warband cap should fail.");
+        while (campaign.Roster < campaign.LeadershipCap && guard++ < 100)
+        {
+            castle.Recruits = SettlementCatalog.MaxRecruits(castle.Settlement); // keep the pool stocked
+            if (!campaign.Recruit(UnitType.Militia, Archetype.Soldier, castle))
+                break;
+        }
+        Assert.That(campaign.Roster, Is.EqualTo(campaign.LeadershipCap), "Recruiting should stop at the leadership cap.");
+        castle.Recruits = SettlementCatalog.MaxRecruits(castle.Settlement);
+        Assert.That(campaign.CanRecruit(UnitType.Militia, Archetype.Soldier, castle), Is.False);
+        Assert.That(campaign.Recruit(UnitType.Militia, Archetype.Soldier, castle), Is.False, "Recruiting past the leadership cap should fail.");
+    }
+
+    [Test]
+    public void Recruit_SettlementTypeGatesTierAndPoolDepletes()
+    {
+        CampaignState campaign = CampaignState.CreateDefault(11);
+        campaign.Gold = 100000;
+        campaign.Renown = 1000; // generous cap so the leadership gate is not what blocks us
+        Territory village = SettlementOfType(campaign, SettlementType.Village);
+        Territory castle = SettlementOfType(campaign, SettlementType.Castle);
+
+        Assert.That(campaign.CanRecruit(UnitType.Veteran, Archetype.Soldier, village), Is.False, "Villages raise only militia.");
+        Assert.That(campaign.CanRecruit(UnitType.Militia, Archetype.Soldier, village), Is.True);
+        Assert.That(campaign.CanRecruit(UnitType.Guard, Archetype.Soldier, castle), Is.True, "Castles raise every tier.");
+
+        int pool = village.Recruits;
+        Assert.That(pool, Is.GreaterThan(0));
+        for (int i = 0; i < pool; i++)
+            Assert.That(campaign.Recruit(UnitType.Militia, Archetype.Soldier, village), Is.True);
+        Assert.That(village.Recruits, Is.EqualTo(0));
+        Assert.That(campaign.Recruit(UnitType.Militia, Archetype.Soldier, village), Is.False, "An empty pool blocks recruiting.");
     }
 
     [Test]
@@ -85,19 +116,20 @@ public sealed class CampaignAndCombatTests
     }
 
     [Test]
-    public void Victory_GrowsIncomeAndPaysRewardPlusIncome()
+    public void Victory_PaysRewardAndGrowsDailyIncome()
     {
         CampaignState campaign = CampaignState.CreateDefault(11);
         Territory target = FirstEnemyTerritory(campaign);
-        int incomeBefore = campaign.IncomePerVictory();
         int goldBefore = campaign.Gold;
         int reward = target.RewardGold;
 
+        Assert.That(campaign.DailyIncome(), Is.EqualTo(0), "No daily income before the first hold.");
         campaign.ApplyVictory(target, new BattleResult { PlayerWon = true });
 
-        Assert.That(campaign.IncomePerVictory(), Is.GreaterThan(incomeBefore), "Capturing a territory should grow income.");
-        Assert.That(campaign.Gold, Is.EqualTo(goldBefore + reward + campaign.IncomePerVictory()),
-            "Victory should pay the conquest reward plus the new total income.");
+        Assert.That(campaign.DailyIncome(), Is.GreaterThan(0), "Capturing a hold yields daily income.");
+        Assert.That(campaign.Gold, Is.EqualTo(goldBefore + reward),
+            "Victory pays the conquest reward; owned-land income now accrues per day, not in a lump.");
+        Assert.That(campaign.Renown, Is.GreaterThan(0), "Conquest earns renown.");
     }
 
     [Test]
@@ -107,9 +139,12 @@ public sealed class CampaignAndCombatTests
         CampaignState original = CampaignState.CreateDefault(11);
         Territory target = FirstEnemyTerritory(original);
         int targetId = target.Id;
-        original.Recruit(UnitType.Veteran);
+        original.Recruit(UnitType.Veteran, Archetype.Soldier, RecruitSiteFor(original, UnitType.Veteran));
         original.PlayerWeapon = WeaponType.Bow;
         original.ApplyVictory(target, new BattleResult { PlayerWon = true, VeteransSurvived = 1 });
+        original.Renown = 55;
+        original.Morale = 42;
+        original.Units.AddXp(UnitType.Veteran, Archetype.Soldier, 77);
 
         CampaignSaveService.Save(original);
         Assert.That(CampaignSaveService.HasSave, Is.True);
@@ -119,10 +154,18 @@ public sealed class CampaignAndCombatTests
         Assert.That(loaded, Is.Not.Null);
         Assert.That(loaded.Seed, Is.EqualTo(original.Seed));
         Assert.That(loaded.Gold, Is.EqualTo(original.Gold));
+        Assert.That(loaded.Renown, Is.EqualTo(55), "Renown survives the round trip.");
+        Assert.That(loaded.Morale, Is.EqualTo(42), "Morale survives the round trip.");
         Assert.That(loaded.PlayerWeapon, Is.EqualTo(WeaponType.Bow));
         Assert.That(loaded.Units.Veterans, Is.EqualTo(original.Units.Veterans));
+        Assert.That(loaded.Units.Xp(UnitType.Veteran, Archetype.Soldier),
+            Is.EqualTo(original.Units.Xp(UnitType.Veteran, Archetype.Soldier)), "Banked XP survives the round trip.");
         Assert.That(loaded.Territories.Count, Is.EqualTo(original.Territories.Count));
         Assert.That(loaded.GetById(targetId).Owner, Is.EqualTo(TerritoryOwner.Player));
+        Assert.That(loaded.GetById(targetId).Settlement, Is.EqualTo(original.GetById(targetId).Settlement),
+            "Settlement type survives the round trip.");
+        Assert.That(loaded.GetById(targetId).Recruits, Is.EqualTo(original.GetById(targetId).Recruits),
+            "Recruit pool survives the round trip.");
         Assert.That(loaded.PlayerTerritoryCount(), Is.EqualTo(original.PlayerTerritoryCount()));
         Assert.That(loaded.GetById(targetId).AdjacentIds.Count,
             Is.EqualTo(original.GetById(targetId).AdjacentIds.Count), "Adjacency must survive the round trip.");
@@ -133,9 +176,10 @@ public sealed class CampaignAndCombatTests
     {
         CampaignState campaign = CampaignState.CreateDefault(3);
         campaign.Gold = 100000;
-        Assert.That(campaign.Recruit(UnitType.Veteran, Archetype.Berserker), Is.True);
-        Assert.That(campaign.Recruit(UnitType.Veteran, Archetype.Shieldbearer), Is.True);
-        Assert.That(campaign.Recruit(UnitType.Militia, Archetype.Archer), Is.True);
+        Territory castle = SettlementOfType(campaign, SettlementType.Castle);
+        Assert.That(campaign.Recruit(UnitType.Veteran, Archetype.Berserker, castle), Is.True);
+        Assert.That(campaign.Recruit(UnitType.Veteran, Archetype.Shieldbearer, castle), Is.True);
+        Assert.That(campaign.Recruit(UnitType.Militia, Archetype.Archer, castle), Is.True);
 
         Assert.That(campaign.Units.Count(UnitType.Veteran, Archetype.Berserker), Is.EqualTo(1));
         Assert.That(campaign.Units.Count(UnitType.Veteran, Archetype.Shieldbearer), Is.EqualTo(1));
@@ -219,7 +263,7 @@ public sealed class CampaignAndCombatTests
     {
         CampaignState campaign = CampaignState.CreateDefault(9);
         Assert.That(campaign.PlayerTerritoryCount(), Is.EqualTo(0), "Player owns no hold at the start.");
-        Assert.That(campaign.IncomePerVictory(), Is.EqualTo(0), "No income before capturing a hold.");
+        Assert.That(campaign.DailyIncome(), Is.EqualTo(0), "No income before capturing a hold.");
         Assert.That(campaign.Parties, Is.Not.Empty, "Roaming bands seed the map.");
         foreach (Territory t in campaign.Territories)
             Assert.That(t.Owner, Is.EqualTo(TerritoryOwner.Enemy), "Every hold begins enemy-held.");
@@ -326,10 +370,131 @@ public sealed class CampaignAndCombatTests
         Assert.That(CombatGesture.TryResolve(new Vector2(10f, 9f), out _), Is.False);
     }
 
+    [Test]
+    public void BattleXp_AccruesToSurvivorsOnVictory()
+    {
+        CampaignState campaign = CampaignState.CreateDefault(11);
+        Territory target = FirstEnemyTerritory(campaign);
+        campaign.ApplyVictory(target, new BattleResult
+        {
+            PlayerWon = true,
+            SurvivingUnits = new List<RosterEntry>
+            {
+                new RosterEntry { Tier = UnitType.Militia, Archetype = Archetype.Soldier, Count = 3 }
+            }
+        });
+        Assert.That(campaign.Units.Xp(UnitType.Militia, Archetype.Soldier), Is.GreaterThan(0),
+            "Survivors bank experience from the enemies they defeated.");
+    }
+
+    [Test]
+    public void Upgrade_RequiresXpAndGold_PromotesPreservingArchetype()
+    {
+        CampaignState campaign = CampaignState.CreateDefault(3);
+        campaign.Units.Clear();
+        campaign.Units.Add(UnitType.Militia, Archetype.Berserker, 1);
+        campaign.Units.AddXp(UnitType.Militia, Archetype.Berserker, UnitCatalog.UpgradeXp(UnitType.Militia));
+
+        campaign.Gold = UnitCatalog.UpgradeCost(UnitType.Militia) - 1;
+        Assert.That(campaign.CanUpgrade(UnitType.Militia, Archetype.Berserker), Is.False, "Not enough gold to promote.");
+
+        campaign.Gold = 1000;
+        int goldBefore = campaign.Gold;
+        Assert.That(campaign.CanUpgrade(UnitType.Militia, Archetype.Berserker), Is.True);
+        Assert.That(campaign.TryUpgrade(UnitType.Militia, Archetype.Berserker), Is.True);
+        Assert.That(campaign.Units.Count(UnitType.Militia, Archetype.Berserker), Is.EqualTo(0));
+        Assert.That(campaign.Units.Count(UnitType.Veteran, Archetype.Berserker), Is.EqualTo(1),
+            "Promotion raises the tier and keeps the archetype.");
+        Assert.That(campaign.Gold, Is.EqualTo(goldBefore - UnitCatalog.UpgradeCost(UnitType.Militia)));
+        Assert.That(campaign.Units.Xp(UnitType.Militia, Archetype.Berserker), Is.EqualTo(0), "Promotion spends the banked XP.");
+    }
+
+    [Test]
+    public void Upgrade_GuardIsTerminal()
+    {
+        CampaignState campaign = CampaignState.CreateDefault(3);
+        campaign.Units.Clear();
+        campaign.Units.Add(UnitType.Guard, Archetype.Soldier, 1);
+        campaign.Units.AddXp(UnitType.Guard, Archetype.Soldier, 100000);
+        campaign.Gold = 100000;
+        Assert.That(campaign.CanUpgrade(UnitType.Guard, Archetype.Soldier), Is.False);
+        Assert.That(campaign.TryUpgrade(UnitType.Guard, Archetype.Soldier), Is.False, "Guards are the top tier.");
+    }
+
+    [Test]
+    public void DayTick_PaysIncomeAndDrainsWages()
+    {
+        CampaignState campaign = CampaignState.CreateDefault(11);
+        campaign.Gold = 100;
+        int wage = campaign.DailyWage();
+        Assert.That(wage, Is.GreaterThan(0), "A warband owes wages.");
+
+        campaign.ApplyDayTick();
+        Assert.That(campaign.Gold, Is.EqualTo(100 - wage), "With no holds, a day costs the wage bill.");
+
+        // Capture a hold, then a day nets income minus wages.
+        campaign.ApplyVictory(FirstEnemyTerritory(campaign), new BattleResult { PlayerWon = true });
+        int income = campaign.DailyIncome();
+        int wage2 = campaign.DailyWage();
+        int goldBefore = campaign.Gold;
+        campaign.ApplyDayTick();
+        Assert.That(campaign.Gold, Is.EqualTo(goldBefore + income - wage2), "Daily cashflow is income minus wages.");
+    }
+
+    [Test]
+    public void DayTick_LowMoraleCausesDesertion()
+    {
+        CampaignState campaign = CampaignState.CreateDefault(11);
+        campaign.Gold = 100000; // wages are paid, so morale is the only pressure
+        campaign.Morale = 10;
+        int rosterBefore = campaign.Roster;
+
+        campaign.ApplyDayTick();
+        Assert.That(campaign.Roster, Is.EqualTo(rosterBefore - 1), "A miserable soldier deserts overnight.");
+    }
+
+    [Test]
+    public void LeadershipCap_GrowsWithRenownUpToCeiling()
+    {
+        CampaignState campaign = CampaignState.CreateDefault(11);
+        Assert.That(campaign.LeadershipCap, Is.EqualTo(CampaignState.BaseLeadership), "Starts at base leadership.");
+        campaign.Renown = CampaignState.RenownPerCapStep * (CampaignState.MaxLeadership - CampaignState.BaseLeadership);
+        Assert.That(campaign.LeadershipCap, Is.EqualTo(CampaignState.MaxLeadership), "Renown raises the cap to its ceiling.");
+        campaign.Renown = 100000;
+        Assert.That(campaign.LeadershipCap, Is.EqualTo(CampaignState.MaxLeadership), "The cap never exceeds the ceiling.");
+    }
+
+    [Test]
+    public void DayTick_RefillsSettlementRecruitPools()
+    {
+        CampaignState campaign = CampaignState.CreateDefault(11);
+        campaign.Gold = 100000;
+        Territory village = SettlementOfType(campaign, SettlementType.Village);
+        village.Recruits = 0;
+        campaign.ApplyDayTick();
+        Assert.That(village.Recruits, Is.EqualTo(1), "Pools refill a volunteer per day.");
+    }
+
     private static Territory FirstEnemyTerritory(CampaignState campaign)
     {
         foreach (Territory territory in campaign.Territories)
             if (territory.Owner == TerritoryOwner.Enemy)
+                return territory;
+        return null;
+    }
+
+    private static Territory SettlementOfType(CampaignState campaign, SettlementType type)
+    {
+        foreach (Territory territory in campaign.Territories)
+            if (territory.Settlement == type)
+                return territory;
+        return null;
+    }
+
+    private static Territory RecruitSiteFor(CampaignState campaign, UnitType tier)
+    {
+        foreach (Territory territory in campaign.Territories)
+            if (territory.Recruits > 0 && SettlementCatalog.Allows(territory.Settlement, tier))
                 return territory;
         return null;
     }

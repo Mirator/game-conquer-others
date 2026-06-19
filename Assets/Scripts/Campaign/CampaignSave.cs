@@ -8,11 +8,13 @@ using UnityEngine;
 [Serializable]
 public sealed class CampaignSaveData
 {
-    public const int CurrentVersion = 3;
+    public const int CurrentVersion = 4;
 
     public int version = CurrentVersion;
     public int seed;
     public int gold;
+    public int renown;
+    public int morale;
     public bool campaignOver;
     public string lastReport;
     public int playerWeapon;
@@ -46,6 +48,8 @@ public sealed class TerritorySaveData
     public int rewardGold;
     public int income;
     public int threat;
+    public int settlement;
+    public int recruits;
     public int[] adjacentIds;
 }
 
@@ -63,6 +67,8 @@ public static class CampaignSaveService
         {
             seed = state.Seed,
             gold = state.Gold,
+            renown = state.Renown,
+            morale = state.Morale,
             campaignOver = state.CampaignOver,
             lastReport = state.LastReport,
             playerWeapon = (int)state.PlayerWeapon,
@@ -99,6 +105,8 @@ public static class CampaignSaveService
                 rewardGold = t.RewardGold,
                 income = t.Income,
                 threat = t.Threat,
+                settlement = (int)t.Settlement,
+                recruits = t.Recruits,
                 adjacentIds = t.AdjacentIds.ToArray()
             };
         }
@@ -122,6 +130,8 @@ public static class CampaignSaveService
         {
             Seed = data.seed,
             Gold = data.gold,
+            Renown = data.renown,
+            Morale = data.morale,
             CampaignOver = data.campaignOver,
             LastReport = data.lastReport,
             PlayerWeapon = (WeaponType)data.playerWeapon,
@@ -131,7 +141,10 @@ public static class CampaignSaveService
         };
         if (data.units != null)
             foreach (RosterEntry entry in data.units)
+            {
                 state.Units.Add(entry.Tier, entry.Archetype, entry.Count);
+                state.Units.AddXp(entry.Tier, entry.Archetype, entry.Xp);
+            }
         if (data.parties != null)
             foreach (PartySaveData p in data.parties)
                 state.Parties.Add(new EnemyParty
@@ -154,7 +167,9 @@ public static class CampaignSaveService
                 Arena = (ArenaType)t.arena,
                 RewardGold = t.rewardGold,
                 Income = t.income,
-                Threat = t.threat
+                Threat = t.threat,
+                Settlement = (SettlementType)t.settlement,
+                Recruits = t.recruits
             };
             if (t.adjacentIds != null)
                 territory.AdjacentIds.AddRange(t.adjacentIds);

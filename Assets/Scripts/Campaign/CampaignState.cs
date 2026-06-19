@@ -19,7 +19,31 @@ public sealed class CampaignState
     public WeaponType PlayerWeapon = WeaponType.SwordAndShield;
     public WeaponType TrainingEnemyWeapon = WeaponType.SwordAndShield;
 
-    public const int WarbandCap = 12;
+    public int Renown;                  // earned from victories and held land; raises the cap
+    public int Morale = StartingMorale; // 0..100 party morale; low morale breeds desertion
+
+    // Leadership: the warband size cap grows with Renown, from BaseLeadership up to
+    // MaxLeadership. MaxLeadership matches the battlefield deployment ceiling, so a
+    // full warband always fields together.
+    public const int BaseLeadership = 6;
+    public const int MaxLeadership = BattleSetup.MaxDeployed;
+    public const int RenownPerCapStep = 15;
+
+    // Economy / morale tuning.
+    public const int StartingMorale = 60;
+    public const int MoraleTargetBase = 60;
+    public const int MoraleDriftPerDay = 5;
+    public const int MoraleUnpaidPenalty = 15;
+    public const int MoraleUnpaidTargetDrop = 40;
+    public const int MoraleOvercapPenalty = 5;
+    public const int MoraleVictoryBonus = 10;
+    public const int MoraleFieldWinBonus = 5;
+    public const int DesertionMoraleFloor = 25;
+    public const int DesertionMoraleRebound = 10;
+    public const int RenownPerHoldPerDay = 1;
+    public const int XpPerEnemyDefeated = 10;
+
+    public int LeadershipCap => Mathf.Clamp(BaseLeadership + Renown / RenownPerCapStep, BaseLeadership, MaxLeadership);
 
     private static readonly string[] Names =
     {
@@ -66,6 +90,7 @@ public sealed class CampaignState
 
         state.ConnectGraph(homeIndex);
         state.ScaleThreatFromHome(homeIndex);
+        state.AssignSettlements();
         // Start alone in open ground just south of the weakest hold.
         state.PartyPosition = new Vector2(positions[homeIndex].x, positions[homeIndex].y - 5f);
         state.SpawnInitialParties(rng);
@@ -114,6 +139,31 @@ public sealed class CampaignState
                 territory.DifficultyScale = 1f + (territory.Threat - 1) * 0.08f;
                 territory.RewardGold += depth * 12;
             }
+        }
+    }
+
+    // Classes each territory as a Village/Town/Castle by relative strength: the two
+    // strongest holds become castles (all tiers), the next three towns (up to
+    // veterans), and the rest — including the weak home — villages (militia only).
+    // Recruit pools start full. Deterministic for a given map.
+    private void AssignSettlements()
+    {
+        List<Territory> byStrength = new List<Territory>(Territories);
+        byStrength.Sort((a, b) =>
+        {
+            int byThreat = b.Threat.CompareTo(a.Threat);
+            if (byThreat != 0)
+                return byThreat;
+            int byGarrison = b.Garrison.CompareTo(a.Garrison);
+            return byGarrison != 0 ? byGarrison : a.Id.CompareTo(b.Id);
+        });
+        for (int i = 0; i < byStrength.Count; i++)
+        {
+            SettlementType type = i < 2 ? SettlementType.Castle
+                : i < 5 ? SettlementType.Town
+                : SettlementType.Village;
+            byStrength[i].Settlement = type;
+            byStrength[i].Recruits = SettlementCatalog.MaxRecruits(type);
         }
     }
 
@@ -190,13 +240,95 @@ public sealed class CampaignState
         return count;
     }
 
-    public int IncomePerVictory()
+    // Gold collected each campaign day from every owned hold.
+    public int DailyIncome()
     {
         int total = 0;
         foreach (Territory territory in Territories)
             if (territory.Owner == TerritoryOwner.Player)
                 total += territory.Income;
         return total;
+    }
+
+    // Gold owed each campaign day in troop wages, summed over the warband.
+    public int DailyWage()
+    {
+        int wage = 0;
+        foreach (RosterEntry entry in Units.Entries)
+            wage += entry.Count * UnitCatalog.Upkeep(entry.Tier);
+        return wage;
+    }
+
+    // Advances the warband economy by one campaign day: collect owned-land income,
+    // pay troop wages (morale suffers and the purse empties if the coffers run dry),
+    // earn renown from held land, drift morale toward its target, refill settlement
+    // recruit pools, and let an unhappy soldier desert. Called once per day elapsed
+    // by OverworldSimulation.
+    public void ApplyDayTick()
+    {
+        Gold += DailyIncome();
+
+        int wage = DailyWage();
+        bool paid = Gold >= wage;
+        if (paid)
+            Gold -= wage;
+        else
+        {
+            Gold = 0;
+            Morale = Mathf.Clamp(Morale - MoraleUnpaidPenalty, 0, 100);
+        }
+
+        Renown += RenownPerHoldPerDay * PlayerTerritoryCount();
+        Morale = Mathf.Clamp(StepToward(Morale, MoraleTarget(paid), MoraleDriftPerDay), 0, 100);
+        RegenerateRecruits();
+
+        if (Morale < DesertionMoraleFloor)
+            Desert();
+    }
+
+    private int MoraleTarget(bool wagesPaid)
+    {
+        int target = MoraleTargetBase;
+        if (!wagesPaid)
+            target -= MoraleUnpaidTargetDrop;
+        int over = Roster - LeadershipCap;
+        if (over > 0)
+            target -= over * MoraleOvercapPenalty;
+        return Mathf.Clamp(target, 0, 100);
+    }
+
+    private static int StepToward(int current, int target, int step)
+    {
+        if (current < target)
+            return Mathf.Min(current + step, target);
+        if (current > target)
+            return Mathf.Max(current - step, target);
+        return current;
+    }
+
+    private void RegenerateRecruits()
+    {
+        foreach (Territory t in Territories)
+        {
+            int max = SettlementCatalog.MaxRecruits(t.Settlement);
+            if (t.Recruits < max)
+                t.Recruits++;
+        }
+    }
+
+    // Morale has cratered: the least-committed fighter (lowest tier) slips away in
+    // the night. Being rid of the malcontent steadies the rest a little.
+    private void Desert()
+    {
+        RosterEntry victim = null;
+        foreach (RosterEntry entry in Units.Entries)
+            if (entry.Count > 0 && (victim == null || entry.Tier < victim.Tier))
+                victim = entry;
+        if (victim == null)
+            return;
+        victim.Count--;
+        Morale = Mathf.Clamp(Morale + DesertionMoraleRebound, 0, 100);
+        LastReport = $"Morale is low. A {UnitCatalog.Label(victim.Tier)} deserted in the night.";
     }
 
     // Maps a campaign day to a 0..1 time of day. The golden-ratio step spreads
@@ -206,7 +338,7 @@ public sealed class CampaignState
 
     public BattleSetup BuildSetupFor(Territory t) => new BattleSetup
     {
-        AllyCount = Mathf.Clamp(Roster, 0, 12),
+        AllyCount = Mathf.Clamp(Roster, 0, BattleSetup.MaxDeployed),
         AllyMilitia = Units.Militia,
         AllyVeterans = Units.Veterans,
         AllyGuards = Units.Guards,
@@ -281,7 +413,7 @@ public sealed class CampaignState
     {
         List<UnitSpec> specs = new();
         foreach (RosterEntry entry in Units.Entries)
-            for (int i = 0; i < entry.Count && specs.Count < 16; i++)
+            for (int i = 0; i < entry.Count && specs.Count < BattleSetup.MaxDeployed; i++)
                 specs.Add(new UnitSpec(entry.Tier, entry.Archetype, ArchetypeCatalog.Weapon(entry.Archetype)));
         return specs;
     }
@@ -300,22 +432,46 @@ public sealed class CampaignState
         TimeOfDay = 0.5f
     };
 
-    // Cost is set by the stat tier; the archetype is a free choice of behavior.
-    public bool CanRecruit(UnitType tier) => CanRecruit(tier, Archetype.Soldier);
+    // Recruitment draws volunteers from a settlement in range. The settlement's
+    // type sets the highest tier on offer and a limited pool that refills over days;
+    // cost is set by the tier, and the archetype is a free choice of behavior. The
+    // warband size is gated by Leadership. The range check itself lives in the sim/UI.
+    public bool CanRecruit(UnitType tier, Archetype archetype, Territory settlement)
+        => settlement != null
+           && SettlementCatalog.Allows(settlement.Settlement, tier)
+           && settlement.Recruits > 0
+           && Roster < LeadershipCap
+           && Gold >= UnitCatalog.Cost(tier);
 
-    public bool CanRecruit(UnitType tier, Archetype archetype)
-        => Roster < WarbandCap && Gold >= UnitCatalog.Cost(tier);
-
-    public bool Recruit(UnitType tier) => Recruit(tier, Archetype.Soldier);
-
-    public bool Recruit(UnitType tier, Archetype archetype)
+    public bool Recruit(UnitType tier, Archetype archetype, Territory settlement)
     {
+        if (!CanRecruit(tier, archetype, settlement))
+            return false;
         int cost = UnitCatalog.Cost(tier);
-        if (!CanRecruit(tier, archetype))
+        Gold -= cost;
+        settlement.Recruits--;
+        Units.Add(tier, archetype, 1);
+        LastReport = $"{ArchetypeCatalog.Label(archetype)} {UnitCatalog.Label(tier)} recruited at {settlement.Name} for {cost} gold.";
+        return true;
+    }
+
+    // A fighter that has banked enough battle experience can be promoted to the next
+    // tier (keeping its archetype) for gold. Experience is pooled per stack.
+    public bool CanUpgrade(UnitType tier, Archetype archetype)
+        => UnitCatalog.CanUpgrade(tier)
+           && Units.Count(tier, archetype) > 0
+           && Units.Xp(tier, archetype) >= UnitCatalog.UpgradeXp(tier)
+           && Gold >= UnitCatalog.UpgradeCost(tier);
+
+    public bool TryUpgrade(UnitType tier, Archetype archetype)
+    {
+        if (!CanUpgrade(tier, archetype))
+            return false;
+        int cost = UnitCatalog.UpgradeCost(tier);
+        if (!Units.Upgrade(tier, archetype))
             return false;
         Gold -= cost;
-        Units.Add(tier, archetype, 1);
-        LastReport = $"{ArchetypeCatalog.Label(archetype)} {UnitCatalog.Label(tier)} recruited for {cost} gold.";
+        LastReport = $"{ArchetypeCatalog.Label(archetype)} promoted to {UnitCatalog.Label(UnitCatalog.NextTier(tier))} for {cost} gold.";
         return true;
     }
 
@@ -323,7 +479,7 @@ public sealed class CampaignState
     // party's strength, fought wherever the party was caught.
     public BattleSetup BuildPartySetup(EnemyParty party) => new BattleSetup
     {
-        AllyCount = Mathf.Clamp(Roster, 0, 12),
+        AllyCount = Mathf.Clamp(Roster, 0, BattleSetup.MaxDeployed),
         AllyComposition = BuildAllyComposition(),
         EnemyCount = Mathf.Clamp(party.Strength, 1, 12),
         EnemyComposition = BuildBanditComposition(party),
@@ -351,26 +507,39 @@ public sealed class CampaignState
     public void ApplyVictory(Territory t, BattleResult result)
     {
         int reward = t.RewardGold;
+        int renown = 20 + t.Threat * 5;
+        int enemies = Mathf.Clamp(t.Garrison, 1, 12);
         t.Owner = TerritoryOwner.Player;
-        ApplySurvivors(result);
-        int income = IncomePerVictory();
-        Gold += reward + income;
-        LastReport = $"{t.Name} captured. Earned {reward} conquest gold and {income} income.";
+        ApplySurvivors(result, enemies);
+        Gold += reward;
+        Renown += renown;
+        Morale = Mathf.Clamp(Morale + MoraleVictoryBonus, 0, 100);
+        LastReport = $"{t.Name} captured for {reward} conquest gold (+{renown} renown).";
     }
 
     public void ResolveFieldBattle(EnemyParty party, BattleResult result)
     {
+        int enemies = Mathf.Clamp(party.Strength, 1, 12);
+        int renown = 5 + party.Strength * 2;
         Parties.Remove(party);
         int loot = 25 + party.Strength * 15;
         Gold += loot;
-        ApplySurvivors(result);
-        LastReport = $"Defeated {party.Name}. Looted {loot} gold.";
+        ApplySurvivors(result, enemies);
+        Renown += renown;
+        Morale = Mathf.Clamp(Morale + MoraleFieldWinBonus, 0, 100);
+        LastReport = $"Defeated {party.Name}. Looted {loot} gold (+{renown} renown).";
     }
 
     // Rebuilds the warband from a battle's allied survivors, preserving tier and
-    // archetype. Falls back to tier-only counts for smoke/test results.
-    private void ApplySurvivors(BattleResult result)
+    // archetype. Pooled XP belongs to the (tier x archetype) stack rather than to
+    // individuals, so it is carried across the rebuild and dropped only for stacks
+    // that were wiped out. Falls back to tier-only counts for smoke/test results.
+    private void ApplySurvivors(BattleResult result, int enemiesDefeated)
     {
+        Dictionary<(UnitType, Archetype), int> bankedXp = new();
+        foreach (RosterEntry entry in Units.Entries)
+            bankedXp[(entry.Tier, entry.Archetype)] = entry.Xp;
+
         Units.Clear();
         if (result.SurvivingUnits != null && result.SurvivingUnits.Count > 0)
             foreach (RosterEntry entry in result.SurvivingUnits)
@@ -381,6 +550,25 @@ public sealed class CampaignState
             Units.Add(UnitType.Veteran, Archetype.Soldier, Mathf.Max(0, result.VeteransSurvived));
             Units.Add(UnitType.Guard, Archetype.Soldier, Mathf.Max(0, result.GuardsSurvived));
         }
+
+        foreach (RosterEntry entry in Units.Entries)
+            if (bankedXp.TryGetValue((entry.Tier, entry.Archetype), out int xp))
+                entry.Xp = xp;
+
+        AwardBattleXp(enemiesDefeated);
+    }
+
+    // Spreads the battle's experience across the surviving warband, pooled onto each
+    // stack so the units that fought earn toward a promotion.
+    private void AwardBattleXp(int enemiesDefeated)
+    {
+        int survivors = Roster;
+        if (survivors <= 0 || enemiesDefeated <= 0)
+            return;
+        int per = Mathf.Max(1, enemiesDefeated * XpPerEnemyDefeated / survivors);
+        foreach (RosterEntry entry in Units.Entries)
+            if (entry.Count > 0)
+                entry.Xp += per * entry.Count;
     }
 
     public void ApplyDefeat()

@@ -29,6 +29,10 @@ Training battles do not use ally commands.
 
 ## Morale And Retreat
 
+This morale is a per-battle, AI-only measure of whether a force breaks and
+retreats. It is distinct from the overworld **party morale** in spec 13, which
+tracks the warband's day-to-day contentment on the campaign map.
+
 - AI forces with at least three initial combatants evaluate morale from
   casualties and the current balance of living combatants.
 - A force breaks when reduced to its final quarter, or when reduced to half

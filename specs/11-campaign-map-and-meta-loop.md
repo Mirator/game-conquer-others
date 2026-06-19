@@ -22,8 +22,8 @@ gives the battle a reason to repeat.
   battle on collision; weaker bands hold position and can only be hunted down by
   the player.
 - The player keeps a persistent warband carried between battles, each fighter a
-  tier-by-archetype combatant. It starts with 3 militia and can grow to 12
-  soldiers through recruitment.
+  tier-by-archetype combatant. It starts with 3 militia and grows through
+  recruitment up to the leadership cap (6 at first, rising with Renown to 24).
 
 ## Map Rules
 
@@ -34,8 +34,12 @@ gives the battle a reason to repeat.
   pauses whenever the warband is idle.
 - A **Wait a Day** action passes a single day in place; roaming bands close in
   while the warband holds position.
-- Recruitment is only available while standing inside an owned hold (within about
-  2.4 map units of it).
+- Each day that elapses (marching or waiting) runs the party economy: owned-land
+  income is collected, troop wages are paid, renown accrues from held land, morale
+  drifts, and settlement recruit pools refill.
+- Recruitment is available while standing near any settlement (within about 2.4
+  map units), regardless of who holds it; the settlement's size class sets which
+  tiers and how many volunteers are on offer.
 - The captain equipment panel selects the player's persistent weapon.
 - A separate Training Arena node launches a consequence-free 1v1. The player
   chooses their weapon from captain equipment and chooses the opponent weapon
@@ -49,8 +53,9 @@ gives the battle a reason to repeat.
 ## Battle Outcome
 
 - **Settlement-assault victory**: the hold becomes player-owned. The player earns
-  conquest gold plus income from all owned lands. Surviving allies persist back
-  to the roster by tier and archetype; allied deaths are permanent.
+  conquest gold and renown; the hold's income then accrues per day rather than in a
+  lump. Surviving allies persist back to the roster by tier and archetype (keeping
+  banked experience); allied deaths are permanent.
 - **Field-battle victory** (a roaming band): the party is destroyed and removed
   from the map. The player loots `25 + 15 * strength` gold but captures no land.
   Survivors persist as above.
@@ -85,9 +90,11 @@ gives the battle a reason to repeat.
   pulse. Adjacency edges are drawn between nodes.
 - The player party and the bandit parties are captain-style soldier figures with
   floating unit-count labels above them.
-- A uGUI HUD shows the day, gold, income, owned-hold count, the typed roster, the
-  latest report, a tier selector with per-archetype recruit buttons (enabled only
-  while standing in an owned hold), captain equipment, and a Wait-a-Day action.
+- A uGUI HUD shows the day, gold and net daily cashflow, morale, renown, the
+  warband size against the leadership cap, owned-hold count, the latest report, a
+  tier selector with per-archetype recruit buttons (enabled near any settlement
+  that offers the tier and still has volunteers), a promotion panel for spending
+  banked experience, captain equipment, and a Wait-a-Day action.
 
 ## Future Campaign Features
 

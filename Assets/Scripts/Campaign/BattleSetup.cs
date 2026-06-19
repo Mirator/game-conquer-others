@@ -23,6 +23,11 @@ public sealed class UnitSpec
 // campaign layer and the battle builder without GameObject lifecycle concerns.
 public sealed class BattleSetup
 {
+    // The most fighters either side can field on the battlefield. The spawner lays
+    // soldiers out in dynamic rows, so this is the warband/garrison deployment
+    // ceiling (and the upper bound for the campaign leadership cap).
+    public const int MaxDeployed = 24;
+
     public int AllyCount = 3;       // allied AI soldiers spawned alongside the player
     public int EnemyCount = 4;      // enemy soldiers (the target territory's garrison)
     public int AllyMilitia;

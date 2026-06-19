@@ -36,14 +36,21 @@ the game's strategic scope. The ordered remediation plan is defined in
 - Free-roam overworld campaign map (click-to-move party, day clock, roaming
   bandit parties, settlement assaults) with a persistent warband roster (see
   [11-campaign-map-and-meta-loop.md](11-campaign-map-and-meta-loop.md)).
-- Campaign save/load (PlayerPrefs snapshot, format version 3) with Continue on
+- Campaign save/load (PlayerPrefs snapshot, format version 4) with Continue on
   the title screen; autosaves on new campaign, battle launch, battle conclusion,
   return-to-title, and quit, and is deleted on defeat.
 - Fighter archetypes (Soldier, Shieldbearer, Berserker, Archer, Captain) layered
   on the three stat tiers, recruited per-archetype and persisting across battles.
-- Gold, territorial income, three recruitable unit tiers, escalating territory
-  threats, and four regional battlefields (see
+- Gold, three recruitable unit tiers, escalating territory threats, and four
+  regional battlefields (see
   [13-campaign-economy-units-and-regions.md](13-campaign-economy-units-and-regions.md)).
+- A party-survival economy: daily owned-land income against daily troop wages,
+  party morale with desertion, and a Renown-driven leadership cap on warband size
+  (see [13-campaign-economy-units-and-regions.md](13-campaign-economy-units-and-regions.md)).
+- Troop tier progression: soldiers bank battle experience and are manually
+  promoted Militia → Veteran → Guard for experience plus gold, keeping archetype.
+- Typed settlement recruitment (Village / Town / Castle) with limited,
+  day-regenerating volunteer pools, available at any settlement in range.
 - Persistent player equipment, two-handed swords, bows, weapon-specific AI,
   and a consequence-free Training Arena (see
   [14-weapons-equipment-and-training.md](14-weapons-equipment-and-training.md)).
@@ -53,8 +60,11 @@ the game's strategic scope. The ordered remediation plan is defined in
 
 ## Explicitly Excluded From Current Scope
 
-- Trading and settlement management.
-- Individual character progression.
+- Trading and settlement management (settlements recruit, but cannot be developed,
+  garrisoned, or traded with).
+- Individual character progression (RPG character sheets, named-hero skill trees);
+  troop *type* progression — the Militia → Veteran → Guard upgrade path — is in
+  scope and delivered.
 - Inventory and complex equipment.
 - Diplomacy and quests.
 - Multiplayer.

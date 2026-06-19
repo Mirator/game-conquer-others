@@ -46,7 +46,7 @@ public sealed class BattleBootstrap : MonoBehaviour
             List<UnitSpec> composed = new();
             foreach (UnitSpec spec in setup.AllyComposition)
             {
-                if (composed.Count >= 16)
+                if (composed.Count >= BattleSetup.MaxDeployed)
                     break;
                 composed.Add(spec);
             }
@@ -55,7 +55,7 @@ public sealed class BattleBootstrap : MonoBehaviour
 
         List<UnitSpec> units = BuildTierRoster(setup.AllyMilitia, setup.AllyVeterans, setup.AllyGuards);
         if (units.Count == 0)
-            for (int i = 0; i < Mathf.Clamp(setup.AllyCount, 0, 16); i++)
+            for (int i = 0; i < Mathf.Clamp(setup.AllyCount, 0, BattleSetup.MaxDeployed); i++)
                 units.Add(Soldier(UnitType.Militia));
         return units;
     }
@@ -67,7 +67,7 @@ public sealed class BattleBootstrap : MonoBehaviour
             List<UnitSpec> composed = new();
             foreach (UnitSpec spec in setup.EnemyComposition)
             {
-                if (composed.Count >= 16)
+                if (composed.Count >= BattleSetup.MaxDeployed)
                     break;
                 composed.Add(spec);
             }
@@ -85,11 +85,11 @@ public sealed class BattleBootstrap : MonoBehaviour
     private static List<UnitSpec> BuildTierRoster(int militia, int veterans, int guards)
     {
         List<UnitSpec> units = new();
-        for (int i = 0; i < guards && units.Count < 16; i++)
+        for (int i = 0; i < guards && units.Count < BattleSetup.MaxDeployed; i++)
             units.Add(Soldier(UnitType.Guard));
-        for (int i = 0; i < veterans && units.Count < 16; i++)
+        for (int i = 0; i < veterans && units.Count < BattleSetup.MaxDeployed; i++)
             units.Add(Soldier(UnitType.Veteran));
-        for (int i = 0; i < militia && units.Count < 16; i++)
+        for (int i = 0; i < militia && units.Count < BattleSetup.MaxDeployed; i++)
             units.Add(Soldier(UnitType.Militia));
         return units;
     }

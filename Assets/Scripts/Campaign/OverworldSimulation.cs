@@ -65,6 +65,25 @@ public sealed class OverworldSimulation
         return false;
     }
 
+    // The settlement the warband can recruit from right now: the nearest one within
+    // recruit range, regardless of who holds it (volunteers come from the locals).
+    // Null when no settlement is close enough.
+    public Territory RecruitSettlement()
+    {
+        Territory best = null;
+        float bestSqr = SettlementRecruitRange * SettlementRecruitRange;
+        foreach (Territory t in campaign.Territories)
+        {
+            float sqr = (t.MapPosition - campaign.PartyPosition).sqrMagnitude;
+            if (sqr <= bestSqr)
+            {
+                bestSqr = sqr;
+                best = t;
+            }
+        }
+        return best;
+    }
+
     public void BeginTravel(Vector2 target, Territory territory, EnemyParty party)
     {
         travelTarget = target;
@@ -92,6 +111,7 @@ public sealed class OverworldSimulation
         {
             dayAccumulator -= DistancePerDay;
             campaign.Day++;
+            campaign.ApplyDayTick();
         }
 
         StepEnemyParties(move.magnitude);
@@ -125,6 +145,7 @@ public sealed class OverworldSimulation
     public OverworldOutcome WaitOneDay()
     {
         campaign.Day++;
+        campaign.ApplyDayTick();
         StepEnemyParties(DistancePerDay);
         foreach (EnemyParty party in campaign.Parties)
             if (IsThreat(party) && (party.Position - campaign.PartyPosition).magnitude <= EncounterRadius)

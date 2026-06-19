@@ -135,6 +135,41 @@ public sealed class OverworldSimulationTests
     }
 
     [Test]
+    public void RecruitSettlement_ReturnsNearestInRangeRegardlessOfOwner()
+    {
+        CampaignState state = StateWithRoster(3);
+        Territory enemyVillage = new Territory
+        {
+            Name = "Foe", MapPosition = new Vector2(1f, 0f), Owner = TerritoryOwner.Enemy,
+            Settlement = SettlementType.Village, Recruits = 3
+        };
+        state.Territories.Add(enemyVillage);
+        OverworldSimulation sim = new OverworldSimulation(state);
+
+        Assert.That(sim.RecruitSettlement(), Is.SameAs(enemyVillage),
+            "Any settlement in range offers volunteers, even one the player does not own.");
+
+        state.PartyPosition = new Vector2(10f, 0f);
+        Assert.That(sim.RecruitSettlement(), Is.Null, "Out of range, no settlement is available.");
+    }
+
+    [Test]
+    public void Tick_DayElapsedDrawsWages()
+    {
+        CampaignState state = StateWithRoster(3); // wage = 3 * 2 = 6 per day
+        state.Gold = 100;
+        state.Day = 1;
+        OverworldSimulation sim = new OverworldSimulation(state);
+        sim.BeginTravel(new Vector2(100f, 0f), null, null);
+
+        // Travel 8 units in one tick -> 2 full days elapse.
+        sim.Tick(8f / OverworldSimulation.TravelSpeed);
+
+        Assert.That(state.Day, Is.EqualTo(3));
+        Assert.That(state.Gold, Is.EqualTo(100 - 6 * 2), "Each day on the march draws the wage bill.");
+    }
+
+    [Test]
     public void WaitOneDay_AdvancesDayAndCatchesAdjacentThreat()
     {
         CampaignState state = StateWithRoster(2);

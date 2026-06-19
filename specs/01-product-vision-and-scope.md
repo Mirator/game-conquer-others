@@ -33,8 +33,13 @@ directional blocks. This is about survival and growth, not conquest.
 ## Current Scope
 
 - A free-roam overworld with click-to-move party marker, a day clock, roaming
-  bandit parties, settlement assaults, gold, owned-hold income (starting at
-  zero), escalating threats, and a persistent tier-by-archetype warband.
+  bandit parties, settlement assaults, gold, escalating threats, and a persistent
+  tier-by-archetype warband.
+- A party-survival economy: daily owned-land income against daily troop wages,
+  morale (with desertion when it craters), and a Renown-driven leadership cap that
+  must be earned to grow the warband.
+- Troop progression — soldiers bank battle experience and are promoted up the
+  tiers — and typed settlement recruitment (village/town/castle volunteer pools).
 - Four runtime-generated regional battlefields selected by encounter.
 - The player starts alone owning no hold, with a small starting warband (3
   militia); the first fight is whatever they march into — an enemy hold's

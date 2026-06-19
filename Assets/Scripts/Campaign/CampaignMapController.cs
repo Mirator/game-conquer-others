@@ -33,8 +33,10 @@ public sealed class CampaignMapController : MonoBehaviour
     private Button actionButton;
     private Text actionButtonText;
     private readonly Dictionary<Archetype, RecruitWidget> recruitButtons = new();
+    private readonly Dictionary<Archetype, RecruitWidget> upgradeButtons = new();
     private Button tierButton;
     private Text tierButtonText;
+    private Text promoteTitle;
     private UnitType selectedTier = UnitType.Militia;
 
     private static readonly Archetype[] RecruitableArchetypes =
@@ -50,6 +52,8 @@ public sealed class CampaignMapController : MonoBehaviour
     private int uiGold = -1;
     private int uiRosterTotal = -1;
     private int uiDay = -1;
+    private int uiMorale = -1;
+    private int uiRenown = -1;
     private bool uiTravelling;
     private UnitType uiSelectedTier;
     private WeaponType uiWeapon;
@@ -494,6 +498,19 @@ public sealed class CampaignMapController : MonoBehaviour
             recruitY -= 0.14f;
         }
 
+        RectTransform promote = MedievalUi.Frame(campaignCanvas.transform, "Promotion", new Vector2(0.012f, 0.2f),
+            new Vector2(0.25f, 0.535f), Vector2.zero, Vector2.zero);
+        promoteTitle = MedievalUi.Label(promote, "Title", "PROMOTE", 27, TextAnchor.MiddleCenter,
+            new Vector2(0.05f, 0.82f), new Vector2(0.95f, 0.98f), Vector2.zero, Vector2.zero, MedievalUi.Gold);
+        MedievalUi.Divider(promote, "Promote Divider", new Vector2(0.12f, 0.795f), new Vector2(0.88f, 0.818f),
+            Vector2.zero, Vector2.zero);
+        float promoteY = 0.62f;
+        foreach (Archetype archetype in RecruitableArchetypes)
+        {
+            AddUpgradeButton(promote, archetype, promoteY);
+            promoteY -= 0.18f;
+        }
+
         RectTransform equipment = MedievalUi.Frame(campaignCanvas.transform, "Equipment", new Vector2(0.75f, 0.61f),
             new Vector2(0.988f, 0.88f), Vector2.zero, Vector2.zero);
         MedievalUi.Label(equipment, "Title", "CAPTAIN EQUIPMENT", 27, TextAnchor.MiddleCenter,
@@ -528,8 +545,17 @@ public sealed class CampaignMapController : MonoBehaviour
     private void AddRecruitButton(Transform parent, Archetype archetype, float y)
     {
         Button button = MedievalUi.Button(parent, archetype.ToString(), "", new Vector2(0.07f, y),
-            new Vector2(0.93f, y + 0.12f), Vector2.zero, Vector2.zero, () => campaign.Recruit(selectedTier, archetype));
+            new Vector2(0.93f, y + 0.12f), Vector2.zero, Vector2.zero,
+            () => campaign.Recruit(selectedTier, archetype, sim.RecruitSettlement()));
         recruitButtons[archetype] = new RecruitWidget { Button = button, Label = button.GetComponentInChildren<Text>() };
+    }
+
+    private void AddUpgradeButton(Transform parent, Archetype archetype, float y)
+    {
+        Button button = MedievalUi.Button(parent, archetype + " Promote", "", new Vector2(0.07f, y),
+            new Vector2(0.93f, y + 0.16f), Vector2.zero, Vector2.zero,
+            () => campaign.TryUpgrade(selectedTier, archetype));
+        upgradeButtons[archetype] = new RecruitWidget { Button = button, Label = button.GetComponentInChildren<Text>() };
     }
 
     private void CycleRecruitTier() => selectedTier = (UnitType)(((int)selectedTier + 1) % 3);
@@ -542,7 +568,8 @@ public sealed class CampaignMapController : MonoBehaviour
         int rosterTotal = campaign.Roster;
         if (uiInitialized && ended == uiEnded && campaign.Gold == uiGold && rosterTotal == uiRosterTotal
             && selectedTier == uiSelectedTier && campaign.PlayerWeapon == uiWeapon
-            && campaign.Day == uiDay && sim.Travelling == uiTravelling)
+            && campaign.Day == uiDay && sim.Travelling == uiTravelling
+            && campaign.Morale == uiMorale && campaign.Renown == uiRenown)
             return;
         uiInitialized = true;
         uiEnded = ended;
@@ -552,6 +579,8 @@ public sealed class CampaignMapController : MonoBehaviour
         uiWeapon = campaign.PlayerWeapon;
         uiDay = campaign.Day;
         uiTravelling = sim.Travelling;
+        uiMorale = campaign.Morale;
+        uiRenown = campaign.Renown;
 
         endScreen.gameObject.SetActive(ended);
         if (ended)
@@ -559,21 +588,35 @@ public sealed class CampaignMapController : MonoBehaviour
             endTitle.text = "THE CAMPAIGN IS LOST";
             return;
         }
-        campaignSummary.text = $"DAY {campaign.Day}    GOLD {campaign.Gold}    INCOME +{campaign.IncomePerVictory()}    " +
-            $"WARBAND {campaign.Roster}/{CampaignState.WarbandCap}    HOLDS {campaign.PlayerTerritoryCount()}/{campaign.Territories.Count}";
+        int net = campaign.DailyIncome() - campaign.DailyWage();
+        campaignSummary.text = $"DAY {campaign.Day}    GOLD {campaign.Gold} ({net:+0;-0;0}/day)    " +
+            $"MORALE {campaign.Morale}    RENOWN {campaign.Renown}    " +
+            $"WARBAND {campaign.Roster}/{campaign.LeadershipCap}    HOLDS {campaign.PlayerTerritoryCount()}/{campaign.Territories.Count}";
         reportText.text = campaign.LastReport;
         equipmentText.text = $"{WeaponCatalog.Label(campaign.PlayerWeapon)}\n{WeaponCatalog.Description(campaign.PlayerWeapon)}";
         if (partyCountLabel != null)
             partyCountLabel.text = sim.PlayerStrength.ToString();
 
         bool travelling = sim.Travelling;
-        bool atCity = sim.AtFriendlyCity();
+        Territory settlement = sim.RecruitSettlement();
         tierButtonText.text = $"TIER  <  {UnitCatalog.Label(selectedTier)}  >    {UnitCatalog.Cost(selectedTier)} GOLD";
         foreach (KeyValuePair<Archetype, RecruitWidget> entry in recruitButtons)
         {
-            entry.Value.Button.interactable = !travelling && atCity && campaign.CanRecruit(selectedTier, entry.Key);
+            entry.Value.Button.interactable =
+                !travelling && campaign.CanRecruit(selectedTier, entry.Key, settlement);
             entry.Value.Label.text =
                 $"+ {ArchetypeCatalog.Label(entry.Key)}    OWNED {campaign.Units.Count(selectedTier, entry.Key)}";
+        }
+
+        promoteTitle.text = $"PROMOTE {UnitCatalog.Label(selectedTier)}";
+        bool topTier = !UnitCatalog.CanUpgrade(selectedTier);
+        foreach (KeyValuePair<Archetype, RecruitWidget> entry in upgradeButtons)
+        {
+            entry.Value.Button.interactable = !travelling && campaign.CanUpgrade(selectedTier, entry.Key);
+            int xp = campaign.Units.Xp(selectedTier, entry.Key);
+            entry.Value.Label.text = topTier
+                ? $"{ArchetypeCatalog.Label(entry.Key)}  -  TOP TIER"
+                : $"^ {ArchetypeCatalog.Label(entry.Key)}  XP {xp}/{UnitCatalog.UpgradeXp(selectedTier)}  {UnitCatalog.UpgradeCost(selectedTier)}G";
         }
 
         if (travelling)
@@ -581,12 +624,17 @@ public sealed class CampaignMapController : MonoBehaviour
             selectionTitle.text = "ON THE MARCH";
             selectionBody.text = $"Day {campaign.Day}  -  the warband moves across the land.";
         }
+        else if (settlement != null)
+        {
+            selectionTitle.text = $"DAY {campaign.Day}";
+            selectionBody.text = $"At {settlement.Name} ({SettlementCatalog.Label(settlement.Settlement)}) - " +
+                $"{settlement.Recruits} volunteers up to {UnitCatalog.Label(SettlementCatalog.MaxTier(settlement.Settlement))}.";
+        }
         else
         {
             selectionTitle.text = $"DAY {campaign.Day}";
-            selectionBody.text = atCity
-                ? "Resting in a hold - recruit your warband, then march out."
-                : "Click a hold to assault, a red band to hunt, or open ground to march. Recruit only in a hold you own.";
+            selectionBody.text =
+                "Click a hold to assault, a red band to hunt, or open ground to march. Recruit at any settlement in range.";
         }
         actionButtonText.text = "WAIT A DAY";
         actionButton.interactable = !travelling;
