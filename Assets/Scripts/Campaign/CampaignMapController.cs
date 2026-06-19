@@ -18,6 +18,7 @@ public sealed class CampaignMapController : MonoBehaviour
     private CampaignState campaign;
     private OverworldSimulation sim;
     private Camera cam;
+    private Light mapSun;
     private GameObject trainingNode;
     private Renderer trainingRenderer;
     private GameObject partyMarker;
@@ -41,6 +42,22 @@ public sealed class CampaignMapController : MonoBehaviour
     private Text tierButtonText;
     private Text promoteTitle;
     private UnitType selectedTier = UnitType.Militia;
+
+    // The Recruit/Promote/Equipment panels are hidden until summoned from the bottom
+    // toolbar; a single open-panel field keeps only one visible at a time (opening
+    // one closes the others). The slim top strip and action panel stay on screen.
+    private enum HudPanel { None, Recruit, Promote, Equipment }
+    private HudPanel openPanel = HudPanel.None;
+    private GameObject recruitPanel;
+    private GameObject promotePanel;
+    private GameObject equipmentPanel;
+
+    // Sun/moon dial in the top strip: the orbiting body is repositioned every frame
+    // and its phase caption rewritten only when the named phase changes.
+    private RectTransform dialBody;
+    private Image dialBodyImage;
+    private Text dialPhase;
+    private int dialPhaseIndex = -1;
 
     // The currently-selected march destination (set by clicking; confirmed by the
     // march button). Travel no longer fires on click — the player reviews the
@@ -110,15 +127,12 @@ public sealed class CampaignMapController : MonoBehaviour
     {
         GameObject sunObject = new GameObject("Map Sun");
         sunObject.transform.SetParent(transform);
-        sunObject.transform.rotation = Quaternion.Euler(55f, -30f, 0f);
-        Light sun = sunObject.AddComponent<Light>();
-        sun.type = LightType.Directional;
-        sun.intensity = 1.1f;
-        sun.color = new Color(1f, 0.95f, 0.85f);
+        mapSun = sunObject.AddComponent<Light>();
+        mapSun.type = LightType.Directional;
+        // Angle/colour/intensity, ambient, fog, and camera background are driven each
+        // frame by ApplyMapLighting from the overworld day/night phase.
 
         RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Flat;
-        RenderSettings.ambientLight = new Color(0.35f, 0.37f, 0.4f);
-        RenderSettings.fog = false;
         RenderSettings.skybox = null; // clear any battle skybox so it doesn't bleed onto the map
 
         GameObject camObject = new GameObject("Map Camera");
@@ -404,6 +418,10 @@ public sealed class CampaignMapController : MonoBehaviour
         else if (Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame)
             HandleClick();
 
+        float timeOfDay = CampaignState.OverworldSunPhase(campaign.Day, sim.DayFraction);
+        ApplyMapLighting(timeOfDay);
+        UpdateDial(timeOfDay);
+
         UpdateMarkers();
         PulseNodes();
         RefreshUi();
@@ -644,17 +662,23 @@ public sealed class CampaignMapController : MonoBehaviour
     private void BuildUi()
     {
         campaignCanvas = MedievalUi.CreateCanvas(transform, "Campaign HUD Canvas", 20);
-        RectTransform top = MedievalUi.Frame(campaignCanvas.transform, "Campaign Header", new Vector2(0.22f, 0.9f),
-            new Vector2(0.78f, 0.985f), Vector2.zero, Vector2.zero);
-        MedievalUi.Label(top, "Title", "CONQUER OTHERS  -  PLAN YOUR NEXT ASSAULT", 30, TextAnchor.MiddleCenter,
-            new Vector2(0f, 0.48f), Vector2.one, Vector2.zero, Vector2.zero, MedievalUi.Gold);
-        campaignSummary = MedievalUi.Label(top, "Summary", "", 18, TextAnchor.MiddleCenter,
-            Vector2.zero, new Vector2(1f, 0.5f), Vector2.zero, Vector2.zero);
-        reportText = MedievalUi.Label(campaignCanvas.transform, "Report", "", 18, TextAnchor.MiddleCenter,
-            new Vector2(0.25f, 0.855f), new Vector2(0.75f, 0.9f), Vector2.zero, Vector2.zero);
 
-        RectTransform recruit = MedievalUi.Frame(campaignCanvas.transform, "Recruitment", new Vector2(0.012f, 0.55f),
-            new Vector2(0.25f, 0.88f), Vector2.zero, Vector2.zero);
+        // Slim top resource strip: the day/night dial on the left, a single compact
+        // status line filling the rest. Leaves the map otherwise clear.
+        RectTransform top = MedievalUi.Frame(campaignCanvas.transform, "Resource Strip", new Vector2(0.30f, 0.945f),
+            new Vector2(0.70f, 0.992f), Vector2.zero, Vector2.zero);
+        BuildDial(top);
+        campaignSummary = MedievalUi.Label(top, "Summary", "", 16, TextAnchor.MiddleLeft,
+            new Vector2(0.10f, 0f), new Vector2(0.98f, 1f), Vector2.zero, Vector2.zero);
+        reportText = MedievalUi.Label(campaignCanvas.transform, "Report", "", 16, TextAnchor.MiddleCenter,
+            new Vector2(0.30f, 0.905f), new Vector2(0.70f, 0.94f), Vector2.zero, Vector2.zero);
+
+        // On-demand panels: hidden until summoned from the bottom toolbar. Only the
+        // outer frame rects differ from the old always-on layout; the child widgets
+        // (tier button, recruit/upgrade buttons, XP bars, weapon picker) are unchanged.
+        RectTransform recruit = MedievalUi.Frame(campaignCanvas.transform, "Recruitment", new Vector2(0.32f, 0.30f),
+            new Vector2(0.50f, 0.86f), Vector2.zero, Vector2.zero);
+        recruitPanel = recruit.gameObject;
         MedievalUi.Label(recruit, "Title", "RECRUIT WARBAND", 26, TextAnchor.MiddleCenter,
             new Vector2(0.05f, 0.86f), new Vector2(0.95f, 0.99f), Vector2.zero, Vector2.zero, MedievalUi.Gold);
         MedievalUi.Divider(recruit, "Recruit Divider", new Vector2(0.12f, 0.838f), new Vector2(0.88f, 0.858f),
@@ -671,8 +695,9 @@ public sealed class CampaignMapController : MonoBehaviour
             recruitY -= 0.135f;
         }
 
-        RectTransform promote = MedievalUi.Frame(campaignCanvas.transform, "Promotion", new Vector2(0.012f, 0.2f),
-            new Vector2(0.25f, 0.535f), Vector2.zero, Vector2.zero);
+        RectTransform promote = MedievalUi.Frame(campaignCanvas.transform, "Promotion", new Vector2(0.50f, 0.30f),
+            new Vector2(0.68f, 0.86f), Vector2.zero, Vector2.zero);
+        promotePanel = promote.gameObject;
         promoteTitle = MedievalUi.Label(promote, "Title", "PROMOTE", 27, TextAnchor.MiddleCenter,
             new Vector2(0.05f, 0.82f), new Vector2(0.95f, 0.98f), Vector2.zero, Vector2.zero, MedievalUi.Gold);
         MedievalUi.Divider(promote, "Promote Divider", new Vector2(0.12f, 0.795f), new Vector2(0.88f, 0.818f),
@@ -684,8 +709,9 @@ public sealed class CampaignMapController : MonoBehaviour
             promoteY -= 0.18f;
         }
 
-        RectTransform equipment = MedievalUi.Frame(campaignCanvas.transform, "Equipment", new Vector2(0.75f, 0.61f),
-            new Vector2(0.988f, 0.88f), Vector2.zero, Vector2.zero);
+        RectTransform equipment = MedievalUi.Frame(campaignCanvas.transform, "Equipment", new Vector2(0.40f, 0.45f),
+            new Vector2(0.60f, 0.78f), Vector2.zero, Vector2.zero);
+        equipmentPanel = equipment.gameObject;
         MedievalUi.Label(equipment, "Title", "CAPTAIN EQUIPMENT", 27, TextAnchor.MiddleCenter,
             new Vector2(0.05f, 0.72f), new Vector2(0.95f, 0.96f), Vector2.zero, Vector2.zero, MedievalUi.Gold);
         MedievalUi.Divider(equipment, "Equipment Divider", new Vector2(0.12f, 0.695f), new Vector2(0.88f, 0.718f),
@@ -697,17 +723,32 @@ public sealed class CampaignMapController : MonoBehaviour
         MedievalUi.Button(equipment, "Next Weapon", ">", new Vector2(0.68f, 0.08f), new Vector2(0.92f, 0.31f),
             Vector2.zero, Vector2.zero, () => campaign.PlayerWeapon = WeaponCatalog.Next(campaign.PlayerWeapon));
 
-        RectTransform action = MedievalUi.Frame(campaignCanvas.transform, "Selection", new Vector2(0.26f, 0.02f),
-            new Vector2(0.74f, 0.19f), Vector2.zero, Vector2.zero);
-        selectionTitle = MedievalUi.Label(action, "Title", "", 27, TextAnchor.MiddleCenter,
-            new Vector2(0.04f, 0.66f), new Vector2(0.96f, 0.96f), Vector2.zero, Vector2.zero, MedievalUi.Gold);
-        selectionBody = MedievalUi.Label(action, "Body", "", 18, TextAnchor.MiddleCenter,
-            new Vector2(0.04f, 0.32f), new Vector2(0.96f, 0.67f), Vector2.zero, Vector2.zero);
-        marchButton = MedievalUi.Button(action, "March", "SELECT A TARGET", new Vector2(0.06f, 0.03f),
-            new Vector2(0.49f, 0.29f), Vector2.zero, Vector2.zero, ConfirmTravel);
+        recruitPanel.SetActive(false);
+        promotePanel.SetActive(false);
+        equipmentPanel.SetActive(false);
+
+        // Bottom icon toolbar: summons the panels above. Each button toggles its own
+        // panel and closes the others (single open-panel field).
+        RectTransform toolbar = MedievalUi.Frame(campaignCanvas.transform, "Toolbar", new Vector2(0.40f, 0.02f),
+            new Vector2(0.60f, 0.075f), Vector2.zero, Vector2.zero);
+        MedievalUi.Button(toolbar, "Recruit Toggle", "RECRUIT", new Vector2(0.04f, 0.12f), new Vector2(0.32f, 0.88f),
+            Vector2.zero, Vector2.zero, () => TogglePanel(HudPanel.Recruit));
+        MedievalUi.Button(toolbar, "Promote Toggle", "PROMOTE", new Vector2(0.34f, 0.12f), new Vector2(0.66f, 0.88f),
+            Vector2.zero, Vector2.zero, () => TogglePanel(HudPanel.Promote));
+        MedievalUi.Button(toolbar, "Equip Toggle", "EQUIP", new Vector2(0.68f, 0.12f), new Vector2(0.96f, 0.88f),
+            Vector2.zero, Vector2.zero, () => TogglePanel(HudPanel.Equipment));
+
+        RectTransform action = MedievalUi.Frame(campaignCanvas.transform, "Selection", new Vector2(0.33f, 0.085f),
+            new Vector2(0.67f, 0.20f), Vector2.zero, Vector2.zero);
+        selectionTitle = MedievalUi.Label(action, "Title", "", 22, TextAnchor.MiddleCenter,
+            new Vector2(0.04f, 0.62f), new Vector2(0.96f, 0.96f), Vector2.zero, Vector2.zero, MedievalUi.Gold);
+        selectionBody = MedievalUi.Label(action, "Body", "", 15, TextAnchor.MiddleCenter,
+            new Vector2(0.04f, 0.30f), new Vector2(0.96f, 0.62f), Vector2.zero, Vector2.zero);
+        marchButton = MedievalUi.Button(action, "March", "SELECT A TARGET", new Vector2(0.06f, 0.04f),
+            new Vector2(0.49f, 0.28f), Vector2.zero, Vector2.zero, ConfirmTravel);
         marchButtonText = marchButton.GetComponentInChildren<Text>();
-        actionButton = MedievalUi.Button(action, "Action", "WAIT A DAY", new Vector2(0.51f, 0.03f),
-            new Vector2(0.94f, 0.29f), Vector2.zero, Vector2.zero, PerformSelectedAction);
+        actionButton = MedievalUi.Button(action, "Action", "WAIT A DAY", new Vector2(0.51f, 0.04f),
+            new Vector2(0.94f, 0.28f), Vector2.zero, Vector2.zero, PerformSelectedAction);
         actionButtonText = actionButton.GetComponentInChildren<Text>();
 
         endScreen = MedievalUi.Panel(campaignCanvas.transform, "Campaign End", Vector2.zero, Vector2.one,
@@ -716,6 +757,75 @@ public sealed class CampaignMapController : MonoBehaviour
             new Vector2(0.2f, 0.42f), new Vector2(0.8f, 0.66f), Vector2.zero, Vector2.zero, MedievalUi.Gold);
         MedievalUi.Label(endScreen, "End Hint", "PRESS R TO BEGIN A NEW CAMPAIGN", 28, TextAnchor.MiddleCenter,
             new Vector2(0.25f, 0.31f), new Vector2(0.75f, 0.43f), Vector2.zero, Vector2.zero);
+    }
+
+    // Summons one panel and hides the others; clicking the open panel's toolbar
+    // button again closes it. Marks the HUD dirty so the now-visible panel's text
+    // refreshes this frame (RefreshUi skips hidden panels).
+    private void TogglePanel(HudPanel panel)
+    {
+        openPanel = openPanel == panel ? HudPanel.None : panel;
+        recruitPanel.SetActive(openPanel == HudPanel.Recruit);
+        promotePanel.SetActive(openPanel == HudPanel.Promote);
+        equipmentPanel.SetActive(openPanel == HudPanel.Equipment);
+        uiDirty = true;
+    }
+
+    // The sun/moon dial: a recessed face with an orbiting body and a phase caption.
+    private void BuildDial(RectTransform strip)
+    {
+        RectTransform face = MedievalUi.Well(strip, "Dial", new Vector2(0.005f, 0.1f),
+            new Vector2(0.085f, 0.9f), Vector2.zero, Vector2.zero, new Color(0.10f, 0.10f, 0.13f));
+        // Centre-anchored, fixed-size body so anchoredPosition orbits cleanly around
+        // the face centre (see UpdateDial).
+        dialBody = MedievalUi.Panel(face, "Body", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
+            new Vector2(-6f, -6f), new Vector2(6f, 6f), MedievalUi.Gold);
+        dialBodyImage = dialBody.GetComponent<Image>();
+        dialBodyImage.raycastTarget = false;
+        dialPhase = MedievalUi.Label(face, "Phase", "", 11, TextAnchor.LowerCenter,
+            Vector2.zero, new Vector2(1f, 0.24f), Vector2.zero, Vector2.zero, MedievalUi.Bone);
+        dialPhase.raycastTarget = false;
+    }
+
+    // Drives the overworld Map Sun, ambient, fog, and camera background from a 0..1
+    // time of day. A lightweight, arena-free cousin of BattleBootstrap.ApplySunAndSky
+    // (the map has no skybox); midday values match the map's former static look.
+    private void ApplyMapLighting(float t)
+    {
+        float daySin = Mathf.Sin(t * Mathf.PI * 2f - Mathf.PI * 0.5f); // -1 night .. +1 midday
+        float day = Mathf.Clamp01(daySin * 0.5f + 0.5f);               // 0 night .. 1 midday
+        float golden = 1f - Mathf.Abs(daySin);                         // 1 at dawn/dusk
+
+        mapSun.transform.rotation = Quaternion.Euler(daySin * 50f + 8f, -30f + (t - 0.5f) * 50f, 0f);
+        mapSun.color = Color.Lerp(new Color(1f, 0.96f, 0.9f), new Color(1f, 0.55f, 0.3f), golden)
+            * new Color(1f, 0.95f, 0.85f);
+        mapSun.intensity = 1.1f * Mathf.Lerp(0.08f, 1f, day);
+
+        RenderSettings.ambientLight = new Color(0.35f, 0.37f, 0.4f) * Mathf.Lerp(0.4f, 1f, day);
+        RenderSettings.fog = day < 0.5f;
+        RenderSettings.fogMode = FogMode.ExponentialSquared;
+        RenderSettings.fogColor = Color.Lerp(new Color(0.04f, 0.05f, 0.08f), new Color(0.34f, 0.36f, 0.4f), day);
+        RenderSettings.fogDensity = Mathf.Lerp(0.012f, 0.002f, day);
+        cam.backgroundColor = Color.Lerp(new Color(0.02f, 0.025f, 0.05f), new Color(0.07f, 0.10f, 0.14f), day);
+    }
+
+    // Orbits the dial body by time of day (gold sun by day, bone moon by night) and
+    // rewrites the phase caption only when the named phase changes.
+    private void UpdateDial(float t)
+    {
+        if (dialBody == null)
+            return;
+        float ang = (t - 0.25f) * Mathf.PI * 2f; // .25 dawn -> right, .5 midday -> top
+        dialBody.anchoredPosition = new Vector2(Mathf.Cos(ang), Mathf.Sin(ang)) * 14f;
+        bool daytime = t > 0.25f && t < 0.75f;
+        dialBodyImage.color = daytime ? MedievalUi.Gold : MedievalUi.Bone;
+
+        int phase = (t < 0.2f || t >= 0.8f) ? 3 : t < 0.35f ? 0 : t < 0.65f ? 1 : 2;
+        if (phase != dialPhaseIndex)
+        {
+            dialPhaseIndex = phase;
+            dialPhase.text = phase == 0 ? "DAWN" : phase == 1 ? "MIDDAY" : phase == 2 ? "DUSK" : "NIGHT";
+        }
     }
 
     private void AddRecruitButton(Transform parent, Archetype archetype, float y)
@@ -796,40 +906,52 @@ public sealed class CampaignMapController : MonoBehaviour
             return;
         }
         int net = campaign.DailyIncome() - campaign.DailyWage() - campaign.DailyGarrisonUpkeep();
-        campaignSummary.text = $"DAY {campaign.Day}    GOLD {campaign.Gold} ({net:+0;-0;0}/day)    " +
-            $"MORALE {campaign.Morale}    RENOWN {campaign.Renown}    " +
-            $"WARBAND {campaign.Roster}/{campaign.LeadershipCap}    HOLDS {campaign.PlayerTerritoryCount()}/{campaign.Territories.Count}";
+        campaignSummary.text = $"DAY {campaign.Day}   GOLD {campaign.Gold} ({net:+0;-0;0}/d)   " +
+            $"MOR {campaign.Morale}   REN {campaign.Renown}   " +
+            $"WB {campaign.Roster}/{campaign.LeadershipCap}   HOLDS {campaign.PlayerTerritoryCount()}/{campaign.Territories.Count}";
         reportText.text = campaign.LastReport;
-        equipmentText.text = $"{WeaponCatalog.Label(campaign.PlayerWeapon)}\n{WeaponCatalog.Description(campaign.PlayerWeapon)}";
         if (partyCountLabel != null)
             partyCountLabel.text = sim.PlayerStrength.ToString();
 
         bool travelling = sim.Travelling;
         Territory settlement = sim.RecruitSettlement();
-        tierButtonText.text = $"TIER  <  {UnitCatalog.Label(selectedTier)}  >    {UnitCatalog.Cost(selectedTier)} GOLD";
-        foreach (KeyValuePair<Archetype, RecruitWidget> entry in recruitButtons)
-        {
-            entry.Value.Button.interactable =
-                !travelling && campaign.CanRecruit(selectedTier, entry.Key, settlement);
-            entry.Value.Label.text =
-                $"+ {ArchetypeCatalog.Label(entry.Key)}    OWNED {campaign.Units.Count(selectedTier, entry.Key)}";
-        }
-        string blockReason = RecruitBlockReason(selectedTier, settlement);
-        recruitStatus.text = blockReason ?? $"{settlement.Name}: {settlement.Recruits} volunteers ready.";
-        recruitStatus.color = blockReason == null ? MedievalUi.Bone : new Color(0.95f, 0.6f, 0.5f);
 
-        promoteTitle.text = $"PROMOTE {UnitCatalog.Label(selectedTier)}";
-        bool topTier = !UnitCatalog.CanUpgrade(selectedTier);
-        int needXp = topTier ? 0 : UnitCatalog.UpgradeXp(selectedTier);
-        foreach (KeyValuePair<Archetype, RecruitWidget> entry in upgradeButtons)
+        // Only the open panel does its (relatively costly) string and bar rebuilds;
+        // hidden panels are skipped. TogglePanel sets uiDirty so a panel refreshes
+        // the instant it opens.
+        if (openPanel == HudPanel.Equipment)
+            equipmentText.text = $"{WeaponCatalog.Label(campaign.PlayerWeapon)}\n{WeaponCatalog.Description(campaign.PlayerWeapon)}";
+
+        if (openPanel == HudPanel.Recruit)
         {
-            entry.Value.Button.interactable = !travelling && campaign.CanUpgrade(selectedTier, entry.Key);
-            int xp = campaign.Units.Xp(selectedTier, entry.Key);
-            entry.Value.Label.text = topTier
-                ? $"{ArchetypeCatalog.Label(entry.Key)}  -  TOP TIER"
-                : $"^ {ArchetypeCatalog.Label(entry.Key)}  XP {xp}/{needXp}  {UnitCatalog.UpgradeCost(selectedTier)}G";
-            float progress = topTier || needXp <= 0 ? 0f : Mathf.Clamp01((float)xp / needXp);
-            entry.Value.ProgressFill.anchorMax = new Vector2(progress, 1f);
+            tierButtonText.text = $"TIER  <  {UnitCatalog.Label(selectedTier)}  >    {UnitCatalog.Cost(selectedTier)} GOLD";
+            foreach (KeyValuePair<Archetype, RecruitWidget> entry in recruitButtons)
+            {
+                entry.Value.Button.interactable =
+                    !travelling && campaign.CanRecruit(selectedTier, entry.Key, settlement);
+                entry.Value.Label.text =
+                    $"+ {ArchetypeCatalog.Label(entry.Key)}    OWNED {campaign.Units.Count(selectedTier, entry.Key)}";
+            }
+            string blockReason = RecruitBlockReason(selectedTier, settlement);
+            recruitStatus.text = blockReason ?? $"{settlement.Name}: {settlement.Recruits} volunteers ready.";
+            recruitStatus.color = blockReason == null ? MedievalUi.Bone : new Color(0.95f, 0.6f, 0.5f);
+        }
+
+        if (openPanel == HudPanel.Promote)
+        {
+            promoteTitle.text = $"PROMOTE {UnitCatalog.Label(selectedTier)}";
+            bool topTier = !UnitCatalog.CanUpgrade(selectedTier);
+            int needXp = topTier ? 0 : UnitCatalog.UpgradeXp(selectedTier);
+            foreach (KeyValuePair<Archetype, RecruitWidget> entry in upgradeButtons)
+            {
+                entry.Value.Button.interactable = !travelling && campaign.CanUpgrade(selectedTier, entry.Key);
+                int xp = campaign.Units.Xp(selectedTier, entry.Key);
+                entry.Value.Label.text = topTier
+                    ? $"{ArchetypeCatalog.Label(entry.Key)}  -  TOP TIER"
+                    : $"^ {ArchetypeCatalog.Label(entry.Key)}  XP {xp}/{needXp}  {UnitCatalog.UpgradeCost(selectedTier)}G";
+                float progress = topTier || needXp <= 0 ? 0f : Mathf.Clamp01((float)xp / needXp);
+                entry.Value.ProgressFill.anchorMax = new Vector2(progress, 1f);
+            }
         }
 
         RefreshSelection(travelling, settlement);

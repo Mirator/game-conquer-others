@@ -65,6 +65,15 @@ hour the player arrived lights the fight, and a retried battle looks identical.
 - Each region uses a procedural skybox (`RuntimeAssets.Skybox`, `Skybox/Procedural`)
   tinted by time of day; the camera clears to that skybox.
 
+The overworld map runs its own time-of-day cycle from
+`CampaignState.OverworldSunPhase(day, dayFraction)` — a *continuous* dawn→dusk→night
+arc that advances while marching and freezes when idle (see
+[11-campaign-map-and-meta-loop.md](11-campaign-map-and-meta-loop.md)). It drives the
+map sun, ambient, fog, and camera background through a lightweight, arena-free
+counterpart of `ApplySunAndSky` in `CampaignMapController` (the map has no skybox).
+This is distinct from the battle `TimeOfDayForDay` value, whose golden-ratio step
+spreads hours across days for variety rather than a smooth cycle.
+
 ## Visual Style
 
 - Heroic, readable, stylized low-poly medieval presentation.

@@ -74,3 +74,6 @@ The overworld uses a separate top-down camera, controlled by
 - Holding the right mouse button and dragging pans across the ground plane; pan
   speed scales with the current zoom height.
 - The map camera does not rotate or pitch and has no edge-scroll.
+- The bottom HUD toolbar's buttons summon the Recruit, Promote, and Captain
+  Equipment panels (one open at a time); clicking left-mouse on the map plans a
+  march target. See [11-campaign-map-and-meta-loop.md](11-campaign-map-and-meta-loop.md).
