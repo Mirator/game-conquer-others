@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -8,7 +9,16 @@ public sealed class FrontendUi : MonoBehaviour
     private RectTransform title;
     private RectTransform settings;
     private RectTransform pause;
+    private RectTransform custom;
     private Button continueButton;
+
+    // Custom-battle configuration, edited on the setup screen and turned into a
+    // BattleSetup when the fight is launched.
+    private int customAllies = 8;
+    private int customArchers = 0;
+    private int customEnemies = 8;
+    private ArenaType customArena = ArenaType.Courtyard;
+    private WeaponType customWeapon = WeaponType.SwordAndShield;
 
     public void Configure(GameDirector owner)
     {
@@ -20,6 +30,8 @@ public sealed class FrontendUi : MonoBehaviour
     {
         if (visible && settings != null)
             settings.gameObject.SetActive(false);
+        if (visible && custom != null)
+            custom.gameObject.SetActive(false);
         if (title != null)
             title.gameObject.SetActive(visible);
         if (continueButton != null)
@@ -48,10 +60,11 @@ public sealed class FrontendUi : MonoBehaviour
             new Vector2(0.25f, 0.61f), new Vector2(0.75f, 0.69f), Vector2.zero, Vector2.zero);
         MedievalUi.Divider(title, "Title Divider", new Vector2(0.32f, 0.575f), new Vector2(0.68f, 0.6f),
             Vector2.zero, Vector2.zero);
-        continueButton = AddMenuButton(title, "CONTINUE", 0.5f, () => director.ContinueCampaign());
-        AddMenuButton(title, "NEW CAMPAIGN", 0.39f, () => director.StartNewCampaign());
-        AddMenuButton(title, "SETTINGS", 0.28f, () => ToggleSettings(true));
-        AddMenuButton(title, "QUIT", 0.17f, director.Quit);
+        continueButton = AddMenuButton(title, "CONTINUE", 0.52f, () => director.ContinueCampaign());
+        AddMenuButton(title, "NEW CAMPAIGN", 0.42f, () => director.StartNewCampaign());
+        AddMenuButton(title, "CUSTOM BATTLE", 0.32f, () => ToggleCustom(true));
+        AddMenuButton(title, "SETTINGS", 0.22f, () => ToggleSettings(true));
+        AddMenuButton(title, "QUIT", 0.12f, director.Quit);
         continueButton.gameObject.SetActive(false);
 
         pause = FullPanel("Pause Screen");
@@ -69,6 +82,10 @@ public sealed class FrontendUi : MonoBehaviour
             new Vector2(0.25f, 0.8f), new Vector2(0.75f, 0.94f), Vector2.zero, Vector2.zero, MedievalUi.Gold);
         BuildSettings();
         settings.gameObject.SetActive(false);
+
+        custom = FullPanel("Custom Battle Screen");
+        BuildCustom();
+        custom.gameObject.SetActive(false);
         pause.gameObject.SetActive(false);
     }
 
@@ -160,5 +177,84 @@ public sealed class FrontendUi : MonoBehaviour
         settings.gameObject.SetActive(visible);
         title.gameObject.SetActive(!visible && director.CurrentMode == GameDirector.Mode.Title);
         pause.gameObject.SetActive(!visible && director.IsPaused);
+    }
+
+    private void ToggleCustom(bool visible)
+    {
+        custom.gameObject.SetActive(visible);
+        title.gameObject.SetActive(!visible && director.CurrentMode == GameDirector.Mode.Title);
+    }
+
+    private void BuildCustom()
+    {
+        MedievalUi.Label(custom, "Title", "CUSTOM BATTLE", 58, TextAnchor.MiddleCenter,
+            new Vector2(0.25f, 0.86f), new Vector2(0.75f, 0.96f), Vector2.zero, Vector2.zero, MedievalUi.Gold);
+        MedievalUi.Divider(custom, "Custom Divider", new Vector2(0.34f, 0.835f), new Vector2(0.66f, 0.86f),
+            Vector2.zero, Vector2.zero);
+
+        AddStepper("ALLIES (MELEE)", 0.72f, () => customAllies, v => customAllies = v, 0, BattleSetup.MaxDeployed);
+        AddStepper("ALLIES (ARCHERS)", 0.63f, () => customArchers, v => customArchers = v, 0, BattleSetup.MaxDeployed);
+        AddStepper("ENEMIES", 0.54f, () => customEnemies, v => customEnemies = v, 1, BattleSetup.MaxDeployed);
+        AddCycle("ARENA", 0.45f, () => customArena.ToString().ToUpperInvariant(),
+            () => customArena = (ArenaType)(((int)customArena + 1) % System.Enum.GetValues(typeof(ArenaType)).Length));
+        AddCycle("YOUR WEAPON", 0.36f, () => WeaponCatalog.Label(customWeapon).ToUpperInvariant(),
+            () => customWeapon = (WeaponType)(((int)customWeapon + 1) % System.Enum.GetValues(typeof(WeaponType)).Length));
+
+        AddMenuButton(custom, "START BATTLE", 0.17f, StartCustomBattle);
+        AddMenuButton(custom, "BACK", 0.07f, () => ToggleCustom(false));
+    }
+
+    // A label with a value readout and -/+ buttons that mutate an int in [min, max].
+    private void AddStepper(string label, float centerY, System.Func<int> get, System.Action<int> set, int min, int max)
+    {
+        RectTransform row = MedievalUi.Panel(custom, label + " Row", new Vector2(0.28f, centerY - 0.035f),
+            new Vector2(0.72f, centerY + 0.035f), Vector2.zero, Vector2.zero, new Color(0.08f, 0.06f, 0.04f, 0.85f));
+        MedievalUi.Label(row, "Label", label, 24, TextAnchor.MiddleLeft,
+            Vector2.zero, new Vector2(0.55f, 1f), new Vector2(18f, 0f), Vector2.zero);
+        Text value = MedievalUi.Label(row, "Value", get().ToString(), 26, TextAnchor.MiddleCenter,
+            new Vector2(0.55f, 0f), new Vector2(0.74f, 1f), Vector2.zero, Vector2.zero, MedievalUi.Gold);
+        MedievalUi.Button(row, "Minus", "-", new Vector2(0.76f, 0.12f), new Vector2(0.87f, 0.88f),
+            Vector2.zero, Vector2.zero, () => { set(Mathf.Clamp(get() - 1, min, max)); value.text = get().ToString(); });
+        MedievalUi.Button(row, "Plus", "+", new Vector2(0.88f, 0.12f), new Vector2(0.99f, 0.88f),
+            Vector2.zero, Vector2.zero, () => { set(Mathf.Clamp(get() + 1, min, max)); value.text = get().ToString(); });
+    }
+
+    // A single button that shows "PREFIX: value" and cycles the value on click.
+    private void AddCycle(string prefix, float centerY, System.Func<string> value, System.Action advance)
+    {
+        Button button = null;
+        button = MedievalUi.Button(custom, prefix + " Cycle", $"{prefix}: {value()}",
+            new Vector2(0.28f, centerY - 0.035f), new Vector2(0.72f, centerY + 0.035f), Vector2.zero, Vector2.zero, () =>
+            {
+                advance();
+                button.GetComponentInChildren<Text>().text = $"{prefix}: {value()}";
+            });
+    }
+
+    private void StartCustomBattle()
+    {
+        BattleSetup setup = BattleSetup.Default();
+        setup.IsTraining = false;
+        setup.Kind = BattleKind.BanditField;
+        setup.Arena = customArena;
+        setup.PlayerWeapon = customWeapon;
+        setup.TargetName = "CUSTOM BATTLE";
+        setup.EnemyCount = customEnemies;
+        setup.AllyCount = customAllies + customArchers;
+
+        List<UnitSpec> allies = new();
+        for (int i = 0; i < customAllies; i++)
+            allies.Add(new UnitSpec(UnitType.Militia, Archetype.Soldier, WeaponType.SwordAndShield));
+        for (int i = 0; i < customArchers; i++)
+            allies.Add(new UnitSpec(UnitType.Militia, Archetype.Archer, WeaponType.Bow));
+        setup.AllyComposition = allies.Count > 0 ? allies : null;
+
+        List<UnitSpec> enemies = new();
+        for (int i = 0; i < customEnemies; i++)
+            enemies.Add(new UnitSpec(UnitType.Militia, Archetype.Soldier, WeaponType.SwordAndShield));
+        setup.EnemyComposition = enemies;
+
+        ToggleCustom(false);
+        director.LaunchCustomBattle(setup);
     }
 }

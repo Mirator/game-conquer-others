@@ -7,7 +7,9 @@
 | W / A / S / D | Camera-relative movement |
 | Left Shift | Sprint |
 | Space | Dodge |
-| 1 / 2 / 3 | Order allies to Follow / Hold / Charge |
+| 1 / 2 / 3 / 4 | Order allies to Follow / Hold / Charge / Advance |
+| F | Cycle ally formation (Line / Shield Wall / Skirmish) |
+| H | Toggle allied archers' hold-fire |
 | Hold left mouse + move mouse | Aim a directional attack |
 | Release left mouse | Strike in the aimed direction |
 | Hold right mouse + move mouse | Block in that direction |

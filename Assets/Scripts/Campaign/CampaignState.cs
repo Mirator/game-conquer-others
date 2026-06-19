@@ -23,10 +23,11 @@ public sealed class CampaignState
     public int Morale = StartingMorale; // 0..100 party morale; low morale breeds desertion
 
     // Leadership: the warband size cap grows with Renown, from BaseLeadership up to
-    // MaxLeadership. MaxLeadership matches the battlefield deployment ceiling, so a
-    // full warband always fields together.
+    // MaxLeadership. This is the player's campaign command ceiling and is kept
+    // separate from (and smaller than) the battlefield deployment ceiling
+    // (BattleSetup.MaxDeployed) so bigger battles do not inflate warband economy.
     public const int BaseLeadership = 6;
-    public const int MaxLeadership = BattleSetup.MaxDeployed;
+    public const int MaxLeadership = 24;
     public const int RenownPerCapStep = 15;
 
     // Economy / morale tuning.
@@ -338,7 +339,7 @@ public sealed class CampaignState
 
     public BattleSetup BuildSetupFor(Territory t) => new BattleSetup
     {
-        AllyCount = Mathf.Clamp(Roster, 0, BattleSetup.MaxDeployed),
+        AllyCount = Mathf.Clamp(Roster, 0, MaxLeadership),
         AllyMilitia = Units.Militia,
         AllyVeterans = Units.Veterans,
         AllyGuards = Units.Guards,
@@ -413,7 +414,7 @@ public sealed class CampaignState
     {
         List<UnitSpec> specs = new();
         foreach (RosterEntry entry in Units.Entries)
-            for (int i = 0; i < entry.Count && specs.Count < BattleSetup.MaxDeployed; i++)
+            for (int i = 0; i < entry.Count && specs.Count < MaxLeadership; i++)
                 specs.Add(new UnitSpec(entry.Tier, entry.Archetype, ArchetypeCatalog.Weapon(entry.Archetype)));
         return specs;
     }
@@ -479,7 +480,7 @@ public sealed class CampaignState
     // party's strength, fought wherever the party was caught.
     public BattleSetup BuildPartySetup(EnemyParty party) => new BattleSetup
     {
-        AllyCount = Mathf.Clamp(Roster, 0, BattleSetup.MaxDeployed),
+        AllyCount = Mathf.Clamp(Roster, 0, MaxLeadership),
         AllyComposition = BuildAllyComposition(),
         EnemyCount = Mathf.Clamp(party.Strength, 1, 12),
         EnemyComposition = BuildBanditComposition(party),

@@ -24,9 +24,11 @@ public sealed class UnitSpec
 public sealed class BattleSetup
 {
     // The most fighters either side can field on the battlefield. The spawner lays
-    // soldiers out in dynamic rows, so this is the warband/garrison deployment
-    // ceiling (and the upper bound for the campaign leadership cap).
-    public const int MaxDeployed = 24;
+    // soldiers out in dynamic rows, so this is the per-side deployment ceiling for
+    // big commanded battles. It is intentionally larger than the player's campaign
+    // leadership cap (CampaignState.MaxLeadership): garrisons and bandit hordes can
+    // outnumber the warband.
+    public const int MaxDeployed = 60;
 
     public int AllyCount = 3;       // allied AI soldiers spawned alongside the player
     public int EnemyCount = 4;      // enemy soldiers (the target territory's garrison)

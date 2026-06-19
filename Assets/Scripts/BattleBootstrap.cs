@@ -114,18 +114,26 @@ public sealed class BattleBootstrap : MonoBehaviour
     private void SpawnRoster(BattleManager manager, Team team, List<UnitSpec> units, float healthScale,
         bool forceWeapon, WeaponType forcedWeapon)
     {
+        int count = units.Count;
+        if (count == 0)
+            return;
         const float spacing = 2.2f;
-        const int perRow = 6;
+        // Widen the rank with the roster so big forces read as a battle line rather
+        // than a deep column: small fights keep the familiar 6-wide rows, large ones
+        // grow toward 12-wide and stay shallow enough to fit between the arena walls
+        // (ground is +/-17, walls at +/-16.6). The z-clamp is a hard safety net so no
+        // fighter ever spawns inside a wall regardless of count.
+        int perRow = Mathf.Clamp(Mathf.CeilToInt(Mathf.Sqrt(count * 2f)), 6, 12);
         float baseZ = team == Team.Allies ? -8f : 9f;
-        float rowStep = team == Team.Allies ? -1.6f : 1.6f;
+        float rowStep = team == Team.Allies ? -1.35f : 1.35f;
 
-        for (int i = 0; i < units.Count; i++)
+        for (int i = 0; i < count; i++)
         {
             int row = i / perRow;
             int col = i % perRow;
-            int rowCount = Mathf.Min(perRow, units.Count - row * perRow);
+            int rowCount = Mathf.Min(perRow, count - row * perRow);
             float x = Mathf.Clamp((col - (rowCount - 1) * 0.5f) * spacing, -13f, 13f);
-            float z = baseZ + row * rowStep;
+            float z = Mathf.Clamp(baseZ + row * rowStep, -15.8f, 15.8f);
             UnitSpec spec = units[i];
             WeaponType weapon = forceWeapon ? forcedWeapon : spec.Weapon;
             SpawnAI(manager, team, new Vector3(x, 0.05f, z), healthScale, spec.Tier, weapon, spec.Archetype);

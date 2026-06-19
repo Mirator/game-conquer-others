@@ -50,9 +50,9 @@ public sealed class BattleHud : MonoBehaviour
         score = MedievalUi.Label(scorePanel, "Score Label", "", 25, TextAnchor.MiddleCenter,
             Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
 
-        RectTransform orderPanel = MedievalUi.Frame(fighting, "Order", new Vector2(0.015f, 0.89f),
-            new Vector2(0.27f, 0.985f), Vector2.zero, Vector2.zero);
-        order = MedievalUi.Label(orderPanel, "Order Label", "", 20, TextAnchor.MiddleCenter,
+        RectTransform orderPanel = MedievalUi.Frame(fighting, "Order", new Vector2(0.015f, 0.83f),
+            new Vector2(0.37f, 0.985f), Vector2.zero, Vector2.zero);
+        order = MedievalUi.Label(orderPanel, "Order Label", "", 16, TextAnchor.MiddleCenter,
             Vector2.zero, Vector2.one, new Vector2(8f, 4f), new Vector2(-8f, -4f));
 
         message = MedievalUi.Label(fighting, "Battle Message", "", 42, TextAnchor.MiddleCenter,
@@ -113,7 +113,11 @@ public sealed class BattleHud : MonoBehaviour
         healthLabel.text = battle.Player != null ? $"THE BLUE CAPTAIN   {battle.Player.CurrentHealth:0}" : "THE BLUE CAPTAIN";
         score.text = $"BLUE  {battle.CountAlive(Team.Allies)}      RED  {battle.CountAlive(Team.Enemies)}";
         order.transform.parent.gameObject.SetActive(!battle.IsTraining);
-        order.text = $"ORDER: {CommandLabel(battle.CurrentAllyCommand)}\n1 FOLLOW    2 HOLD    3 CHARGE";
+        string holdFire = battle.AllyHoldFire ? "    [HOLD FIRE]" : "";
+        order.text =
+            $"ORDER: {CommandLabel(battle.CurrentAllyCommand)}    FORMATION: {BattleManager.FormationName(battle.CurrentFormation)}{holdFire}\n" +
+            "1 FOLLOW   2 HOLD   3 CHARGE   4 ADVANCE\n" +
+            "F FORMATION    H HOLD FIRE";
         message.gameObject.SetActive(battle.MessageTimer > 0f);
         message.text = battle.Message;
         reticle.text = battle.Player != null && battle.Player.IsRanged
@@ -158,6 +162,7 @@ public sealed class BattleHud : MonoBehaviour
     {
         BattleManager.AllyCommand.Follow => "FOLLOW",
         BattleManager.AllyCommand.Hold => "HOLD",
+        BattleManager.AllyCommand.Advance => "ADVANCE",
         _ => "CHARGE"
     };
 }

@@ -7,7 +7,15 @@ The game opens on a persistent `FrontendUi` title screen showing:
 - The title `CONQUER OTHERS` and a subtitle.
 - `CONTINUE`, shown only when a save exists
   (`GameDirector.HasSavedCampaign` / `CampaignSaveService`).
-- `NEW CAMPAIGN`, `SETTINGS`, and `QUIT`.
+- `NEW CAMPAIGN`, `CUSTOM BATTLE`, `SETTINGS`, and `QUIT`.
+
+`CUSTOM BATTLE` opens a sandbox setup screen for configuring a one-off fight —
+the number of melee allies, allied archers, and enemies (up to the battlefield
+deployment cap), the arena biome, and the player's weapon. Launching it
+(`GameDirector.LaunchCustomBattle`) starts the battle directly from the title and
+touches no campaign state: when the fight concludes the game returns to the title
+without applying victory or defeat. It is a testing/exploration tool, especially
+for large commanded battles and formation/hold-fire orders.
 
 A battle can be paused with Escape to a `BATTLE PAUSED` screen offering Resume,
 Settings, Return to Title, and Quit.

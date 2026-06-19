@@ -32,20 +32,20 @@ public sealed class BattleFighterPresentation
     private readonly Vector3 rightArmBasePosition;
     private readonly float swordLength;
     private readonly WeaponType weapon;
-    private readonly Team fighterTeam;
     private readonly Vector3 bowUpperTip = new Vector3(0f, 1.02f, 0.34f);
     private readonly Vector3 bowLowerTip = new Vector3(0f, -1.02f, 0.34f);
 
     private Vector3 previousPosition;
     private float walkCycle;
     private float previousWalkCycle;
+    private bool flashActive;
 
     public BattleFighterPresentation(Transform fighterTransform, Team team, UnitType unitType, WeaponType fighterWeapon,
         Archetype archetype = Archetype.Soldier)
     {
         fighter = fighterTransform;
         weapon = fighterWeapon;
-        fighterTeam = team;
+        bool isPlayerFighter = fighterTransform.name.StartsWith("Player");
         Color teamColor = team == Team.Allies ? new Color(0.12f, 0.39f, 0.82f) : new Color(0.72f, 0.12f, 0.08f);
         Color cloth = team == Team.Allies ? new Color(0.08f, 0.17f, 0.32f) : new Color(0.32f, 0.07f, 0.05f);
         Color metal = new Color(0.55f, 0.6f, 0.65f);
@@ -61,7 +61,7 @@ public sealed class BattleFighterPresentation
             modelRoot.localScale = Vector3.one * 1.18f;
         PresentationCatalog catalog = PresentationCatalog.Load();
         GameObject authoredPrefab = UseAuthoredFighterBodies && catalog != null
-            ? catalog.Fighter(unitType, team, fighter.name.StartsWith("Player")) : null;
+            ? catalog.Fighter(unitType, team, isPlayerFighter) : null;
         if (authoredPrefab != null)
         {
             GameObject authored = Object.Instantiate(authoredPrefab, modelRoot);
@@ -71,28 +71,43 @@ public sealed class BattleFighterPresentation
             hasAuthoredModel = true;
             authoredView?.ApplyTeam(team);
         }
-        CreatePart("Torso", PrimitiveType.Capsule, modelRoot, new Vector3(0f, 1.13f, 0f), new Vector3(0.56f, 0.7f, 0.4f), cloth);
-        CreatePart("Chest Plate", PrimitiveType.Cube, modelRoot, new Vector3(0f, 1.2f, 0.25f), new Vector3(0.42f, 0.5f, 0.08f), teamColor);
-        CreatePart("Back Heraldry", PrimitiveType.Cube, modelRoot, new Vector3(0f, 1.22f, -0.255f), new Vector3(0.24f, 0.5f, 0.055f), teamColor);
-        CreatePart("Head", PrimitiveType.Sphere, modelRoot, new Vector3(0f, 1.76f, 0f), Vector3.one * 0.32f, new Color(0.72f, 0.5f, 0.32f));
-        CreatePart("Helmet", PrimitiveType.Sphere, modelRoot, new Vector3(0f, 1.86f, 0f), new Vector3(0.38f, 0.22f, 0.38f), metal);
-        CreatePart("Helmet Ridge", PrimitiveType.Cube, modelRoot, new Vector3(0f, 1.98f, 0f),
-            unitType == UnitType.Guard ? new Vector3(0.13f, 0.25f, 0.48f) : new Vector3(0.08f, 0.16f, 0.44f), rankColor);
-        CreatePart("Belt", PrimitiveType.Cube, modelRoot, new Vector3(0f, 0.88f, 0f), new Vector3(0.58f, 0.09f, 0.44f), leather);
+        // The procedural primitive body is only the fallback look. When an authored
+        // model drives the visuals these 13 cosmetic meshes were created and then
+        // immediately hidden — at 120 fighters that is ~1,500 needless GameObjects and
+        // renderers. Skip creating them outright on the authored path. The animated
+        // pivots (legs, arms, and the weapon mounts parented to the arms) are NOT
+        // cosmetic and are always created below.
+        if (!hasAuthoredModel)
+        {
+            CreatePart("Torso", PrimitiveType.Capsule, modelRoot, new Vector3(0f, 1.13f, 0f), new Vector3(0.56f, 0.7f, 0.4f), cloth);
+            CreatePart("Chest Plate", PrimitiveType.Cube, modelRoot, new Vector3(0f, 1.2f, 0.25f), new Vector3(0.42f, 0.5f, 0.08f), teamColor);
+            CreatePart("Back Heraldry", PrimitiveType.Cube, modelRoot, new Vector3(0f, 1.22f, -0.255f), new Vector3(0.24f, 0.5f, 0.055f), teamColor);
+            CreatePart("Head", PrimitiveType.Sphere, modelRoot, new Vector3(0f, 1.76f, 0f), Vector3.one * 0.32f, new Color(0.72f, 0.5f, 0.32f));
+            CreatePart("Helmet", PrimitiveType.Sphere, modelRoot, new Vector3(0f, 1.86f, 0f), new Vector3(0.38f, 0.22f, 0.38f), metal);
+            CreatePart("Helmet Ridge", PrimitiveType.Cube, modelRoot, new Vector3(0f, 1.98f, 0f),
+                unitType == UnitType.Guard ? new Vector3(0.13f, 0.25f, 0.48f) : new Vector3(0.08f, 0.16f, 0.44f), rankColor);
+            CreatePart("Belt", PrimitiveType.Cube, modelRoot, new Vector3(0f, 0.88f, 0f), new Vector3(0.58f, 0.09f, 0.44f), leather);
+        }
 
         leftLeg = NewPivot("Left Leg", modelRoot, new Vector3(-0.17f, 0.76f, 0f));
         rightLeg = NewPivot("Right Leg", modelRoot, new Vector3(0.17f, 0.76f, 0f));
-        CreatePart("Left Leg Mesh", PrimitiveType.Capsule, leftLeg, new Vector3(0f, -0.38f, 0f), new Vector3(0.18f, 0.44f, 0.18f), leather);
-        CreatePart("Right Leg Mesh", PrimitiveType.Capsule, rightLeg, new Vector3(0f, -0.38f, 0f), new Vector3(0.18f, 0.44f, 0.18f), leather);
+        if (!hasAuthoredModel)
+        {
+            CreatePart("Left Leg Mesh", PrimitiveType.Capsule, leftLeg, new Vector3(0f, -0.38f, 0f), new Vector3(0.18f, 0.44f, 0.18f), leather);
+            CreatePart("Right Leg Mesh", PrimitiveType.Capsule, rightLeg, new Vector3(0f, -0.38f, 0f), new Vector3(0.18f, 0.44f, 0.18f), leather);
+        }
 
         leftArm = NewPivot("Left Arm", modelRoot, new Vector3(-0.35f, 1.42f, 0.02f));
         rightArm = NewPivot("Right Arm", modelRoot, new Vector3(0.35f, 1.42f, 0.02f));
         leftArmBasePosition = leftArm.localPosition;
         rightArmBasePosition = rightArm.localPosition;
-        CreatePart("Left Shoulder Pad", PrimitiveType.Sphere, modelRoot, new Vector3(-0.42f, 1.43f, 0.02f), new Vector3(0.22f, 0.14f, 0.24f), metal);
-        CreatePart("Right Shoulder Pad", PrimitiveType.Sphere, modelRoot, new Vector3(0.42f, 1.43f, 0.02f), new Vector3(0.22f, 0.14f, 0.24f), metal);
-        CreatePart("Left Arm Mesh", PrimitiveType.Capsule, leftArm, new Vector3(0f, -0.31f, 0f), new Vector3(0.16f, 0.37f, 0.16f), metal);
-        CreatePart("Right Arm Mesh", PrimitiveType.Capsule, rightArm, new Vector3(0f, -0.31f, 0f), new Vector3(0.16f, 0.37f, 0.16f), metal);
+        if (!hasAuthoredModel)
+        {
+            CreatePart("Left Shoulder Pad", PrimitiveType.Sphere, modelRoot, new Vector3(-0.42f, 1.43f, 0.02f), new Vector3(0.22f, 0.14f, 0.24f), metal);
+            CreatePart("Right Shoulder Pad", PrimitiveType.Sphere, modelRoot, new Vector3(0.42f, 1.43f, 0.02f), new Vector3(0.22f, 0.14f, 0.24f), metal);
+            CreatePart("Left Arm Mesh", PrimitiveType.Capsule, leftArm, new Vector3(0f, -0.31f, 0f), new Vector3(0.16f, 0.37f, 0.16f), metal);
+            CreatePart("Right Arm Mesh", PrimitiveType.Capsule, rightArm, new Vector3(0f, -0.31f, 0f), new Vector3(0.16f, 0.37f, 0.16f), metal);
+        }
 
         swordPivot = NewPivot("Sword Pivot", rightArm, new Vector3(0.02f, -0.58f, 0.15f));
         swordBasePosition = swordPivot.localPosition;
@@ -113,17 +128,24 @@ public sealed class BattleFighterPresentation
             // overwriting so the blade keeps real-world size.
             sword.transform.localScale *= weapon == WeaponType.TwoHandedSword ? 1.3f : 1.0f;
         }
-        GameObject trailObject = new GameObject("Sword Trail");
-        trailObject.transform.SetParent(swordPivot, false);
-        trailObject.transform.localPosition = Vector3.forward * swordLength;
-        swordTrail = trailObject.AddComponent<TrailRenderer>();
-        swordTrail.time = weapon == WeaponType.TwoHandedSword ? 0.14f : 0.1f;
-        swordTrail.minVertexDistance = 0.06f;
-        swordTrail.startWidth = weapon == WeaponType.TwoHandedSword ? 0.1f : 0.065f;
-        swordTrail.endWidth = 0f;
-        swordTrail.emitting = false;
-        swordTrail.material = RuntimeAssets.Material(team == Team.Allies
-            ? new Color(0.22f, 0.56f, 1f, 0.7f) : new Color(1f, 0.26f, 0.12f, 0.7f), true);
+        // The swing trail is a close-up flourish that is invisible amid a 120-fighter
+        // melee but costs dynamic trail-mesh generation per emitting blade. Build it
+        // for the player only; AI swords simply have no trail (swordTrail stays null
+        // and every use below is null-guarded).
+        if (isPlayerFighter)
+        {
+            GameObject trailObject = new GameObject("Sword Trail");
+            trailObject.transform.SetParent(swordPivot, false);
+            trailObject.transform.localPosition = Vector3.forward * swordLength;
+            swordTrail = trailObject.AddComponent<TrailRenderer>();
+            swordTrail.time = weapon == WeaponType.TwoHandedSword ? 0.14f : 0.1f;
+            swordTrail.minVertexDistance = 0.06f;
+            swordTrail.startWidth = weapon == WeaponType.TwoHandedSword ? 0.1f : 0.065f;
+            swordTrail.endWidth = 0f;
+            swordTrail.emitting = false;
+            swordTrail.material = RuntimeAssets.Material(team == Team.Allies
+                ? new Color(0.22f, 0.56f, 1f, 0.7f) : new Color(1f, 0.26f, 0.12f, 0.7f), true);
+        }
 
         shieldPivot = NewPivot("Shield Pivot", leftArm, new Vector3(-0.04f, -0.38f, 0.3f));
         CreatePart("Shield", PrimitiveType.Cylinder, shieldPivot, Vector3.zero, new Vector3(0.54f, 0.1f, 0.66f), teamColor, new Vector3(90f, 0f, 0f));
@@ -202,7 +224,8 @@ public sealed class BattleFighterPresentation
             isBlocking, phase, staggerTimer, true, attackDirection, !isPlayer);
 
         ApplyWeaponPose(isBlocking, attackDirection, blockDirection, phase, phaseTimer, phaseDuration, whiffRecovery);
-        swordTrail.emitting = weapon != WeaponType.Bow && phase == CombatPhase.AttackRelease;
+        if (swordTrail != null)
+            swordTrail.emitting = weapon != WeaponType.Bow && phase == CombatPhase.AttackRelease;
         float legSwing = Mathf.Sin(walkCycle) * 28f * movement;
         float phaseProgress = phaseDuration > 0f ? Mathf.Clamp01(1f - phaseTimer / phaseDuration) : 0f;
         float attackWeight = phase == CombatPhase.AttackWindup ? phaseProgress
@@ -230,20 +253,31 @@ public sealed class BattleFighterPresentation
         modelRoot.localRotation = Quaternion.Euler(hitPitch + releaseLean + recoveryLean,
             torsoYaw, hitRoll + blockRoll);
 
-        for (int i = 0; i < renderers.Length; i++)
+        // The hit-flash whitens every renderer, but the colour only changes on the
+        // frames the flash turns on or off. Rewriting ~30 property blocks per fighter
+        // every frame is the dominant presentation cost at scale, so only touch them
+        // on a flash transition: white on, base colour off. The per-instance colour
+        // rides GPU instancing, and team colour never changes mid-battle, so ApplyTeam
+        // stays a construction-time call.
+        bool wantFlash = hitFlashTimer > 0f;
+        if (wantFlash != flashActive)
         {
-            Color color = hitFlashTimer > 0f ? Color.white : baseColors[i];
-            colorProperties.SetColor("_BaseColor", color);
-            colorProperties.SetColor("_Color", color);
-            renderers[i].SetPropertyBlock(colorProperties);
+            flashActive = wantFlash;
+            for (int i = 0; i < renderers.Length; i++)
+            {
+                Color color = wantFlash ? Color.white : baseColors[i];
+                colorProperties.SetColor("_BaseColor", color);
+                colorProperties.SetColor("_Color", color);
+                renderers[i].SetPropertyBlock(colorProperties);
+            }
         }
-        authoredView?.ApplyTeam(fighterTeam);
     }
 
     public void Fall(CombatDirection direction)
     {
         authoredView?.UpdateState(0f, false, CombatPhase.Idle, 0f, false);
-        swordTrail.emitting = false;
+        if (swordTrail != null)
+            swordTrail.emitting = false;
         float side = direction == CombatDirection.Left ? 1f : direction == CombatDirection.Right ? -1f : Random.Range(-1f, 1f);
         fighter.rotation = Quaternion.Euler(direction == CombatDirection.Up ? -74f : 76f,
             fighter.eulerAngles.y, side * 22f);

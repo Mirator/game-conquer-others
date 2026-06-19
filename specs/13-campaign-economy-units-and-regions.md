@@ -34,8 +34,10 @@
 - **Renown** is earned by capturing holds (`20 + 5 * threat`), winning field
   battles (`5 + 2 * strength`), and passively from each held hold per day.
 - **Leadership** caps the warband size. It starts at 6 and rises with Renown up to
-  a ceiling of 24 (the battlefield deployment limit), so a growing host must be
-  earned through victories and territory.
+  a ceiling of 24, so a growing host must be earned through victories and territory.
+  Leadership is the player's command ceiling and is distinct from — and smaller
+  than — the battlefield deployment limit (60 per side): enemy garrisons and bandit
+  hordes can field more soldiers than the warband, so the player can be outnumbered.
 
 ## Warband
 

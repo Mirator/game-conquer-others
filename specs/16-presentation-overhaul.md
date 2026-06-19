@@ -69,6 +69,20 @@ and sonify that state but must not alter it.
 
 ## Performance Target
 
-The target is stable 1080p/60 FPS with 16 fighters on a midrange Windows PC.
-Realtime shadow-casting lights are limited, materials are reused, and effects
-are pooled.
+The target is stable 1080p/60 FPS with up to 60 fighters per side (120 total) on a
+midrange Windows PC, so commanded battles can field large lines. Reaching that
+scale with the runtime-generated, no-prefab approach relies on:
+
+- **GPU instancing** on the shared generated materials, so the many primitives of
+  one colour batch into few draw calls.
+- **Dirty-flagged property blocks** — fighter hit-flash colours are rewritten only
+  on the frames the flash turns on or off, not every frame, keeping renderers on
+  the SRP Batcher's fast path the rest of the time.
+- **Authored-body fighters skip their fallback primitive meshes** entirely (rather
+  than creating then hiding them), and only the player carries a sword trail.
+- **Spatial-hash neighbour queries** replace the per-frame O(n²) separation and
+  proximity scans, and AI target scoring / formation slotting read once-per-frame
+  caches.
+
+Realtime shadow-casting lights are limited, materials are reused, and effects are
+pooled.

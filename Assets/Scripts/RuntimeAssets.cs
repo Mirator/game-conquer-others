@@ -61,6 +61,7 @@ public static class RuntimeAssets
 
         Material material = new(FindLitShader()) { color = color };
         material.SetFloat("_Smoothness", 0.18f);
+        material.enableInstancing = true;
         if (emissive)
         {
             material.EnableKeyword("_EMISSION");

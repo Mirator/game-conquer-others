@@ -5,11 +5,17 @@ using UnityEngine.InputSystem;
 public sealed class BattleManager : MonoBehaviour
 {
     public enum BattleState { Ready, Fighting, Victory, Defeat }
-    public enum AllyCommand { Follow, Hold, Charge }
+    public enum AllyCommand { Follow, Hold, Charge, Advance }
 
     public bool IsBattleRunning => State == BattleState.Fighting;
     public BattleState State { get; private set; } = BattleState.Ready;
     public AllyCommand CurrentAllyCommand { get; private set; } = AllyCommand.Follow;
+    // Orthogonal to the order: the shape allies hold while not in melee.
+    public FormationShape CurrentFormation { get; private set; } = FormationShape.Line;
+    // Allied archers stop loosing while set, but keep positioning. Player fire is unaffected.
+    public bool AllyHoldFire { get; private set; }
+    // Movement-speed multiplier for the active formation (Shield Wall marches slower).
+    public float FormationSpeedScale => FormationBalance.SpeedScale(CurrentFormation);
     public PlayerFighter Player { get; private set; }
     public int AlliesAlive => CountAlive(Team.Allies);
     public int EnemiesAlive => CountAlive(Team.Enemies);
@@ -71,6 +77,13 @@ public sealed class BattleManager : MonoBehaviour
 
     private readonly List<BattleFighter> fighters = new();
     private readonly Dictionary<AIFighter, Vector3> holdPositions = new();
+    private readonly Dictionary<AIFighter, int> allyFormationIndex = new();
+    private readonly List<AIFighter> allyOrderScratch = new();
+    private int allyOrderFrame = -1;
+    // Advance order: a marching anchor that creeps forward each frame along the
+    // captain's facing at the time the order was given, so the line presses ahead.
+    private Vector3 advanceAnchor;
+    private Vector3 advanceFacing = Vector3.forward;
     private BattleTactics tactics;
     private BattleEffects effects;
     private ThirdPersonCamera cameraRig;
@@ -135,7 +148,16 @@ public sealed class BattleManager : MonoBehaviour
                     SetAllyCommand(AllyCommand.Hold);
                 else if (Keyboard.current.digit3Key.wasPressedThisFrame)
                     SetAllyCommand(AllyCommand.Charge);
+                else if (Keyboard.current.digit4Key.wasPressedThisFrame)
+                    SetAllyCommand(AllyCommand.Advance);
+                if (Keyboard.current.fKey.wasPressedThisFrame)
+                    CycleFormation();
+                if (Keyboard.current.hKey.wasPressedThisFrame)
+                    ToggleHoldFire();
             }
+
+            if (CurrentAllyCommand == AllyCommand.Advance)
+                MarchAdvanceAnchor();
         }
 
         if (Keyboard.current == null)
@@ -233,14 +255,23 @@ public sealed class BattleManager : MonoBehaviour
             return false;
 
         float threatDistance = target != null && target.IsAlive ? ally.DistanceTo(target) : float.MaxValue;
+        // A nearby enemy breaks formation so allies defend themselves. Shield Wall
+        // holds tighter (breaks only on contact) while Skirmish peels off to fight
+        // sooner — so the radius is shape-aware.
         float defenseRadius = CurrentAllyCommand == AllyCommand.Hold ? 4.5f : 5.5f;
+        defenseRadius += CurrentFormation switch
+        {
+            FormationShape.ShieldWall => -1.2f,
+            FormationShape.Skirmish => 1.5f,
+            _ => 0f
+        };
         if (threatDistance <= defenseRadius)
             return false;
 
         if (CurrentAllyCommand == AllyCommand.Hold && holdPositions.TryGetValue(ally, out Vector3 held))
             position = held;
         else
-            position = GetFollowFormationPosition(ally);
+            position = GetFormationPosition(ally);
         return true;
     }
 
@@ -257,33 +288,123 @@ public sealed class BattleManager : MonoBehaviour
                 if (fighter is AIFighter ally && ally.IsAlive && ally.Team == Team.Allies)
                     holdPositions[ally] = ally.transform.position;
         }
+        else if (command == AllyCommand.Advance)
+        {
+            advanceFacing = FlattenForward(Player != null ? Player.transform.forward : Vector3.forward);
+            Vector3 origin = Player != null ? Player.transform.position : Vector3.zero;
+            advanceAnchor = ClampToArena(origin + advanceFacing * FormationBalance.AdvanceStep);
+        }
 
         message = command switch
         {
             AllyCommand.Follow => "ALLIES: FORM ON ME",
             AllyCommand.Hold => "ALLIES: HOLD THIS GROUND",
+            AllyCommand.Advance => "ALLIES: ADVANCE",
             _ => "ALLIES: CHARGE"
         };
         messageTimer = 1.2f;
     }
 
-    private Vector3 GetFollowFormationPosition(AIFighter ally)
+    public void CycleFormation()
     {
-        int index = 0;
-        foreach (BattleFighter fighter in fighters)
+        if (IsTraining)
+            return;
+        CurrentFormation = CurrentFormation switch
         {
-            if (fighter is not AIFighter candidate || !candidate.IsAlive || candidate.Team != Team.Allies)
-                continue;
-            if (candidate == ally)
-                break;
-            index++;
-        }
+            FormationShape.Line => FormationShape.ShieldWall,
+            FormationShape.ShieldWall => FormationShape.Skirmish,
+            _ => FormationShape.Line
+        };
+        message = $"FORMATION: {FormationName(CurrentFormation)}";
+        messageTimer = 1.2f;
+    }
 
-        int row = index / 4;
-        int column = index % 4;
-        float side = (column - 1.5f) * 1.65f;
-        float depth = 1.5f - row * 1.7f;
-        return Player.transform.position + Player.transform.right * side + Player.transform.forward * depth;
+    public void ToggleHoldFire()
+    {
+        if (IsTraining)
+            return;
+        bool hasArcher = false;
+        foreach (BattleFighter fighter in fighters)
+            if (fighter is AIFighter ai && ai.IsAlive && ai.Team == Team.Allies && ai.Weapon == WeaponType.Bow)
+            {
+                hasArcher = true;
+                break;
+            }
+        if (!hasArcher)
+        {
+            message = "NO ARCHERS TO HOLD";
+            messageTimer = 1.2f;
+            return;
+        }
+        AllyHoldFire = !AllyHoldFire;
+        message = AllyHoldFire ? "ARCHERS: HOLD FIRE" : "ARCHERS: LOOSE AT WILL";
+        messageTimer = 1.2f;
+    }
+
+    public static string FormationName(FormationShape shape) => shape switch
+    {
+        FormationShape.ShieldWall => "SHIELD WALL",
+        FormationShape.Skirmish => "SKIRMISH",
+        _ => "LINE"
+    };
+
+    // Creeps the Advance anchor forward along the captain's order-time facing,
+    // clamped inside the walls, so the line presses ahead each frame.
+    private void MarchAdvanceAnchor()
+        => advanceAnchor = ClampToArena(advanceAnchor + advanceFacing * FormationBalance.AdvanceSpeed * Time.deltaTime);
+
+    private static Vector3 FlattenForward(Vector3 forward)
+    {
+        forward.y = 0f;
+        return forward.sqrMagnitude > 0.0001f ? forward.normalized : Vector3.forward;
+    }
+
+    private static Vector3 ClampToArena(Vector3 position)
+    {
+        position.x = Mathf.Clamp(position.x, -13f, 13f);
+        position.z = Mathf.Clamp(position.z, -15f, 15f);
+        return position;
+    }
+
+    // The captain-relative slot for an ally, in the current formation shape. Follow
+    // and Hold orient on the captain; Advance orients on the marching anchor.
+    private Vector3 GetFormationPosition(AIFighter ally)
+    {
+        int index = AllyFormationIndex(ally);
+        int count = allyOrderScratch.Count;
+        Vector3 offset = Formation.SlotLocalOffset(index, count, CurrentFormation);
+        bool advancing = CurrentAllyCommand == AllyCommand.Advance;
+        Vector3 facing = advancing ? advanceFacing : FlattenForward(Player.transform.forward);
+        Vector3 anchor = advancing ? advanceAnchor : Player.transform.position;
+        return anchor + Quaternion.LookRotation(facing) * offset;
+    }
+
+    // Test/diagnostic hook: the captain-relative slot an ally would move to under
+    // the current order and formation.
+    public Vector3 DebugFormationPosition(AIFighter ally) => GetFormationPosition(ally);
+
+    // A stable per-frame ordering of living allied AI (sorted by instance id, the
+    // same key BattleTactics uses for engagement slots), so each ally's formation
+    // slot is an O(1) lookup rather than an O(n) scan per ally per frame. Shared by
+    // every formation query and rebuilt lazily once per frame.
+    internal int AllyFormationIndex(AIFighter ally)
+    {
+        if (allyOrderFrame != Time.frameCount)
+            RebuildAllyOrdering();
+        return allyFormationIndex.TryGetValue(ally, out int index) ? index : 0;
+    }
+
+    private void RebuildAllyOrdering()
+    {
+        allyOrderFrame = Time.frameCount;
+        allyOrderScratch.Clear();
+        foreach (BattleFighter fighter in fighters)
+            if (fighter is AIFighter ai && ai.IsAlive && ai.Team == Team.Allies)
+                allyOrderScratch.Add(ai);
+        allyOrderScratch.Sort((a, b) => a.GetInstanceID().CompareTo(b.GetInstanceID()));
+        allyFormationIndex.Clear();
+        for (int i = 0; i < allyOrderScratch.Count; i++)
+            allyFormationIndex[allyOrderScratch[i]] = i;
     }
 
     public void PlayAttackSound(Vector3 position, bool player, WeaponType weapon)
@@ -566,7 +687,7 @@ public sealed class BattleManager : MonoBehaviour
             if (fighter is not AIFighter ally || !ally.IsAlive || ally.Team != Team.Allies)
                 continue;
             Vector3 destination = CurrentAllyCommand == AllyCommand.Hold && holdPositions.TryGetValue(ally, out Vector3 held)
-                ? held : GetFollowFormationPosition(ally);
+                ? held : GetFormationPosition(ally);
             if (Vector3.Distance(ally.transform.position, destination) <= tolerance)
                 count++;
         }

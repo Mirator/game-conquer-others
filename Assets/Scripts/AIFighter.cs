@@ -132,7 +132,7 @@ public sealed class AIFighter : BattleFighter
             if (toCommand.sqrMagnitude > 0.2f)
             {
                 FaceDirection(toCommand, 10f);
-                float formationSpeed = Mathf.Clamp(toCommand.magnitude * 1.8f, 0.65f, 3.5f);
+                float formationSpeed = Mathf.Clamp(toCommand.magnitude * 1.8f, 0.65f, 3.5f) * battle.FormationSpeedScale;
                 Move((toCommand.normalized + commandSeparation).normalized * formationSpeed);
             }
             else if (target != null)
@@ -298,11 +298,15 @@ public sealed class AIFighter : BattleFighter
             TacticalMove((strafe * 0.45f + separation).normalized * 1.2f);
         }
 
-        if (attackDelay <= 0f && distance <= 24f && !IsAttacking && PrepareAttack(CombatDirection.Thrust))
+        // Hold-Fire holds allied archers at the ready: they keep strafing and aiming
+        // (the movement above runs regardless) but never draw or loose. The player's
+        // bow fires from input, not this path, so it is unaffected.
+        bool holdFire = Team == Team.Allies && battle.AllyHoldFire;
+        if (!holdFire && attackDelay <= 0f && distance <= 24f && !IsAttacking && PrepareAttack(CombatDirection.Thrust))
         {
             attackDelay = Random.Range(1.65f, 2.45f) / aggression;
         }
-        else if (Phase == CombatPhase.AttackHold && BowPrecisionNormalized >= 0.72f)
+        else if (!holdFire && Phase == CombatPhase.AttackHold && BowPrecisionNormalized >= 0.72f)
             ReleasePreparedAttack();
     }
 

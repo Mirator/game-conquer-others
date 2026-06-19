@@ -338,8 +338,9 @@ public sealed class BattleRuntimeSmoke : MonoBehaviour
         director.LaunchBattle(setup);
         yield return WaitForMode(GameDirector.Mode.Battle, "command review battle launch");
         BattleManager manager = Object.FindFirstObjectByType<BattleManager>();
-        Require(manager != null && manager.CurrentAllyCommand == BattleManager.AllyCommand.Follow,
-            "command battle starts in follow");
+        Require(manager != null && manager.CurrentAllyCommand == BattleManager.AllyCommand.Follow
+            && manager.CurrentFormation == FormationShape.Line,
+            "command battle starts in follow / line");
         if (manager == null)
             yield break;
 
@@ -363,6 +364,19 @@ public sealed class BattleRuntimeSmoke : MonoBehaviour
         yield return new WaitForSeconds(1f);
         Capture("smoke-command-charge.png");
         yield return new WaitForEndOfFrame();
+
+        // Advance and formation cycling are visual reviews here; the marching-anchor
+        // and slot-shape maths are asserted deterministically in PlayMode.
+        manager.SetAllyCommand(BattleManager.AllyCommand.Advance);
+        Require(manager.CurrentAllyCommand == BattleManager.AllyCommand.Advance, "advance order accepted");
+        FormationShape shapeBefore = manager.CurrentFormation;
+        manager.CycleFormation();
+        Require(manager.CurrentFormation != shapeBefore, "formation cycles to a new shape");
+        yield return new WaitForSeconds(1f);
+        Capture("smoke-command-advance.png");
+        yield return new WaitForEndOfFrame();
+
+        yield return RunHoldFireReview();
 
         BattleSetup moraleSetup = BattleSetup.Default();
         moraleSetup.AllyCount = 0;
@@ -410,6 +424,37 @@ public sealed class BattleRuntimeSmoke : MonoBehaviour
         yield return new WaitForSeconds(2.5f);
         Require(manager.Retreats == 1 && manager.AlliedSoldiersAlive == 1,
             "withdrawn ally remains a campaign survivor");
+    }
+
+    // An allied archer holds fire (keeps positioning, never looses) until released.
+    // Charge is issued so the archer engages with ranged AI rather than holding a
+    // formation slot, which is what makes the loose/hold distinction observable.
+    private IEnumerator RunHoldFireReview()
+    {
+        BattleSetup setup = BattleSetup.Default();
+        setup.AllyCount = 0;
+        setup.AllyComposition = new List<UnitSpec> { new UnitSpec(UnitType.Militia, Archetype.Soldier, WeaponType.Bow) };
+        setup.EnemyCount = 1;
+        setup.TargetName = "HOLD FIRE REVIEW";
+        director.LaunchBattle(setup);
+        yield return WaitForMode(GameDirector.Mode.Battle, "hold-fire battle launch");
+        BattleManager manager = Object.FindFirstObjectByType<BattleManager>();
+        Require(manager != null, "hold-fire manager exists");
+        if (manager == null)
+            yield break;
+        manager.BeginBattle();
+        manager.SetAllyCommand(BattleManager.AllyCommand.Charge);
+        manager.ToggleHoldFire();
+        Require(manager.AllyHoldFire, "hold-fire engages for allied archers");
+        int heldShots = manager.ProjectileShots;
+        yield return new WaitForSeconds(2.5f);
+        Require(manager.ProjectileShots == heldShots, "held allied archers do not loose");
+        manager.ToggleHoldFire();
+        Require(!manager.AllyHoldFire, "hold-fire releases");
+        yield return new WaitForSeconds(2.5f);
+        Require(manager.ProjectileShots > heldShots, "released allied archers loose again");
+        Capture("smoke-command-holdfire.png");
+        yield return new WaitForEndOfFrame();
     }
 
     private IEnumerator RunCampaignConquests(int desiredTerritories)

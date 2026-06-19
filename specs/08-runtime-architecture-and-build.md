@@ -34,6 +34,9 @@ listener. Each mode's camera carries the single active `AudioListener`.
 | `CampaignMapController` | Builds and runs the campaign map view, camera, and UI. |
 | `AIProfile` | Archetype behavior presets layered on a fighter's unit stats and weapon. |
 | `CombatBalance` / `CombatBalanceData` | Static tuning facade over an optional Resources `ScriptableObject` with baked defaults. |
+| `FormationBalance` / `FormationBalanceData` | Same facade pattern for formation spacing, speeds, and advance tuning. |
+| `Formation` | Pure, allocation-free formation slot geometry (`FormationShape` → captain-relative offset). |
+| `SpatialHashGrid` | Uniform XZ grid for near-O(1) neighbour queries (separation, proximity telemetry). |
 | `FrontendUi` | Persistent title, pause, and settings UI. |
 | `BattleBootstrap` | Builds a battle (arena, fighters) under a supplied root. |
 | `BattleManager` | Public battle facade; owns lifecycle, combat queries, statistics, and feedback state. |
@@ -71,6 +74,7 @@ listener. Each mode's camera carries the single active `AudioListener`.
 Other editor tooling:
 
 - `Conquer Others > Create Combat Balance Asset` (`CombatBalanceAssetTool`).
+- `Conquer Others > Create Formation Balance Asset` (`FormationBalanceAssetTool`).
 - `Conquer Others > Wire Survival Kit Props` (`SurvivalKitImporter`, also
   runnable headless via `-executeMethod`).
 

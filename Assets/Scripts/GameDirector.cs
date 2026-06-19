@@ -26,6 +26,7 @@ public sealed class GameDirector : MonoBehaviour
     private BattleSetup currentSetup = BattleSetup.Default();
     private Territory pendingTarget;
     private EnemyParty pendingParty;
+    private bool customBattle;
     private int campaignSeed = 1;
     private bool transitioning;
     private bool smokeStarted;
@@ -81,6 +82,17 @@ public sealed class GameDirector : MonoBehaviour
         pendingTarget = null;
         pendingParty = party;
         SaveCampaign();
+        StartCoroutine(TransitionTo(Mode.Battle));
+    }
+
+    // A one-off battle configured from the title screen for testing/sandbox play.
+    // It touches no campaign state and returns to the title when concluded.
+    public void LaunchCustomBattle(BattleSetup setup)
+    {
+        currentSetup = setup;
+        pendingTarget = null;
+        pendingParty = null;
+        customBattle = true;
         StartCoroutine(TransitionTo(Mode.Battle));
     }
 
@@ -234,6 +246,14 @@ public sealed class GameDirector : MonoBehaviour
 
     private void HandleBattleConcluded(BattleResult result)
     {
+        // A custom battle is a sandbox: discard its outcome and return to the title
+        // without applying victory/defeat to the campaign.
+        if (customBattle)
+        {
+            customBattle = false;
+            StartCoroutine(TransitionTo(Mode.Title));
+            return;
+        }
         if (currentSetup.IsTraining)
             campaign.LastReport = $"Training completed with {WeaponCatalog.Label(currentSetup.PlayerWeapon)}.";
         else if (result.PlayerWon && pendingParty != null)

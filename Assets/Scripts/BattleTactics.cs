@@ -13,6 +13,14 @@ public sealed class BattleTactics
     private readonly List<BattleFighter> emptyPermissionTargets = new();
     private readonly Dictionary<AIFighter, int> engagementSlots = new();
     private readonly Dictionary<BattleFighter, List<AIFighter>> engagementGroups = new();
+    // Neighbour acceleration so per-frame proximity work scales past O(n^2). The
+    // cell size equals the separation cutoff (sqrt(6.25) == 2.5), so a fighter's
+    // 3x3 cell block contains every neighbour that can exert a separation force.
+    private readonly SpatialHashGrid grid = new(2.5f);
+    private readonly List<BattleFighter> neighborScratch = new();
+    private readonly Dictionary<BattleFighter, int> assignedCountByTarget = new();
+    private int gridFrame = -1;
+    private int assignedCountFrame = -1;
     private int engagementSlotFrame = -1;
     private int separationFrame = -1;
     private int maxPlayerAttackers;
@@ -31,7 +39,7 @@ public sealed class BattleTactics
     public BattleFighter SelectTarget(AIFighter seeker, BattleFighter current)
     {
         PlayerFighter captain = player();
-        if (seeker.Team == Team.Enemies && captain != null && captain.IsAlive && CountAssignedTo(captain, seeker) == 0)
+        if (seeker.Team == Team.Enemies && captain != null && captain.IsAlive && AssignedTo(captain, seeker) == 0)
             return captain;
         BattleFighter best = current != null && current.IsAlive ? current : null;
         float bestScore = best != null ? ScoreTarget(seeker, best, true) : float.MaxValue;
@@ -109,58 +117,74 @@ public sealed class BattleTactics
         return separationByFighter.TryGetValue(seeker, out Vector3 result) ? result : Vector3.zero;
     }
 
+    // Each fighter accumulates a push away from neighbours within 2.5m. Querying
+    // the spatial grid per fighter is O(n*k); the symmetric +/-force split the old
+    // pairwise loop used is unnecessary here because every fighter computes its own
+    // push from its own neighbours, yielding the identical per-fighter result.
     private void RebuildSeparationCache()
     {
         separationFrame = Time.frameCount;
         separationByFighter.Clear();
-        foreach (BattleFighter fighter in fighters)
-            if (fighter.IsAlive)
-                separationByFighter[fighter] = Vector3.zero;
+        EnsureGrid();
         for (int i = 0; i < fighters.Count; i++)
         {
-            BattleFighter first = fighters[i];
-            if (!first.IsAlive)
+            BattleFighter self = fighters[i];
+            if (!self.IsAlive)
                 continue;
-            for (int j = i + 1; j < fighters.Count; j++)
+            grid.QueryNeighbors(self.transform.position, neighborScratch);
+            Vector3 force = Vector3.zero;
+            for (int n = 0; n < neighborScratch.Count; n++)
             {
-                BattleFighter second = fighters[j];
-                if (!second.IsAlive)
+                BattleFighter other = neighborScratch[n];
+                if (other == self || !other.IsAlive)
                     continue;
-                Vector3 offset = first.transform.position - second.transform.position;
+                Vector3 offset = self.transform.position - other.transform.position;
                 offset.y = 0f;
                 float distanceSquared = offset.sqrMagnitude;
                 if (distanceSquared >= 6.25f || distanceSquared <= 0.001f)
                     continue;
                 float distance = Mathf.Sqrt(distanceSquared);
-                Vector3 force = offset / distance * Mathf.Clamp01((2.5f - distance) / 1.8f);
-                separationByFighter[first] += force;
-                separationByFighter[second] -= force;
+                force += offset / distance * Mathf.Clamp01((2.5f - distance) / 1.8f);
             }
+            separationByFighter[self] = Vector3.ClampMagnitude(force, 1.4f);
         }
-        foreach (BattleFighter fighter in fighters)
-            if (fighter.IsAlive && separationByFighter.TryGetValue(fighter, out Vector3 result))
-                separationByFighter[fighter] = Vector3.ClampMagnitude(result, 1.4f);
+    }
+
+    private void EnsureGrid()
+    {
+        if (gridFrame == Time.frameCount)
+            return;
+        gridFrame = Time.frameCount;
+        grid.Rebuild(fighters);
     }
 
     public void UpdateTelemetry()
     {
         CleanupAttackPermissions();
-        int closePairs = 0;
+        EnsureGrid();
+        // Grid-based proximity scan: minimumFighterDistance and the close-pair count
+        // are clumping diagnostics, so only neighbours within a cell matter (combat is
+        // melee, so the meaningful minimum always falls inside the grid range). Each
+        // unordered close pair is seen from both fighters, hence the halving.
+        int closeNeighbors = 0;
         for (int i = 0; i < fighters.Count; i++)
         {
-            if (!fighters[i].IsAlive)
+            BattleFighter self = fighters[i];
+            if (!self.IsAlive)
                 continue;
-            for (int j = i + 1; j < fighters.Count; j++)
+            grid.QueryNeighbors(self.transform.position, neighborScratch);
+            for (int n = 0; n < neighborScratch.Count; n++)
             {
-                if (!fighters[j].IsAlive)
+                BattleFighter other = neighborScratch[n];
+                if (other == self || !other.IsAlive)
                     continue;
-                float distance = Vector3.Distance(fighters[i].transform.position, fighters[j].transform.position);
+                float distance = Vector3.Distance(self.transform.position, other.transform.position);
                 minimumFighterDistance = Mathf.Min(minimumFighterDistance, distance);
                 if (distance < 1.05f)
-                    closePairs++;
+                    closeNeighbors++;
             }
         }
-        maxClosePairs = Mathf.Max(maxClosePairs, closePairs);
+        maxClosePairs = Mathf.Max(maxClosePairs, closeNeighbors / 2);
         foreach (KeyValuePair<BattleFighter, List<AIFighter>> pair in attackPermissions)
         {
             maxTargetAttackers = Mathf.Max(maxTargetAttackers, pair.Value.Count);
@@ -188,10 +212,7 @@ public sealed class BattleTactics
     private float ScoreTarget(AIFighter seeker, BattleFighter target, bool current)
     {
         float distance = Vector3.Distance(seeker.transform.position, target.transform.position);
-        int assigned = 0;
-        foreach (BattleFighter fighter in fighters)
-            if (fighter is AIFighter ai && ai != seeker && ai.IsAlive && ai.CurrentTarget == target)
-                assigned++;
+        int assigned = AssignedTo(target, seeker);
         float score = distance + assigned * 3.1f;
         if (target.IsPlayer)
             score -= 0.65f;
@@ -204,13 +225,27 @@ public sealed class BattleTactics
         return score;
     }
 
-    private int CountAssignedTo(BattleFighter target, AIFighter except)
+    // Number of living AI targeting `target`, excluding `except`. Backed by a
+    // once-per-frame snapshot so target scoring is O(1) per candidate instead of an
+    // O(n) scan per candidate per seeker (which made selection O(n^2) overall).
+    private int AssignedTo(BattleFighter target, AIFighter except)
     {
-        int count = 0;
-        foreach (BattleFighter fighter in fighters)
-            if (fighter is AIFighter ai && ai != except && ai.IsAlive && ai.CurrentTarget == target)
-                count++;
+        if (assignedCountFrame != Time.frameCount)
+            RebuildAssignedCounts();
+        int count = assignedCountByTarget.TryGetValue(target, out int value) ? value : 0;
+        if (except != null && except.IsAlive && except.CurrentTarget == target)
+            count--;
         return count;
+    }
+
+    private void RebuildAssignedCounts()
+    {
+        assignedCountFrame = Time.frameCount;
+        assignedCountByTarget.Clear();
+        foreach (BattleFighter fighter in fighters)
+            if (fighter is AIFighter ai && ai.IsAlive && ai.CurrentTarget != null)
+                assignedCountByTarget[ai.CurrentTarget] =
+                    (assignedCountByTarget.TryGetValue(ai.CurrentTarget, out int existing) ? existing : 0) + 1;
     }
 
     private void CleanupAttackPermissions()
