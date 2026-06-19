@@ -19,7 +19,8 @@ and sonify that state but must not alter it.
   fallback when a catalog reference is unavailable.
 - Captain, militia, veteran, guard, and enemy entries resolve to distinct
   generated fighter prefabs, even when they share an underlying Quaternius
-  outfit mesh.
+  outfit mesh. Captains read as elite through a 1.18x silhouette and a bright
+  gold crest.
 - Runtime must not attach unbound rank accent geometry to authored animated
   fighters; any added geometry (weapons, head) must attach to validated bones or
   sockets so it follows the animation.
@@ -53,6 +54,16 @@ and sonify that state but must not alter it.
   source FBXs from `Assets/ThirdParty`.
 - Recorded clip sets are preferred; synthesized audio remains a fallback for
   events without an approved recorded clip.
+- Battlefields are dressed by encounter kind (assault hold, bandit camp, or
+  training yard) over a shared biome, with time-of-day lighting from the campaign
+  clock and a per-region procedural skybox. Bandit-camp dressing reuses curated
+  Kenney Survival Kit FBXs.
+- A per-arena ambient bed (`ArenaThemeDefinition.ambience`, swapped in by
+  `BattleEffects.Initialize`) plays under the distant-drum bed, both scaled by
+  music volume.
+- Signature combat cues prefer curated CC0 clips — blade clashes for
+  perfect-block and counter, cloth for heavy swings, catalog impacts for arrows —
+  with synth fallbacks. Spatial SFX play through a pooled set of 16 voices.
 - Impact effects use pooled particle systems and presentation code avoids
   recurring per-frame allocations.
 

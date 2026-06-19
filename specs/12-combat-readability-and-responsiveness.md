@@ -82,6 +82,9 @@ Implementation status: P0, P1, P2, and P3 are delivered.
 6. Camera shake must be strong only when the player is hit, blocks, or lands a
    nearby important strike. Distant AI impacts should not shake the camera.
 
+Delivered: landed player hits apply damage-scaled hit-stop, and a lethal blow
+adds a meaty finisher pause, a blood burst, and a camera kick.
+
 ### P2 - Control Group Combat
 
 1. Add engagement slots around each target instead of unrestricted convergence.

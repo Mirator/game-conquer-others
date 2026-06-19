@@ -10,9 +10,12 @@ Every fighter has one authoritative `WeaponType`:
 | Two-Handed Sword | Longer reach and heavier damage with slower attacks; directional weapon blocks; no shield. |
 | Bow | Ranged projectile weapon; cannot block. |
 
-Campaign NPC defaults are militia with sword and shield, veterans with
-two-handed swords, and guards with bows. Player and training-opponent loadouts
-may override those defaults.
+A fighter's weapon is chosen by its archetype: `ArchetypeCatalog.Weapon` gives a
+two-handed sword to Berserkers, a bow to Archers, and a sword and shield to
+Soldiers, Shieldbearers, and Captains. `WeaponCatalog.DefaultFor(UnitType)`
+remains only as a tier-only fallback when an encounter has no archetype
+composition (legacy militia sword-and-shield, veteran two-handed, guard bow).
+Player and training-opponent loadouts may override the chosen weapon.
 
 ## Bow Combat
 
@@ -47,8 +50,9 @@ may override those defaults.
 
 - The campaign map always shows a Captain Equipment panel.
 - The selected player weapon persists across campaign battles and training.
-- Recruitment roles communicate their default weapon:
-  militia line fighter, veteran two-handed swordsman, and guard archer.
+- Recruitment offers a stat tier crossed with an archetype: cost is set by the
+  tier (militia, veteran, guard) while the archetype is a free choice of
+  behavior that communicates the fighter's weapon and role.
 
 ## Training Arena
 

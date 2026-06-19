@@ -95,8 +95,6 @@ Wrong-direction, late, absent, or rear-angle block:
 - A landed player hit briefly freezes the attacker and defender for impact.
 - Distant AI impacts do not shake the player's camera.
 - Dead fighters cannot be hit.
-- The player's primary incoming threat displays its attack direction near the
-  reticle without placing text or UI markers on enemies.
 
 ## Future Combat Features
 

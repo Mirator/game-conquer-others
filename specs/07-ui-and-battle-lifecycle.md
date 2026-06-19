@@ -1,12 +1,26 @@
 # 07 - UI and Battle Lifecycle
 
+## Title Screen
+
+The game opens on a persistent `FrontendUi` title screen showing:
+
+- The title `CONQUER OTHERS` and a subtitle.
+- `CONTINUE`, shown only when a save exists
+  (`GameDirector.HasSavedCampaign` / `CampaignSaveService`).
+- `NEW CAMPAIGN`, `SETTINGS`, and `QUIT`.
+
+A battle can be paused with Escape to a `BATTLE PAUSED` screen offering Resume,
+Settings, Return to Title, and Quit.
+
 ## Ready Screen
 
 The ready screen communicates:
 
-- Game title and courtyard battle premise.
-- Movement, dodge, directional attack, and directional block controls.
-- The rule that matching the incoming direction stops damage.
+- A per-encounter title from `BattleHud`: `TRAINING ARENA`,
+  `ROUT THE <enemy>` for a bandit field battle, or `ASSAULT ON <hold>` for a
+  settlement assault.
+- The equipped weapon.
+- Movement, dodge, and the directional attack or bow controls for the loadout.
 - A mouse click begins the battle.
 
 ## Fighting HUD
@@ -15,19 +29,14 @@ The ready screen communicates:
 - Top-right count of living blue and red fighters.
 - Top-left active ally order and `1 Follow / 2 Hold / 3 Charge` controls during
   campaign battles.
-- Center crosshair with four directional tick marks:
-  - Ticks are always visible, dimmed when idle.
-  - The active direction tick brightens gold while attacking or aiming,
-    cyan while blocking.
-  - Ticks spread outward as an attack charges during wind-up and hold.
-- Direction label below the crosshair:
-  - `AIM LEFT/RIGHT/HIGH/THRUST` while no button is held.
-  - `ATTACK LEFT/RIGHT/HIGH/THRUST` while preparing or holding a swing.
-  - `BLOCK LEFT/RIGHT/HIGH/THRUST` while blocking.
+- A single center `+` reticle:
+  - It reads `DRAW` while a bow charges and `STEADY` once the bow shot is
+    precise.
+  - It reads `COUNTER` while a perfect-block counter window is open.
+  - It shows no directional tick marks, no `AIM/ATTACK/BLOCK` direction label,
+    and no primary-threat incoming-direction cue.
 - Temporary battle and block messages.
-- A single primary-threat cue showing the incoming direction near the reticle.
 - No directional text or telegraph bars are drawn above enemies.
-- A gold counter-ready reticle and counter prompt after a perfect block.
 - World-space health bars only for recently damaged fighters and the current
   primary threat.
 - Red damage, gold block, and cyan perfect-block screen flashes.

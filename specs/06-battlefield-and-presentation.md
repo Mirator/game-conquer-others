@@ -2,19 +2,17 @@
 
 ## Battlefields
 
-The campaign uses four runtime-generated arenas. Every arena preserves the
-shared combat footprint and team spawn lanes while changing terrain, cover,
-atmosphere, and movement routes.
+The campaign uses four runtime-generated biomes, each dressed by the kind of
+encounter being fought. `BattleBootstrap` builds in layers: a shared biome
+(ground, scatter, containment boundary) plus a kind-specific structure layer.
+The shared combat footprint and team spawn lanes are unchanged across every
+biome and kind; encounter dressing is kept clear of the enemy spawn lane (z>=13).
 
-### Fortified Courtyard
+### Courtyard
 
 - 34 by 34 ground area.
-- Stone boundary walls and battlements.
-- North-south dirt road and crossing road.
-- Wooden barricades and stone cover near the center.
-- Blue banners at the blue side and red banners at the red side.
-- Supply crates near outer lanes.
-- Four lit torches.
+- Grassy ground with a north-south dirt road and a crossing road.
+- Low stone containment boundary.
 
 ### Deep Forest
 
@@ -31,11 +29,37 @@ atmosphere, and movement routes.
 - Tall side ridges, boulders, standing stones, and narrow central approaches.
 - Open, exposed terrain with strong stone silhouettes.
 
+## Encounter Dressing by Kind
+
+The structure layer dresses the chosen biome for the encounter:
+
+- **Settlement Assault** — a fortified hold on the defender (+z) side: ramparts
+  and battlements, a village gate with wall sections, two corner towers (reusing
+  the village tower roof), defender banners, and torches.
+- **Bandit Field** — the open biome plus a bandit camp behind the enemy line:
+  a lit campfire (with a point light), tents, bedrolls, wagons, barrels,
+  palisade fences, and loot crates, using curated Kenney Survival Kit FBXs. No
+  fortress walls, so it reads as an ambush.
+- **Training** — a neutral practice yard: barricades, stone cover, four torches,
+  a weapon stand, barrels, and edge fences.
+
 ## Spawn Layout
 
 - Player and three blue allies begin near the south side.
 - Four red enemies begin near the north side.
 - Both teams begin facing generally toward the opposing side.
+
+## Time of Day and Sky
+
+Battle lighting is driven by the campaign day clock. `CampaignState.TimeOfDayForDay(day)`
+produces a deterministic 0..1 value (carried in `BattleSetup.TimeOfDay`) so the
+hour the player arrived lights the fight, and a retried battle looks identical.
+
+- `BattleBootstrap.ApplySunAndSky` derives sun angle, color, and intensity,
+  ambient light, and fog from that value.
+- Torch and campfire lights dim toward midday and brighten at night.
+- Each region uses a procedural skybox (`RuntimeAssets.Skybox`, `Skybox/Procedural`)
+  tinted by time of day; the camera clears to that skybox.
 
 ## Visual Style
 
@@ -59,8 +83,17 @@ atmosphere, and movement routes.
 
 Recorded CC0 clip sets are used where curated assets exist:
 
-- Randomized spatial sword swings, blocks, and footsteps.
-- Looping courtyard wind and distant drums.
-- Victory cue.
+- A per-arena ambient bed, swapped in by `BattleEffects.Initialize(arena)` from
+  the arena theme's `ambience` clip, falling back to synthesized wind when none
+  is set. The ambient bed and a distant-drum bed both scale with music volume.
+- A synthesized victory fanfare.
+- Real CC0 clips back the signature combat cues: blade-on-blade clashes for
+  perfect-block and counter, cloth swooshes for heavy two-handed swings, and
+  catalog impacts for arrow hits, each with a synth fallback.
+- Randomized spatial sword swings, blocks, and footsteps, played through a pool
+  of 16 spatial voices.
 - Pooled flesh-hit, metal-block, and perfect-block particles.
-- Small impact camera shake.
+- Camera shake localized to player-involved events.
+- Kill feedback: a meaty hit-stop on the player's killing blow plus a
+  blood-particle burst and a camera kick, and damage-scaled hit-stop on landed
+  player hits.

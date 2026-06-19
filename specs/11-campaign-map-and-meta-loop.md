@@ -2,70 +2,95 @@
 
 ## Purpose
 
-The campaign map is the strategic shell around the battle. The player, as a blue
-captain, conquers a map of red-held territories by winning the courtyard battle
-at each one. This fulfills the game's title and gives the battle a reason to
-repeat.
+The campaign map is a free-roam overworld wrapped around the battle. The player
+steers a warband party across hostile ground, hunting roaming bandits and
+assaulting enemy-held holds to survive and grow the host. There is no conquest
+victory — the campaign is open-ended survival that ends only on defeat. This
+gives the battle a reason to repeat.
 
 ## Campaign Model
 
 - The map is a graph of 8 procedurally-placed `Territory` nodes.
 - Each territory has an owner, garrison, threat, reward, income, and arena type.
-- Territories are connected by adjacency edges. The graph is always fully
-  connected, so every territory is eventually reachable.
-- One territory starts owned by the player; the rest start enemy-owned.
-- The player keeps a persistent mixed-unit warband carried between battles. It
-  starts with 3 militia and can grow to 12 soldiers through recruitment.
+- Every territory starts enemy-owned; the player owns nothing and begins alone in
+  open ground just south of the weakest hold.
+- Adjacency edges still connect the nodes (drawn on the map and used to scale
+  threat outward from the weakest hold), but they no longer gate travel — the
+  player moves freely by click-to-move.
+- Roaming bandit parties (`EnemyParty`) wander the overworld. A band only chases
+  the player when it is at least ~60% of the player's strength, forcing a field
+  battle on collision; weaker bands hold position and can only be hunted down by
+  the player.
+- The player keeps a persistent warband carried between battles, each fighter a
+  tier-by-archetype combatant. It starts with 3 militia and can grow to 12
+  soldiers through recruitment.
 
 ## Map Rules
 
-- A territory is **attackable** when it is not player-owned and borders at least
-  one player-owned territory.
-- Selecting an attackable territory and confirming launches a battle.
+- Click-to-move drives everything: clicking an enemy hold marches there and
+  assaults it, clicking a bandit band marches there to hunt it, and clicking open
+  ground simply marches there.
+- A day clock advances while the warband travels (about 4 map units per day) and
+  pauses whenever the warband is idle.
+- A **Wait a Day** action passes a single day in place; roaming bands close in
+  while the warband holds position.
+- Recruitment is only available while standing inside an owned hold (within about
+  2.4 map units of it).
 - The captain equipment panel selects the player's persistent weapon.
 - A separate Training Arena node launches a consequence-free 1v1. The player
   chooses their weapon from captain equipment and chooses the opponent weapon
   in the training setup panel.
 - The battle is parameterized by the encounter:
   - Allied soldiers spawned = the current roster (clamped to the arena cap).
-  - Enemy soldiers spawned = the target's garrison.
-  - Enemy quality and health scale = the target's threat.
-  - Arena layout = the target's regional arena type.
+  - Enemy soldiers spawned = the hold's garrison or the bandit band's strength.
+  - Enemy quality and health scale = the hold's threat (bandits are bandit-tier).
+  - Arena layout = the hold's or band's arena type.
 
 ## Battle Outcome
 
-- **Victory**: the target territory becomes player-owned. Surviving allied unit
-  types persist back to the roster; allied deaths are permanent. The player
-  earns conquest gold plus income from all owned lands.
-- **Defeat** (player dies): the campaign is lost.
+- **Settlement-assault victory**: the hold becomes player-owned. The player earns
+  conquest gold plus income from all owned lands. Surviving allies persist back
+  to the roster by tier and archetype; allied deaths are permanent.
+- **Field-battle victory** (a roaming band): the party is destroyed and removed
+  from the map. The player loots `25 + 15 * strength` gold but captures no land.
+  Survivors persist as above.
+- **Defeat** (player dies): the campaign is lost and the save is deleted.
 - **Training result**: returns to the map without changing campaign economy,
-  roster, territory ownership, or defeat state.
+  roster, ownership, or defeat state.
 - The player clicks the result button to apply the outcome and return to the map.
 
-## Win and Loss
+## Loss (no victory condition)
 
-- **Campaign victory**: every territory is player-owned.
-- **Campaign defeat**: the player dies in any battle.
-- Both end screens offer R to begin a fresh campaign.
+- Free-roam survival: there is no win state. The campaign continues open-ended as
+  the player hunts bandits and raids holds.
+- **Campaign defeat**: the player dies in any battle. This is the only ending.
+- The end screen offers R to begin a fresh campaign.
 
 ## Map Controls
 
 | Input | Action |
 |---|---|
-| Left mouse | Select a territory |
-| R (on an end screen) | Begin a new campaign |
+| Left mouse | Click a hold, a bandit band, or open ground to march there |
+| Mouse wheel | Zoom the camera |
+| Right-button drag | Pan the camera across the map |
+| R (on the end screen) | Begin a new campaign |
 
 ## Presentation
 
 - The map is runtime-generated in the same low-poly style as the battle, reusing
   shared materials from `RuntimeAssets`.
-- Overhead camera over a table-like ground plane.
-- Territory nodes are colored by owner (blue / red / grey); attackable enemy
-  nodes pulse. Adjacency edges are drawn between nodes.
-- An IMGUI HUD shows gold, income, typed roster, conquered count, latest report,
-  recruitment controls, target risk/reward, and the assault prompt.
+- The map is roughly twice as large per axis, viewed through a zoom/pan camera
+  over a table-like ground plane.
+- Hold nodes are colored by owner (blue player / red enemy); all enemy holds
+  pulse. Adjacency edges are drawn between nodes.
+- The player party and the bandit parties are captain-style soldier figures with
+  floating unit-count labels above them.
+- A uGUI HUD shows the day, gold, income, owned-hold count, the typed roster, the
+  latest report, a tier selector with per-archetype recruit buttons (enabled only
+  while standing in an owned hold), captain equipment, and a Wait-a-Day action.
 
 ## Future Campaign Features
 
 Neutral territories, enemy counter-attacks, pre-battle events, settlement
-upgrades, trading, and saving the campaign are outside the current slice.
+upgrades, and trading are outside the current slice. Saving and loading the
+campaign is implemented (see [10-roadmap-and-excluded-scope.md](10-roadmap-and-excluded-scope.md)).

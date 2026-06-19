@@ -61,3 +61,14 @@
 | Sprinting | 6.6 | 64 |
 | Blocking | 5.45 | 56 |
 | Bow aiming | 5.15 | 51 |
+
+## Campaign Map Camera
+
+The overworld uses a separate top-down camera, controlled by
+`CampaignMapController.CameraControls`:
+
+- Mouse-wheel scroll zooms along the camera's forward axis, clamped between
+  heights 14 and 78.
+- Holding the right mouse button and dragging pans across the ground plane; pan
+  speed scales with the current zoom height.
+- The map camera does not rotate or pitch and has no edge-scroll.

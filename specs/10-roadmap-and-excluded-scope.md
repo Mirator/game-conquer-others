@@ -33,8 +33,14 @@ the game's strategic scope. The ordered remediation plan is defined in
 
 ## Delivered Beyond The Original MVP
 
-- Node-based campaign map with a persistent warband roster (see
+- Free-roam overworld campaign map (click-to-move party, day clock, roaming
+  bandit parties, settlement assaults) with a persistent warband roster (see
   [11-campaign-map-and-meta-loop.md](11-campaign-map-and-meta-loop.md)).
+- Campaign save/load (PlayerPrefs snapshot, format version 3) with Continue on
+  the title screen; autosaves on new campaign, battle launch, battle conclusion,
+  return-to-title, and quit, and is deleted on defeat.
+- Fighter archetypes (Soldier, Shieldbearer, Berserker, Archer, Captain) layered
+  on the three stat tiers, recruited per-archetype and persisting across battles.
 - Gold, territorial income, three recruitable unit tiers, escalating territory
   threats, and four regional battlefields (see
   [13-campaign-economy-units-and-regions.md](13-campaign-economy-units-and-regions.md)).
@@ -50,7 +56,7 @@ the game's strategic scope. The ordered remediation plan is defined in
 - Trading and settlement management.
 - Individual character progression.
 - Inventory and complex equipment.
-- Diplomacy, quests, and settlements.
+- Diplomacy and quests.
 - Multiplayer.
 - Large armies.
 

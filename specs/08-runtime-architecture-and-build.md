@@ -8,10 +8,13 @@ a persistent singleton (`DontDestroyOnLoad`) that:
 
 - Disables the scene's default camera and light exactly once at startup.
 - Owns the persistent `CampaignState`.
-- Switches between two modes, each under its own root GameObject:
+- Switches between three modes, each under its own root GameObject:
+  - `frontendRoot` — the persistent title/pause/settings UI (`FrontendUi`).
   - `mapRoot` — the campaign map (`CampaignMapController`).
   - `battleRoot` — a battle built by `BattleBootstrap`.
-- Opens on the campaign map.
+- Opens on the title screen; smoke-test launches skip straight to the map.
+- Persists and restores the campaign through `CampaignSaveService` (PlayerPrefs)
+  on mode changes and quit, and deletes the save when a campaign ends.
 
 A battle root contains the manager and effects systems, lighting and arena,
 camera and camera rig, and the player and AI fighters. All mode changes go
@@ -23,10 +26,15 @@ listener. Each mode's camera carries the single active `AudioListener`.
 
 | Component | Responsibility |
 |---|---|
-| `GameDirector` | Entry point; owns campaign state and map/battle mode switching. |
-| `CampaignState` | Persistent territory graph, economy, mixed-unit warband, and progression rules. |
-| `CampaignTypes` | Unit catalog, unit roster, and arena-type definitions. |
-| `CampaignMapController` | Builds and runs the campaign map view and UI. |
+| `GameDirector` | Entry point; owns campaign state and title/map/battle mode switching. |
+| `CampaignState` | Persistent territory graph, economy, mixed-unit warband, and progression rules (`Territory.cs` also defines `EnemyParty`). |
+| `CampaignTypes` | Unit catalog, unit roster, weapon catalog, and arena-type definitions; also defines `Archetype` + `ArchetypeCatalog`, the `BattleKind` enum, and the per-(tier x archetype) `RosterEntry`. |
+| `OverworldSimulation` | Pure deterministic overworld travel and enemy-party simulation. |
+| `CampaignSaveService` | PlayerPrefs campaign save/load/delete (save v3). |
+| `CampaignMapController` | Builds and runs the campaign map view, camera, and UI. |
+| `AIProfile` | Archetype behavior presets layered on a fighter's unit stats and weapon. |
+| `CombatBalance` / `CombatBalanceData` | Static tuning facade over an optional Resources `ScriptableObject` with baked defaults. |
+| `FrontendUi` | Persistent title, pause, and settings UI. |
 | `BattleBootstrap` | Builds a battle (arena, fighters) under a supplied root. |
 | `BattleManager` | Public battle facade; owns lifecycle, combat queries, statistics, and feedback state. |
 | `BattleHud` | Renders ready, fighting, and result battle UI from the manager facade. |
@@ -47,8 +55,9 @@ listener. Each mode's camera carries the single active `AudioListener`.
 - Generated materials and procedural audio clips are cached and shared across
   map and battle rebuilds.
 - The project supports an active render pipeline or built-in renderer fallback.
-- Standard, Legacy Diffuse, and Sprites/Default shaders are always included for
-  standalone procedural material reliability.
+- Four shaders are always included for standalone procedural material
+  reliability: Standard, Legacy Shaders/Diffuse, Sprites/Default, and
+  Skybox/Procedural (the last for the procedural skybox).
 
 ## Build
 
@@ -58,6 +67,12 @@ listener. Each mode's camera carries the single active `AudioListener`.
 - Output: `Builds/Windows/ConquerOthers.exe`.
 - Build and standalone smoke verification run locally because Unity batch
   builds and tests require an activated editor license.
+
+Other editor tooling:
+
+- `Conquer Others > Create Combat Balance Asset` (`CombatBalanceAssetTool`).
+- `Conquer Others > Wire Survival Kit Props` (`SurvivalKitImporter`, also
+  runnable headless via `-executeMethod`).
 
 ## Design Constraint
 

@@ -97,6 +97,15 @@ Deterministic PlayMode tests cover directional combat diagnostics, perfect
 blocks and counters, attack-permission limits, engagement-slot distribution,
 separation steering, and battle-result lifecycle behavior.
 
+Deterministic EditMode tests in `Assets/Tests/EditMode/`
+(`CampaignAndCombatTests.cs` and `OverworldSimulationTests.cs`) cover a fresh
+campaign starting alone with no holds, seeded determinism, time-of-day
+scheduling, recruitment by tier and archetype, economy and victory rewards,
+threat scaling and enemy composition, encounter-kind tagging, campaign
+save/load round-trip and deletion, field-battle resolution, and the overworld
+travel simulation (threat threshold, day accrual, enemy chase, arrival
+resolution, at-friendly-city, and wait-a-day).
+
 Verification runs locally because Unity batch builds and tests require an
 activated editor license. The repository does not run a GitHub Actions
 verification workflow.

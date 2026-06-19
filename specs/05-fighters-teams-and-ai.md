@@ -50,17 +50,46 @@ not attacking.
 - Attack timers are staggered to prevent synchronized opening swings.
 - Active attackers close distance, back away when crowded, circle, and retreat
   from threatening swings.
-- Attack direction has a 72% chance to exploit a target's active block and
-  favors overhead attacks against targets in recovery.
+- Attack direction, guard choice, and aggression come from the fighter's
+  `AIProfile`, so different archetypes fight differently. With the baseline
+  Soldier profile, attack direction has roughly a 72% chance to exploit a
+  target's active block (`feintChance`) and a 55% chance to favor an overhead
+  against a target in recovery (`recoveryPunishChance`). Archetypes shift these:
+  a Berserker rarely guards and punishes recovery harder, while a Shieldbearer
+  or Captain guards more often and more skillfully.
 - AI automatically releases attacks after preparation.
 - AI reacts to the most immediate incoming threat, including opponents other
   than its current target.
-- A chosen block has roughly a 62% chance to match a player's incoming
-  direction and 52% against another AI.
-- Blocks last between 0.4 and 0.8 seconds.
+- With the baseline Soldier profile, a chosen block has roughly a 62% chance to
+  match a player's incoming direction and 52% against another AI
+  (`blockCorrectChanceVsPlayer` / `blockCorrectChanceVsAi`); skilled archetypes
+  read the incoming direction better.
+- Blocks last between 0.42 and 0.72 seconds.
 - Archers hold ranged spacing, compensate for arrow drop, evade nearby enemies,
   and can begin firing across the opening formation distance.
 - Two-handed swordsmen use a longer preferred melee range than shield users.
+
+## Archetypes and AI Profiles
+
+Every fighter is a stat tier (`UnitType`: Militia, Veteran, Guard) crossed with
+an `Archetype` (Soldier, Shieldbearer, Berserker, Archer, Captain). The two are
+decoupled, so any tier can field any archetype. `ArchetypeCatalog` maps each
+archetype to a weapon, an `AIProfile`, and health/damage multipliers layered on
+top of the tier's own stat scale.
+
+| Archetype | Weapon | Personality | Health x | Damage x |
+|---|---|---|---:|---:|
+| Soldier | Sword & Shield | Balanced line infantry; the baseline. | 1.0 | 1.0 |
+| Shieldbearer | Sword & Shield | Patient turtle: guards constantly and skillfully, attacks slowly. | 1.15 | 0.9 |
+| Berserker | Two-Handed | Relentless: rarely guards, fast, punishes recovery, near-fearless. | 0.95 | 1.2 |
+| Archer | Bow | Ranged skirmisher: never melee-guards, falls back early. | 0.9 | 1.0 |
+| Captain | Sword & Shield | Elite duelist and morale anchor: skilled defense, tricky offense, holds long. Reads as elite via a 1.18x model and a bright gold crest. | 1.45 | 1.25 |
+
+An `AIProfile` carries aggression (plus per-fighter jitter), a range scale,
+guard chance, block-correctness against the player and against AI, feint chance,
+recovery-punish chance, and retreat bravery. The Soldier (Default) profile
+reproduces the original pre-archetype behavior, so an unassigned fighter is
+unchanged.
 
 ## Team Behavior
 
