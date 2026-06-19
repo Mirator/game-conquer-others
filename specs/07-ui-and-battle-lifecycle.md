@@ -75,3 +75,10 @@ Victory and defeat screens show:
 `BattleManager` owns state, battle timer, counts, outcomes, cursor state, target
 queries, statistics, and combat feedback routing. `BattleHud` owns battle UI
 rendering and delegates result confirmation back to `BattleManager`.
+
+`CampaignMapController` owns the overworld HUD. It keeps a slim top resource strip
+(with the day/night dial) and a slim bottom action panel permanently on screen, and
+hosts the Recruit, Promote, and Captain Equipment panels as on-demand overlays
+summoned from a bottom icon toolbar — a single open-panel field shows only one at a
+time. `RefreshUi` rebuilds only the open panel's text; opening a panel marks the HUD
+dirty so it refreshes that frame.

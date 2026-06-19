@@ -195,4 +195,29 @@ public sealed class OverworldSimulationTests
         Assert.That(state.Day, Is.EqualTo(2));
         Assert.That(outcome.Kind, Is.EqualTo(OverworldOutcomeKind.FieldBattle));
     }
+
+    [Test]
+    public void DayFraction_TracksAccumulatedTravelAndWraps()
+    {
+        CampaignState state = StateWithRoster(3);
+        OverworldSimulation sim = new OverworldSimulation(state);
+        sim.BeginTravel(new Vector2(100f, 0f), null, null);
+
+        // Move 2 of DistancePerDay(4) units -> half a day, no day boundary crossed.
+        sim.Tick(2f / OverworldSimulation.TravelSpeed);
+        Assert.That(sim.DayFraction, Is.EqualTo(0.5f).Within(0.001f));
+        Assert.That(state.Day, Is.EqualTo(1), "Half a day does not advance the counter.");
+
+        // Cross a day boundary: total 10 units -> 2 days elapse, remainder 2 -> 0.5.
+        sim.Tick(8f / OverworldSimulation.TravelSpeed);
+        Assert.That(state.Day, Is.EqualTo(3));
+        Assert.That(sim.DayFraction, Is.EqualTo(0.5f).Within(0.001f), "The fraction wraps with the day.");
+    }
+
+    [Test]
+    public void DayFraction_ZeroWhenIdle()
+    {
+        OverworldSimulation sim = new OverworldSimulation(StateWithRoster(3));
+        Assert.That(sim.DayFraction, Is.EqualTo(0f), "A standing warband holds at start-of-day.");
+    }
 }

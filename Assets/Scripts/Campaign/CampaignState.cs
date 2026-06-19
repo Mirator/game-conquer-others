@@ -344,6 +344,15 @@ public sealed class CampaignState
     // always lights the same), so a retried battle looks identical.
     public static float TimeOfDayForDay(int day) => Mathf.Repeat(0.18f + (day - 1) * 0.61803f, 1f);
 
+    // Continuous overworld sun phase 0..1: each day runs a natural
+    // dawn->midday->dusk->night arc, advancing with dayFraction while marching and
+    // holding when idle. 0/1 = midnight, .25 dawn, .5 midday, .75 dusk (matching
+    // BattleBootstrap.ApplySunAndSky). The 0.35 offset opens every fresh day in broad
+    // daylight (just before noon) rather than the dim pre-dawn. Distinct from the
+    // golden-ratio battle mapping above, which spreads days for variety.
+    public static float OverworldSunPhase(int day, float dayFraction) =>
+        Mathf.Repeat(0.35f + (day - 1) + Mathf.Clamp01(dayFraction), 1f);
+
     public BattleSetup BuildSetupFor(Territory t) => new BattleSetup
     {
         AllyCount = Mathf.Clamp(Roster, 0, MaxLeadership),

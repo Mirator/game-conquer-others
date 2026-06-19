@@ -308,6 +308,25 @@ public sealed class CampaignAndCombatTests
     }
 
     [Test]
+    public void OverworldSunPhase_IsContinuousAndDeterministic()
+    {
+        for (int day = 1; day <= 60; day++)
+        {
+            foreach (float frac in new[] { 0f, 0.5f, 1f })
+            {
+                float t = CampaignState.OverworldSunPhase(day, frac);
+                Assert.That(t, Is.GreaterThanOrEqualTo(0f).And.LessThan(1f));
+                Assert.That(t, Is.EqualTo(CampaignState.OverworldSunPhase(day, frac)), "Same inputs light the same.");
+            }
+            // End of one day meets the start of the next: the cycle has no seam, so
+            // the sky reads as a smooth arc rather than a jump at midnight.
+            Assert.That(CampaignState.OverworldSunPhase(day, 1f),
+                Is.EqualTo(CampaignState.OverworldSunPhase(day + 1, 0f)).Within(0.0001f),
+                "The phase is continuous across the day boundary.");
+        }
+    }
+
+    [Test]
     public void SetupBuilders_TagEncounterKind()
     {
         CampaignState campaign = CampaignState.CreateDefault(11);

@@ -96,16 +96,26 @@ gives the battle a reason to repeat.
   Adjacency edges are drawn between nodes.
 - The player party and the bandit parties are captain-style soldier figures with
   floating unit-count labels above them.
-- A uGUI HUD shows the day, gold and net daily cashflow, morale, renown, the
-  warband size against the leadership cap, owned-hold count, and the latest report.
-  A destination panel inspects the current selection — a hold's garrison, threat
-  (stars), reward, and income (and its garrison upkeep if owned), or a band's
-  strength against the warband's — with the march cost in days and a contextual
-  assault/hunt/rest confirm button, alongside a Wait-a-Day action. A tier selector
-  drives per-archetype recruit buttons under a status line that names why
-  recruiting is blocked when it is (no settlement in range, warband full, too poor,
-  tier not offered). A promotion panel shows an XP progress bar toward each stack's
-  next tier. Captain equipment selects the player's weapon.
+- The map runs a day/night cycle. `CampaignState.OverworldSunPhase(day, dayFraction)`
+  gives a continuous 0..1 phase that advances smoothly while the warband marches
+  (tracking `OverworldSimulation.DayFraction`) and freezes when it stands still, so
+  each campaign day reads as a natural dawn→midday→dusk→night arc. The map sun
+  angle/color/intensity, ambient, fog, and camera background follow it each frame.
+  (This is a coherent cycle, distinct from the golden-ratio per-day battle hour in
+  [06-battlefield-and-presentation.md](06-battlefield-and-presentation.md).)
+- The HUD keeps the map clear. A slim top resource strip carries a sun/moon dial
+  with a DAWN/MIDDAY/DUSK/NIGHT phase label and a single status line: day, gold and
+  net daily cashflow, morale, renown, warband size against the leadership cap, and
+  owned-hold count; the latest report sits just below. A slim bottom action panel
+  inspects the current selection — a hold's garrison, threat (stars), reward, and
+  income (and its garrison upkeep if owned), or a band's strength against the
+  warband's — with the march cost in days and a contextual assault/hunt/rest confirm
+  button, alongside a Wait-a-Day action. The Recruit, Promote, and Captain Equipment
+  panels are hidden until summoned from a bottom icon toolbar; opening one closes the
+  others. Recruitment uses a tier selector and per-archetype recruit buttons under a
+  status line that names why recruiting is blocked when it is (no settlement in
+  range, warband full, too poor, tier not offered). Promotion shows an XP progress
+  bar toward each stack's next tier. Captain equipment selects the player's weapon.
 
 ## Future Campaign Features
 

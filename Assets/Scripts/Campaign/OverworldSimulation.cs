@@ -31,7 +31,7 @@ public readonly struct OverworldOutcome
 // band) happen later in CampaignState.ResolveFieldBattle.
 public sealed class OverworldSimulation
 {
-    public const float TravelSpeed = 9f;        // map units per second while marching
+    public const float TravelSpeed = 2.25f;     // map units per second while marching (deliberately slow so the march reads)
     public const float DistancePerDay = 4f;     // map units that elapse one campaign day
     public const float EnemySightRange = 12f;   // bandits chase the player within this range
     public const float EnemyChaseRatio = 0.55f; // bandit speed as a fraction of the player's
@@ -46,6 +46,11 @@ public sealed class OverworldSimulation
     private Territory pendingTerritory;
     private EnemyParty pendingParty;
     private float dayAccumulator;
+
+    // 0..1 progress toward the next campaign day; advances while marching, frozen
+    // when idle. Transient (not saved): a fresh sim on load starts at 0, a coherent
+    // start-of-day. Drives the overworld day/night phase.
+    public float DayFraction => Mathf.Clamp01(dayAccumulator / DistancePerDay);
 
     public OverworldSimulation(CampaignState campaign) => this.campaign = campaign;
 
