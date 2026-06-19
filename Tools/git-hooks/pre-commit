@@ -1,0 +1,20 @@
+#!/bin/sh
+# Soft reminder (never blocks): warn when runtime code is staged without a
+# matching spec update. See the "Keeping specs in sync" section of CLAUDE.md.
+# Bug fixes, refactors, and test-only changes legitimately need no spec edit,
+# so this only prints a reminder and always lets the commit proceed.
+
+staged=$(git diff --cached --name-only)
+code=$(printf '%s\n' "$staged" | grep -E '^Assets/Scripts/.*\.cs$')
+specs=$(printf '%s\n' "$staged" | grep -E '^specs/.*\.md$')
+
+if [ -n "$code" ] && [ -z "$specs" ]; then
+    echo "" >&2
+    echo "  * specs reminder: runtime code is staged but no specs/ file is." >&2
+    echo "    If this changes documented behavior, update the matching spec" >&2
+    echo "    (see 'Keeping specs in sync' in CLAUDE.md). Otherwise ignore this." >&2
+    echo "    Reminder only -- your commit will proceed." >&2
+    echo "" >&2
+fi
+
+exit 0

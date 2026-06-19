@@ -32,6 +32,10 @@ need no spec edit. Code is the source of truth for exact numbers; specs are the
 source of truth for intent — if they disagree, fix the divergence rather than
 leaving it.
 
+A soft pre-commit reminder lives at [Tools/git-hooks/pre-commit](Tools/git-hooks/pre-commit)
+— it prints a note (never blocks) when runtime code is staged without a spec.
+Enable it once per clone: `git config core.hooksPath Tools/git-hooks`.
+
 ## Build / test / verify
 
 The full local gate is `.\Tools\Verify.ps1` (PowerShell).
