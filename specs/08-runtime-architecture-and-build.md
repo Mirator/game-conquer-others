@@ -26,11 +26,11 @@ listener. Each mode's camera carries the single active `AudioListener`.
 
 | Component | Responsibility |
 |---|---|
-| `GameDirector` | Entry point; owns campaign state and title/map/battle mode switching. |
-| `CampaignState` | Persistent territory graph, economy, mixed-unit warband, and progression rules (`Territory.cs` also defines `EnemyParty`). |
-| `CampaignTypes` | Unit catalog, unit roster, weapon catalog, and arena-type definitions; also defines `Archetype` + `ArchetypeCatalog`, the `BattleKind` enum, and the per-(tier x archetype) `RosterEntry`. |
+| `GameDirector` | Entry point; owns campaign state and title/map/battle mode switching, including a consequence-free custom battle launched from the title screen. |
+| `CampaignState` | Persistent territory graph, economy, mixed-unit warband, and progression rules (`Territory.cs` also defines `EnemyParty` and the `Settlement` size class). |
+| `CampaignTypes` | Unit catalog, unit roster, weapon catalog, and arena-type definitions; also defines `Archetype` + `ArchetypeCatalog`, the `BattleKind` enum, the `SettlementType` enum + `SettlementCatalog`, and the per-(tier x archetype) `RosterEntry` (which banks battle experience). |
 | `OverworldSimulation` | Pure deterministic overworld travel and enemy-party simulation. |
-| `CampaignSaveService` | PlayerPrefs campaign save/load/delete (save v3). |
+| `CampaignSaveService` | PlayerPrefs campaign save/load/delete (save v4). |
 | `CampaignMapController` | Builds and runs the campaign map view, camera, and UI. |
 | `AIProfile` | Archetype behavior presets layered on a fighter's unit stats and weapon. |
 | `CombatBalance` / `CombatBalanceData` | Static tuning facade over an optional Resources `ScriptableObject` with baked defaults. |

@@ -26,10 +26,11 @@ the game's strategic scope. The ordered remediation plan is defined in
 
 ## Battle Extensions
 
-- Formations and coordinated group tactics.
-- Morale and retreat behavior.
-- Larger battles and varied arenas.
-- Castle battles and terrain variation.
+- Sieges proper: wall-breaching, ladders, and gate-assault mechanics (settlement
+  assaults already build a fortified hold, but its walls are not yet climbed or
+  broken).
+- Battlefield terrain that shapes tactics — elevation, chokepoints, cover that
+  changes engagement — beyond the current decorative biome dressing.
 
 ## Delivered Beyond The Original MVP
 
@@ -54,9 +55,14 @@ the game's strategic scope. The ordered remediation plan is defined in
 - Persistent player equipment, two-handed swords, bows, weapon-specific AI,
   and a consequence-free Training Arena (see
   [14-weapons-equipment-and-training.md](14-weapons-equipment-and-training.md)).
-- Follow, Hold, and Charge ally orders, captain-centered formations, and
-  morale-driven retreats (see
+- Follow, Hold, Charge, and Advance ally orders, captain-centered formations
+  (Line / Shield Wall / Skirmish) with archer hold-fire, and morale-driven
+  retreats (see
   [15-tactical-commands-formations-and-morale.md](15-tactical-commands-formations-and-morale.md)).
+- Larger commanded battles: army size scales with the leadership cap and enemy
+  strength up to 60 per side, with fighters laid out in dynamic ranks. A
+  title-screen custom-battle sandbox runs a one-off fight without touching
+  campaign state.
 
 ## Explicitly Excluded From Current Scope
 
@@ -68,7 +74,8 @@ the game's strategic scope. The ordered remediation plan is defined in
 - Inventory and complex equipment.
 - Diplomacy and quests.
 - Multiplayer.
-- Large armies.
+- Massive battles of hundreds of combatants (commanded battles now scale to dozens
+  per side, up to the 60-per-side deployment ceiling).
 
 ## Scope Rule
 

@@ -98,8 +98,9 @@ functional difference is which team they target and their health value. Allied
 target scoring avoids the enemy currently threatening the player, preserving a
 readable primary duel unless no better opponent is available.
 
-Allied soldiers additionally obey Follow, Hold, and Charge orders. AI forces
-can break morale after severe casualties and retreat from battle. See
+Allied soldiers additionally obey Follow, Hold, Charge, and Advance orders and
+hold captain-centered formations. AI forces can break morale after severe
+casualties and retreat from battle. See
 [15-tactical-commands-formations-and-morale.md](15-tactical-commands-formations-and-morale.md).
 
 ## Future AI Features

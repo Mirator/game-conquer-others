@@ -4,7 +4,8 @@
 
 Conquer Others is a third-person medieval action-combat prototype inspired by
 Mount & Blade. The player personally fights while allied and enemy soldiers
-engage in a small arena battle.
+engage in an arena battle that scales from a small skirmish to dozens of soldiers
+per side as the warband grows.
 
 ## MVP Goal
 
@@ -54,5 +55,5 @@ directional blocks. This is about survival and growth, not conquest.
 - The game launches directly into a complete playable battle flow.
 - One-on-one combat is understandable.
 - The player can identify attack and block direction.
-- A battle with eight fighters remains functional.
+- Battles remain functional from a handful of fighters up to dozens per side.
 - Victory, defeat, and restart work reliably.

@@ -16,8 +16,10 @@ document covers a single battle; the campaign map owns the higher-level loop.
 
 ## Teams
 
-- Blue team: player plus three allied AI fighters.
-- Red team: four enemy AI fighters.
+- Blue team: the player plus the allied warband (the campaign roster), scaling
+  with the player's leadership cap.
+- Red team: the enemy force — a hold's garrison or a bandit band — which can
+  outnumber the warband.
 - Fighters may only target and damage the opposing team.
 - Friendly fire is disabled.
 
@@ -47,6 +49,9 @@ casualties are applied to the campaign.
 - Allied AI health: 110.
 - Enemy AI health: 100 (multiplied by the encounter's enemy health scale).
 - Maximum stamina: 100.
-- Battle size is parameterized by the encounter: blue fighters = player + roster,
-  red fighters = the target territory's garrison. The opening encounter defaults
-  to 4 blue versus 4 red.
+- Battle size is parameterized by the encounter: blue fighters = player + the
+  allied roster (capped by leadership, up to 24), red fighters = the hold's
+  garrison or the bandit band's strength. Either side may field up to the
+  per-side deployment ceiling of 60, so the player can be outnumbered. The first
+  fight is whatever the player marches into; with the starting warband of three
+  militia that is 4 blue against the chosen target's strength.

@@ -45,8 +45,12 @@ The structure layer dresses the chosen biome for the encounter:
 
 ## Spawn Layout
 
-- Player and three blue allies begin near the south side.
-- Four red enemies begin near the north side.
+- The player and the blue warband deploy near the south side; the red enemy force
+  near the north side.
+- Each side is laid out in dynamic rows sized to its headcount
+  (`perRow = clamp(ceil(sqrt(count * 2)), 6, 12)`), so a handful of fighters form a
+  single short rank while dozens stack into deeper ranks, all clamped within the
+  arena walls.
 - Both teams begin facing generally toward the opposing side.
 
 ## Time of Day and Sky
