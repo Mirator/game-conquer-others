@@ -1,0 +1,4 @@
+# Git hooks and shell scripts must keep LF endings, or a CRLF shebang line
+# ("#!/bin/sh\r") breaks the interpreter on checkout.
+Tools/git-hooks/* text eol=lf
+*.sh text eol=lf
