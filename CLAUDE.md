@@ -6,12 +6,31 @@ Conquer Others is a third-person medieval battle MVP built in **Unity 6000.3.16f
 (Unity 6.3 LTS) with URP and C#.
 There are **no prefabs and no manual scene wiring** — every GameObject, mesh,
 material, and UI element is generated at runtime from primitives.
-On top of the moment-to-moment battle loop sits a **campaign meta-loop**: a map of
-territories, an economy, recruitment, and threat scaling.
+On top of the moment-to-moment battle loop sits a **campaign meta-loop**: a
+free-roam Mount & Blade-style overworld where the player marches a warband party,
+hunts roaming bandit parties, and assaults enemy-held holds — with an economy,
+tier×archetype recruitment, roaming threats, and save/load.
 All code lives in the **global namespace** (there are zero `namespace` declarations)
 inside a single runtime assembly, `ConquerOthers.Runtime`.
 The authoritative product/tech specs live under [specs/](specs/), starting with the
 index at [specs/00-spec-index.md](specs/00-spec-index.md).
+
+## Keeping specs in sync
+
+The specs under [specs/](specs/) are authoritative and must not drift from the
+code. **When a change alters documented behavior, update the matching spec in the
+same change, before committing.** Map of areas → spec:
+
+- Battle loop / rules → 02; directional combat → 04; combat readability/feel → 12; tactical commands & morale → 15.
+- Fighters, AI, archetypes → 05; weapons, equipment, training → 14.
+- Campaign vision/scope → 01; roadmap & excluded scope → 10; overworld map & meta-loop → 11; economy, units, regions → 13.
+- Battlefield & presentation → 06; presentation overhaul → 16; player/map controls & camera → 03; UI & battle lifecycle → 07.
+- Runtime architecture, build, new classes → 08; verification & tests → 09; the index itself → 00.
+
+Bug fixes, refactors, and test-only changes that don't alter documented behavior
+need no spec edit. Code is the source of truth for exact numbers; specs are the
+source of truth for intent — if they disagree, fix the divergence rather than
+leaving it.
 
 ## Build / test / verify
 
@@ -30,7 +49,7 @@ verification is manual on a licensed machine.
 - [Assets/Tests/EditMode/](Assets/Tests/EditMode/) — fast logic tests (`[Test]`), no MonoBehaviour lifecycle.
 - [Assets/Tests/PlayMode/](Assets/Tests/PlayMode/) — tests needing GameObjects/coroutines (`[UnityTest]`).
 - [Tools/Verify.ps1](Tools/Verify.ps1), [Tools/RunStandaloneSmokes.ps1](Tools/RunStandaloneSmokes.ps1) — local verification gate.
-- [specs/](specs/) — authoritative product/tech specs, numbered 00–15.
+- [specs/](specs/) — authoritative product/tech specs, numbered 00–16.
 
 ## Key classes
 
@@ -77,5 +96,6 @@ Match the existing source:
 ## How to extend
 
 - **Add a unit type:** extend `UnitType` and `UnitCatalog` in [Assets/Scripts/Campaign/CampaignTypes.cs](Assets/Scripts/Campaign/CampaignTypes.cs); recruitment and economy flow through `CampaignState.Recruit` / `CampaignState.ApplyVictory` in [Assets/Scripts/Campaign/CampaignState.cs](Assets/Scripts/Campaign/CampaignState.cs); add a covering case to [Assets/Tests/EditMode/CampaignAndCombatTests.cs](Assets/Tests/EditMode/CampaignAndCombatTests.cs).
-- **Tune combat numbers:** damage, timing, and stamina live in [Assets/Scripts/BattleFighter.cs](Assets/Scripts/BattleFighter.cs) (`GetDamage`, `GetWindup`, `GetRelease`, `GetRecovery`, `PrepareAttack`, and the named consts at lines 47–54). Gesture feel is in [CombatGesture.cs](Assets/Scripts/CombatGesture.cs).
+- **Add an archetype:** extend `Archetype` and `ArchetypeCatalog` (weapon, `AIProfile`, health/damage scale, label) in [Assets/Scripts/Campaign/CampaignTypes.cs](Assets/Scripts/Campaign/CampaignTypes.cs) and add a behavior preset in [AIProfile.cs](Assets/Scripts/AIProfile.cs); garrison/recruit composition flows through `CampaignState`. Update [specs/05](specs/05-fighters-teams-and-ai.md)/[13](specs/13-campaign-economy-units-and-regions.md).
+- **Tune combat numbers:** damage, timing, and stamina are serialized in [CombatBalanceData.cs](Assets/Scripts/CombatBalanceData.cs), read through the `CombatBalance` static facade ([CombatBalance.cs](Assets/Scripts/CombatBalance.cs)) — from an optional `Resources/CombatBalance` asset when present (live in-editor tuning, created via `Conquer Others > Create Combat Balance Asset`), else baked defaults. Per-direction/weapon selection is in [BattleFighter.cs](Assets/Scripts/BattleFighter.cs) (`GetDamage`/`GetWindup`/`GetRelease`/`GetRecovery`); gesture feel is in [CombatGesture.cs](Assets/Scripts/CombatGesture.cs).
 - **Add a combat-rule test:** drive the `Debug*` hooks on `BattleFighter`; model the test after [Assets/Tests/PlayMode/CombatRulesTests.cs](Assets/Tests/PlayMode/CombatRulesTests.cs).
