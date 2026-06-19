@@ -9,18 +9,24 @@
 4. Preserve valuable soldiers during the battle; survivors keep their banked
    experience.
 5. Capture a hold for its conquest reward and renown, then march on — the hold's
-   income now offsets the daily wage bill.
+   income now offsets the daily bill, though garrisoning it adds an upkeep of its
+   own, so each conquest is weighed for whether it pays for itself.
 
 ## Economy
 
 - A campaign begins with 150 gold.
 - Capturing a territory grants its one-time conquest reward.
 - Defeating a bandit party loots `25 + 15 * strength` gold but captures no land.
-- Each campaign day, owned-land income is collected and troop wages are paid, so
-  the net daily cashflow is `income - wages`. Income is zero until the first hold
-  is captured, so an idle warband bleeds gold.
+- Each campaign day, owned-land income is collected and the day's expenses — troop
+  wages plus garrison upkeep — are paid, so the net daily cashflow is
+  `income - wages - garrison upkeep`. Income is zero until the first hold is
+  captured, so an idle warband bleeds gold.
 - Daily wages are `2 / 4 / 6` gold per Militia / Veteran / Guard.
-- If the purse cannot cover a day's wages it empties and morale takes a hit.
+- Holding land is not free: every owned hold costs a flat garrison upkeep of 5
+  gold per day. Expansion therefore carries an ongoing cost — a sprawling realm of
+  low-income holds can run a deficit — so consolidating a few strong holds is a
+  genuine alternative to grabbing every weak one.
+- If the purse cannot cover a day's expenses it empties and morale takes a hit.
 - Gold persists across the campaign and is spent on recruitment and promotions.
 
 ## Morale, Renown, and Leadership
@@ -112,8 +118,9 @@ Settlements come in three size classes that gate recruitment:
 - Fighters can be recruited as any archetype of an offered tier at any settlement
   in range; the pool depletes per recruit and refills over days.
 - Recruitment changes the roster and the next deployed army.
-- Each day on the map collects owned-land income and pays troop wages; an unpaid
-  day empties the purse and lowers morale, and low morale causes desertion.
+- Each day on the map collects owned-land income and pays the day's expenses
+  (troop wages plus per-hold garrison upkeep); an unpaid day empties the purse and
+  lowers morale, and low morale causes desertion.
 - Renown rises with victories and held land, raising the leadership cap.
 - A blooded soldier can be promoted to the next tier for banked experience plus
   gold, keeping its archetype; banked experience survives saves.

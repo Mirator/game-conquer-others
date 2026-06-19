@@ -28,16 +28,32 @@ public sealed class CampaignMapController : MonoBehaviour
     private Text selectionTitle;
     private Text selectionBody;
     private Text equipmentText;
+    private Text recruitStatus;
     private Text endTitle;
     private RectTransform endScreen;
     private Button actionButton;
     private Text actionButtonText;
+    private Button marchButton;
+    private Text marchButtonText;
     private readonly Dictionary<Archetype, RecruitWidget> recruitButtons = new();
     private readonly Dictionary<Archetype, RecruitWidget> upgradeButtons = new();
     private Button tierButton;
     private Text tierButtonText;
     private Text promoteTitle;
     private UnitType selectedTier = UnitType.Militia;
+
+    // The currently-selected march destination (set by clicking; confirmed by the
+    // march button). Travel no longer fires on click — the player reviews the
+    // target's stats and the day cost first.
+    private enum SelectionKind { None, Territory, Party, Ground }
+    private SelectionKind selectionKind;
+    private Territory selectedTerritory;
+    private EnemyParty selectedParty;
+    private Vector2 selectedGround;
+    private bool uiDirty;
+
+    private readonly List<Transform> travelDashes = new();
+    private Transform travelDashRoot;
 
     private static readonly Archetype[] RecruitableArchetypes =
         { Archetype.Soldier, Archetype.Shieldbearer, Archetype.Berserker, Archetype.Archer };
@@ -70,12 +86,14 @@ public sealed class CampaignMapController : MonoBehaviour
         public GameObject Go;
         public Territory Territory;
         public Renderer Renderer;
+        public TextMesh Label;
     }
 
     private struct RecruitWidget
     {
         public Button Button;
         public Text Label;
+        public RectTransform ProgressFill;
     }
 
     public void Configure(GameDirector gameDirector, CampaignState state)
@@ -282,8 +300,28 @@ public sealed class CampaignMapController : MonoBehaviour
             }
         }
 
-        nodes.Add(new NodeView { Go = go, Territory = t, Renderer = r });
+        GameObject labelObject = new GameObject("Name Label");
+        labelObject.transform.SetParent(go.transform, false);
+        labelObject.transform.localPosition = new Vector3(0f, 3.4f, 0f);
+        labelObject.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+        TextMesh label = labelObject.AddComponent<TextMesh>();
+        label.text = t.Name;
+        label.anchor = TextAnchor.MiddleCenter;
+        label.alignment = TextAlignment.Center;
+        label.fontSize = 38;
+        label.characterSize = 0.06f;
+        label.color = NameColorFor(t);
+
+        nodes.Add(new NodeView { Go = go, Territory = t, Renderer = r, Label = label });
     }
+
+    // Hold name color doubles as an at-a-glance assault cue: red names mark enemy
+    // holds you can march on and assault, blue names mark your own holds.
+    private static Color NameColorFor(Territory t) => t.Owner switch
+    {
+        TerritoryOwner.Player => new Color(0.55f, 0.78f, 1f),
+        _ => new Color(1f, 0.55f, 0.45f)
+    };
 
     private void BuildEdge(Territory a, Territory b)
     {
@@ -414,6 +452,8 @@ public sealed class CampaignMapController : MonoBehaviour
         }
     }
 
+    // Clicking selects a march destination (or launches training directly); the
+    // player confirms travel with the march button after reviewing the target.
     private void HandleClick()
     {
         bool overUi = EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
@@ -428,16 +468,84 @@ public sealed class CampaignMapController : MonoBehaviour
         foreach (PartyView view in partyViews)
             if (view.Marker != null && hit.collider.gameObject == view.Marker.gameObject)
             {
-                sim.BeginTravel(view.Party.Position, null, view.Party);
+                SelectParty(view.Party);
                 return;
             }
         foreach (NodeView n in nodes)
             if (n.Go == hit.collider.gameObject)
             {
-                sim.BeginTravel(n.Territory.MapPosition, n.Territory, null);
+                SelectTerritory(n.Territory);
                 return;
             }
-        sim.BeginTravel(new Vector2(hit.point.x / 1.4f, hit.point.z / 1.4f), null, null);
+        SelectGround(new Vector2(hit.point.x / 1.4f, hit.point.z / 1.4f));
+    }
+
+    private void SelectTerritory(Territory t)
+    {
+        selectionKind = SelectionKind.Territory;
+        selectedTerritory = t;
+        selectedParty = null;
+        MarkSelectionChanged();
+    }
+
+    private void SelectParty(EnemyParty party)
+    {
+        selectionKind = SelectionKind.Party;
+        selectedParty = party;
+        selectedTerritory = null;
+        MarkSelectionChanged();
+    }
+
+    private void SelectGround(Vector2 mapPosition)
+    {
+        selectionKind = SelectionKind.Ground;
+        selectedGround = mapPosition;
+        selectedTerritory = null;
+        selectedParty = null;
+        MarkSelectionChanged();
+    }
+
+    private void ClearSelection()
+    {
+        selectionKind = SelectionKind.None;
+        selectedTerritory = null;
+        selectedParty = null;
+        MarkSelectionChanged();
+    }
+
+    private void MarkSelectionChanged()
+    {
+        uiDirty = true;
+        UpdateTravelPreview();
+    }
+
+    private Vector2 SelectionTarget() => selectionKind switch
+    {
+        SelectionKind.Territory => selectedTerritory.MapPosition,
+        SelectionKind.Party => selectedParty.Position,
+        SelectionKind.Ground => selectedGround,
+        _ => campaign.PartyPosition
+    };
+
+    // Commits travel to the current selection. Travel resolves on arrival: an
+    // enemy hold is assaulted, a band is hunted, a friendly hold is rested at.
+    private void ConfirmTravel()
+    {
+        if (sim.Travelling || selectionKind == SelectionKind.None)
+            return;
+        switch (selectionKind)
+        {
+            case SelectionKind.Territory:
+                sim.BeginTravel(selectedTerritory.MapPosition, selectedTerritory, null);
+                break;
+            case SelectionKind.Party:
+                sim.BeginTravel(selectedParty.Position, null, selectedParty);
+                break;
+            case SelectionKind.Ground:
+                sim.BeginTravel(selectedGround, null, null);
+                break;
+        }
+        ClearSelection();
     }
 
     private void UpdateMarkers()
@@ -455,7 +563,10 @@ public sealed class CampaignMapController : MonoBehaviour
         foreach (NodeView n in nodes)
         {
             Color color = ColorFor(n.Territory);
-            if (n.Territory.Owner == TerritoryOwner.Enemy)
+            bool selected = selectionKind == SelectionKind.Territory && n.Territory == selectedTerritory;
+            if (selected)
+                color = Color.Lerp(color, new Color(1f, 0.86f, 0.32f), 0.55f + pulse * 0.45f);
+            else if (n.Territory.Owner == TerritoryOwner.Enemy)
                 color = Color.Lerp(color, Color.white, pulse * 0.5f);
             nodeColorProperties.SetColor("_BaseColor", color);
             nodeColorProperties.SetColor("_Color", color);
@@ -468,6 +579,66 @@ public sealed class CampaignMapController : MonoBehaviour
             nodeColorProperties.SetColor("_Color", color);
             trainingRenderer.SetPropertyBlock(nodeColorProperties);
         }
+    }
+
+    // Lays a dotted gold trail from the warband to the selected destination so the
+    // route and its reach read at a glance; hidden while marching or with no target.
+    private void UpdateTravelPreview()
+    {
+        bool show = !sim.Travelling && selectionKind != SelectionKind.None;
+        if (!show)
+        {
+            foreach (Transform dash in travelDashes)
+                if (dash != null)
+                    dash.gameObject.SetActive(false);
+            return;
+        }
+
+        Vector3 from = WorldOf(campaign.PartyPosition);
+        Vector3 to = WorldOf(SelectionTarget());
+        from.y = to.y = 0.35f;
+        Vector3 delta = to - from;
+        float length = delta.magnitude;
+        Vector3 dir = length > 0.001f ? delta / length : Vector3.forward;
+        const float spacing = 1.6f;
+        int count = Mathf.Clamp(Mathf.RoundToInt(length / spacing), 1, 60);
+        EnsureDashes(count);
+        Quaternion rotation = Quaternion.LookRotation(dir);
+        for (int i = 0; i < travelDashes.Count; i++)
+        {
+            if (i < count)
+            {
+                travelDashes[i].SetPositionAndRotation(from + dir * ((i + 1) * (length / (count + 1))), rotation);
+                travelDashes[i].gameObject.SetActive(true);
+            }
+            else
+                travelDashes[i].gameObject.SetActive(false);
+        }
+    }
+
+    private void EnsureDashes(int count)
+    {
+        if (travelDashRoot == null)
+        {
+            travelDashRoot = new GameObject("Travel Preview").transform;
+            travelDashRoot.SetParent(transform, false);
+        }
+        while (travelDashes.Count < count)
+        {
+            GameObject dash = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            dash.name = "Dash";
+            Destroy(dash.GetComponent<Collider>());
+            dash.transform.SetParent(travelDashRoot, false);
+            dash.transform.localScale = new Vector3(0.16f, 0.06f, 0.7f);
+            dash.GetComponent<Renderer>().sharedMaterial = RuntimeAssets.Material(new Color(0.96f, 0.82f, 0.32f), true);
+            travelDashes.Add(dash.transform);
+        }
+    }
+
+    private static string Stars(int threat)
+    {
+        int filled = Mathf.Clamp(threat, 0, 5);
+        return new string('★', filled) + new string('☆', 5 - filled);
     }
 
     private void BuildUi()
@@ -484,18 +655,20 @@ public sealed class CampaignMapController : MonoBehaviour
 
         RectTransform recruit = MedievalUi.Frame(campaignCanvas.transform, "Recruitment", new Vector2(0.012f, 0.55f),
             new Vector2(0.25f, 0.88f), Vector2.zero, Vector2.zero);
-        MedievalUi.Label(recruit, "Title", "RECRUIT WARBAND", 27, TextAnchor.MiddleCenter,
-            new Vector2(0.05f, 0.82f), new Vector2(0.95f, 0.98f), Vector2.zero, Vector2.zero, MedievalUi.Gold);
-        MedievalUi.Divider(recruit, "Recruit Divider", new Vector2(0.12f, 0.795f), new Vector2(0.88f, 0.818f),
+        MedievalUi.Label(recruit, "Title", "RECRUIT WARBAND", 26, TextAnchor.MiddleCenter,
+            new Vector2(0.05f, 0.86f), new Vector2(0.95f, 0.99f), Vector2.zero, Vector2.zero, MedievalUi.Gold);
+        MedievalUi.Divider(recruit, "Recruit Divider", new Vector2(0.12f, 0.838f), new Vector2(0.88f, 0.858f),
             Vector2.zero, Vector2.zero);
-        tierButton = MedievalUi.Button(recruit, "Tier", "", new Vector2(0.07f, 0.66f),
-            new Vector2(0.93f, 0.78f), Vector2.zero, Vector2.zero, CycleRecruitTier);
+        tierButton = MedievalUi.Button(recruit, "Tier", "", new Vector2(0.07f, 0.715f),
+            new Vector2(0.93f, 0.825f), Vector2.zero, Vector2.zero, CycleRecruitTier);
         tierButtonText = tierButton.GetComponentInChildren<Text>();
-        float recruitY = 0.5f;
+        recruitStatus = MedievalUi.Label(recruit, "Status", "", 15, TextAnchor.MiddleCenter,
+            new Vector2(0.05f, 0.63f), new Vector2(0.95f, 0.705f), Vector2.zero, Vector2.zero);
+        float recruitY = 0.49f;
         foreach (Archetype archetype in RecruitableArchetypes)
         {
             AddRecruitButton(recruit, archetype, recruitY);
-            recruitY -= 0.14f;
+            recruitY -= 0.135f;
         }
 
         RectTransform promote = MedievalUi.Frame(campaignCanvas.transform, "Promotion", new Vector2(0.012f, 0.2f),
@@ -529,9 +702,12 @@ public sealed class CampaignMapController : MonoBehaviour
         selectionTitle = MedievalUi.Label(action, "Title", "", 27, TextAnchor.MiddleCenter,
             new Vector2(0.04f, 0.66f), new Vector2(0.96f, 0.96f), Vector2.zero, Vector2.zero, MedievalUi.Gold);
         selectionBody = MedievalUi.Label(action, "Body", "", 18, TextAnchor.MiddleCenter,
-            new Vector2(0.04f, 0.3f), new Vector2(0.96f, 0.67f), Vector2.zero, Vector2.zero);
-        actionButton = MedievalUi.Button(action, "Action", "ASSAULT", new Vector2(0.28f, 0.03f),
-            new Vector2(0.72f, 0.29f), Vector2.zero, Vector2.zero, PerformSelectedAction);
+            new Vector2(0.04f, 0.32f), new Vector2(0.96f, 0.67f), Vector2.zero, Vector2.zero);
+        marchButton = MedievalUi.Button(action, "March", "SELECT A TARGET", new Vector2(0.06f, 0.03f),
+            new Vector2(0.49f, 0.29f), Vector2.zero, Vector2.zero, ConfirmTravel);
+        marchButtonText = marchButton.GetComponentInChildren<Text>();
+        actionButton = MedievalUi.Button(action, "Action", "WAIT A DAY", new Vector2(0.51f, 0.03f),
+            new Vector2(0.94f, 0.29f), Vector2.zero, Vector2.zero, PerformSelectedAction);
         actionButtonText = actionButton.GetComponentInChildren<Text>();
 
         endScreen = MedievalUi.Panel(campaignCanvas.transform, "Campaign End", Vector2.zero, Vector2.one,
@@ -555,7 +731,37 @@ public sealed class CampaignMapController : MonoBehaviour
         Button button = MedievalUi.Button(parent, archetype + " Promote", "", new Vector2(0.07f, y),
             new Vector2(0.93f, y + 0.16f), Vector2.zero, Vector2.zero,
             () => campaign.TryUpgrade(selectedTier, archetype));
-        upgradeButtons[archetype] = new RecruitWidget { Button = button, Label = button.GetComponentInChildren<Text>() };
+        Text label = button.GetComponentInChildren<Text>();
+        // Lift the label clear of the XP bar that sits along the button's base.
+        RectTransform labelRect = (RectTransform)label.transform;
+        labelRect.anchorMin = new Vector2(0f, 0.26f);
+        labelRect.anchorMax = Vector2.one;
+        RectTransform track = MedievalUi.Well(button.transform, "XP Track", new Vector2(0.06f, 0.07f),
+            new Vector2(0.94f, 0.21f), Vector2.zero, Vector2.zero, new Color(0.12f, 0.1f, 0.07f, 0.95f));
+        track.GetComponent<Image>().raycastTarget = false;
+        RectTransform fill = MedievalUi.Panel(track, "XP Fill", Vector2.zero, new Vector2(0f, 1f),
+            Vector2.zero, Vector2.zero, MedievalUi.Gold);
+        fill.GetComponent<Image>().raycastTarget = false;
+        upgradeButtons[archetype] = new RecruitWidget { Button = button, Label = label, ProgressFill = fill };
+    }
+
+    // The first reason recruiting the given tier here is blocked, or null if it is
+    // allowed. Surfaced under the recruit panel so a greyed button explains itself.
+    private string RecruitBlockReason(UnitType tier, Territory settlement)
+    {
+        if (sim.Travelling)
+            return "On the march - halt to recruit.";
+        if (settlement == null)
+            return "No settlement in range.";
+        if (!SettlementCatalog.Allows(settlement.Settlement, tier))
+            return $"{SettlementCatalog.Label(settlement.Settlement)} offers up to {UnitCatalog.Label(SettlementCatalog.MaxTier(settlement.Settlement))}.";
+        if (settlement.Recruits <= 0)
+            return "No volunteers left here.";
+        if (campaign.Roster >= campaign.LeadershipCap)
+            return $"Warband full ({campaign.LeadershipCap}) - raise renown.";
+        if (campaign.Gold < UnitCatalog.Cost(tier))
+            return $"Need {UnitCatalog.Cost(tier)} gold.";
+        return null;
     }
 
     private void CycleRecruitTier() => selectedTier = (UnitType)(((int)selectedTier + 1) % 3);
@@ -566,12 +772,13 @@ public sealed class CampaignMapController : MonoBehaviour
             return;
         bool ended = campaign.CampaignOver;
         int rosterTotal = campaign.Roster;
-        if (uiInitialized && ended == uiEnded && campaign.Gold == uiGold && rosterTotal == uiRosterTotal
+        if (uiInitialized && !uiDirty && ended == uiEnded && campaign.Gold == uiGold && rosterTotal == uiRosterTotal
             && selectedTier == uiSelectedTier && campaign.PlayerWeapon == uiWeapon
             && campaign.Day == uiDay && sim.Travelling == uiTravelling
             && campaign.Morale == uiMorale && campaign.Renown == uiRenown)
             return;
         uiInitialized = true;
+        uiDirty = false;
         uiEnded = ended;
         uiGold = campaign.Gold;
         uiRosterTotal = rosterTotal;
@@ -588,7 +795,7 @@ public sealed class CampaignMapController : MonoBehaviour
             endTitle.text = "THE CAMPAIGN IS LOST";
             return;
         }
-        int net = campaign.DailyIncome() - campaign.DailyWage();
+        int net = campaign.DailyIncome() - campaign.DailyWage() - campaign.DailyGarrisonUpkeep();
         campaignSummary.text = $"DAY {campaign.Day}    GOLD {campaign.Gold} ({net:+0;-0;0}/day)    " +
             $"MORALE {campaign.Morale}    RENOWN {campaign.Renown}    " +
             $"WARBAND {campaign.Roster}/{campaign.LeadershipCap}    HOLDS {campaign.PlayerTerritoryCount()}/{campaign.Territories.Count}";
@@ -607,37 +814,84 @@ public sealed class CampaignMapController : MonoBehaviour
             entry.Value.Label.text =
                 $"+ {ArchetypeCatalog.Label(entry.Key)}    OWNED {campaign.Units.Count(selectedTier, entry.Key)}";
         }
+        string blockReason = RecruitBlockReason(selectedTier, settlement);
+        recruitStatus.text = blockReason ?? $"{settlement.Name}: {settlement.Recruits} volunteers ready.";
+        recruitStatus.color = blockReason == null ? MedievalUi.Bone : new Color(0.95f, 0.6f, 0.5f);
 
         promoteTitle.text = $"PROMOTE {UnitCatalog.Label(selectedTier)}";
         bool topTier = !UnitCatalog.CanUpgrade(selectedTier);
+        int needXp = topTier ? 0 : UnitCatalog.UpgradeXp(selectedTier);
         foreach (KeyValuePair<Archetype, RecruitWidget> entry in upgradeButtons)
         {
             entry.Value.Button.interactable = !travelling && campaign.CanUpgrade(selectedTier, entry.Key);
             int xp = campaign.Units.Xp(selectedTier, entry.Key);
             entry.Value.Label.text = topTier
                 ? $"{ArchetypeCatalog.Label(entry.Key)}  -  TOP TIER"
-                : $"^ {ArchetypeCatalog.Label(entry.Key)}  XP {xp}/{UnitCatalog.UpgradeXp(selectedTier)}  {UnitCatalog.UpgradeCost(selectedTier)}G";
+                : $"^ {ArchetypeCatalog.Label(entry.Key)}  XP {xp}/{needXp}  {UnitCatalog.UpgradeCost(selectedTier)}G";
+            float progress = topTier || needXp <= 0 ? 0f : Mathf.Clamp01((float)xp / needXp);
+            entry.Value.ProgressFill.anchorMax = new Vector2(progress, 1f);
         }
 
+        RefreshSelection(travelling, settlement);
+        actionButtonText.text = "WAIT A DAY";
+        actionButton.interactable = !travelling;
+    }
+
+    // Drives the destination panel: the inspector body for the current selection,
+    // the day-cost ETA, and the march button's contextual verb and enabled state.
+    private void RefreshSelection(bool travelling, Territory settlement)
+    {
         if (travelling)
         {
             selectionTitle.text = "ON THE MARCH";
             selectionBody.text = $"Day {campaign.Day}  -  the warband moves across the land.";
+            marchButtonText.text = "MARCHING...";
+            marchButton.interactable = false;
+            return;
         }
-        else if (settlement != null)
+
+        selectionTitle.text = $"DAY {campaign.Day}";
+        marchButton.interactable = selectionKind != SelectionKind.None;
+        switch (selectionKind)
         {
-            selectionTitle.text = $"DAY {campaign.Day}";
-            selectionBody.text = $"At {settlement.Name} ({SettlementCatalog.Label(settlement.Settlement)}) - " +
-                $"{settlement.Recruits} volunteers up to {UnitCatalog.Label(SettlementCatalog.MaxTier(settlement.Settlement))}.";
+            case SelectionKind.Territory:
+            {
+                Territory t = selectedTerritory;
+                int eta = sim.DaysTo(t.MapPosition);
+                bool mine = t.Owner == TerritoryOwner.Player;
+                string upkeep = mine ? $"  (-{CampaignState.GarrisonUpkeepPerHold}/day garrison)" : "";
+                selectionBody.text =
+                    $"{t.Name}  -  {(mine ? "YOUR HOLD" : "ENEMY HOLD")}, {SettlementCatalog.Label(t.Settlement)}\n" +
+                    $"THREAT {Stars(t.Threat)}     GARRISON {t.Garrison}\n" +
+                    $"REWARD {t.RewardGold}g     INCOME {t.Income}/day{upkeep}";
+                marchButtonText.text = mine
+                    ? $"REST AT {t.Name.ToUpperInvariant()}  ({eta}d)"
+                    : $"ASSAULT {t.Name.ToUpperInvariant()}  ({eta}d)";
+                break;
+            }
+            case SelectionKind.Party:
+            {
+                EnemyParty p = selectedParty;
+                int eta = sim.DaysTo(p.Position);
+                string note = sim.IsThreat(p) ? "Strong enough to give chase." : "Too weak to chase your host.";
+                selectionBody.text = $"{p.Name}  -  strength {p.Strength}  vs your {sim.PlayerStrength}\n{note}";
+                marchButtonText.text = $"HUNT {p.Name}  ({eta}d)";
+                break;
+            }
+            case SelectionKind.Ground:
+            {
+                int eta = sim.DaysTo(selectedGround);
+                selectionBody.text = "Open ground.\nMarch here to scout, reposition, or draw bands out.";
+                marchButtonText.text = $"MARCH HERE  ({eta}d)";
+                break;
+            }
+            default:
+                selectionBody.text = settlement != null
+                    ? $"At {settlement.Name} ({SettlementCatalog.Label(settlement.Settlement)}). Click a hold, a band, or open ground to plan a march."
+                    : "Click a hold to assault, a red band to hunt, or open ground to march.";
+                marchButtonText.text = "SELECT A TARGET";
+                break;
         }
-        else
-        {
-            selectionTitle.text = $"DAY {campaign.Day}";
-            selectionBody.text =
-                "Click a hold to assault, a red band to hunt, or open ground to march. Recruit at any settlement in range.";
-        }
-        actionButtonText.text = "WAIT A DAY";
-        actionButton.interactable = !travelling;
     }
 
     // The action button passes a day in place: roaming bands advance toward the

@@ -84,6 +84,15 @@ public sealed class OverworldSimulation
         return best;
     }
 
+    // Whole campaign days a march to target would take from the current position,
+    // at DistancePerDay map units per day. Used for the travel preview/ETA; a march
+    // of any non-zero length costs at least one day.
+    public int DaysTo(Vector2 target)
+    {
+        float distance = (target - campaign.PartyPosition).magnitude;
+        return distance <= 0.01f ? 0 : Mathf.Max(1, Mathf.CeilToInt(distance / DistancePerDay));
+    }
+
     public void BeginTravel(Vector2 target, Territory territory, EnemyParty party)
     {
         travelTarget = target;

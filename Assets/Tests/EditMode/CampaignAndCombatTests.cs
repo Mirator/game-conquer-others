@@ -432,13 +432,35 @@ public sealed class CampaignAndCombatTests
         campaign.ApplyDayTick();
         Assert.That(campaign.Gold, Is.EqualTo(100 - wage), "With no holds, a day costs the wage bill.");
 
-        // Capture a hold, then a day nets income minus wages.
+        // Capture a hold, then a day nets income minus wages minus garrison upkeep.
         campaign.ApplyVictory(FirstEnemyTerritory(campaign), new BattleResult { PlayerWon = true });
         int income = campaign.DailyIncome();
         int wage2 = campaign.DailyWage();
+        int upkeep = campaign.DailyGarrisonUpkeep();
         int goldBefore = campaign.Gold;
         campaign.ApplyDayTick();
-        Assert.That(campaign.Gold, Is.EqualTo(goldBefore + income - wage2), "Daily cashflow is income minus wages.");
+        Assert.That(campaign.Gold, Is.EqualTo(goldBefore + income - wage2 - upkeep),
+            "Daily cashflow is income minus wages minus garrison upkeep.");
+    }
+
+    [Test]
+    public void DayTick_GarrisonUpkeepTaxesHeldLand()
+    {
+        CampaignState campaign = CampaignState.CreateDefault(11);
+        Assert.That(campaign.DailyGarrisonUpkeep(), Is.EqualTo(0), "No holds means no garrison upkeep.");
+
+        campaign.ApplyVictory(FirstEnemyTerritory(campaign), new BattleResult { PlayerWon = true });
+        Assert.That(campaign.DailyGarrisonUpkeep(), Is.EqualTo(CampaignState.GarrisonUpkeepPerHold),
+            "Each held hold costs garrison upkeep per day.");
+
+        campaign.Gold = 1000; // plenty, so the full expense bill is paid
+        int income = campaign.DailyIncome();
+        int wage = campaign.DailyWage();
+        int garrison = campaign.DailyGarrisonUpkeep();
+        int before = campaign.Gold;
+        campaign.ApplyDayTick();
+        Assert.That(campaign.Gold, Is.EqualTo(before + income - wage - garrison),
+            "Garrison upkeep is drawn alongside wages each day.");
     }
 
     [Test]

@@ -43,6 +43,7 @@ public sealed class CampaignState
     public const int DesertionMoraleRebound = 10;
     public const int RenownPerHoldPerDay = 1;
     public const int XpPerEnemyDefeated = 10;
+    public const int GarrisonUpkeepPerHold = 5;
 
     public int LeadershipCap => Mathf.Clamp(BaseLeadership + Renown / RenownPerCapStep, BaseLeadership, MaxLeadership);
 
@@ -260,6 +261,12 @@ public sealed class CampaignState
         return wage;
     }
 
+    // Gold owed each day to garrison the holds the warband controls. Unlike troop
+    // wages (which scale with army size), this scales with territory — so holding
+    // land carries an ongoing cost and taking every weak hold is no longer free
+    // upside. Net daily cashflow is income minus wages minus this.
+    public int DailyGarrisonUpkeep() => GarrisonUpkeepPerHold * PlayerTerritoryCount();
+
     // Advances the warband economy by one campaign day: collect owned-land income,
     // pay troop wages (morale suffers and the purse empties if the coffers run dry),
     // earn renown from held land, drift morale toward its target, refill settlement
@@ -269,10 +276,10 @@ public sealed class CampaignState
     {
         Gold += DailyIncome();
 
-        int wage = DailyWage();
-        bool paid = Gold >= wage;
+        int expenses = DailyWage() + DailyGarrisonUpkeep();
+        bool paid = Gold >= expenses;
         if (paid)
-            Gold -= wage;
+            Gold -= expenses;
         else
         {
             Gold = 0;

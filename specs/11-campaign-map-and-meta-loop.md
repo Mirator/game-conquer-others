@@ -27,16 +27,19 @@ gives the battle a reason to repeat.
 
 ## Map Rules
 
-- Click-to-move drives everything: clicking an enemy hold marches there and
-  assaults it, clicking a bandit band marches there to hunt it, and clicking open
-  ground simply marches there.
+- Click-to-select drives travel: clicking a hold, a bandit band, or open ground
+  selects it as a destination and shows a dotted route to it, the march cost in
+  days, and — for a hold — its garrison, threat, reward, and income. A separate
+  **march** button commits the journey; it resolves on arrival (assault an enemy
+  hold, hunt a band, or rest at a friendly hold). Reviewing before committing
+  means a misclick no longer sends the warband on a long march.
 - A day clock advances while the warband travels (about 4 map units per day) and
   pauses whenever the warband is idle.
 - A **Wait a Day** action passes a single day in place; roaming bands close in
   while the warband holds position.
 - Each day that elapses (marching or waiting) runs the party economy: owned-land
-  income is collected, troop wages are paid, renown accrues from held land, morale
-  drifts, and settlement recruit pools refill.
+  income is collected, troop wages and per-hold garrison upkeep are paid, renown
+  accrues from held land, morale drifts, and settlement recruit pools refill.
 - Recruitment is available while standing near any settlement (within about 2.4
   map units), regardless of who holds it; the settlement's size class sets which
   tiers and how many volunteers are on offer.
@@ -75,7 +78,7 @@ gives the battle a reason to repeat.
 
 | Input | Action |
 |---|---|
-| Left mouse | Click a hold, a bandit band, or open ground to march there |
+| Left mouse | Click a hold, a bandit band, or open ground to select it as a march destination (the march button then commits) |
 | Mouse wheel | Zoom the camera |
 | Right-button drag | Pan the camera across the map |
 | R (on the end screen) | Begin a new campaign |
@@ -86,15 +89,23 @@ gives the battle a reason to repeat.
   shared materials from `RuntimeAssets`.
 - The map is roughly twice as large per axis, viewed through a zoom/pan camera
   over a table-like ground plane.
-- Hold nodes are colored by owner (blue player / red enemy); all enemy holds
-  pulse. Adjacency edges are drawn between nodes.
+- Hold nodes are colored by owner (blue player / red enemy), labelled with the
+  hold's name on the map (the name color doubles as an assault cue — red enemy
+  holds you can march on, blue your own), and all enemy holds pulse. The selected
+  destination glows gold with a dotted route drawn from the warband to it.
+  Adjacency edges are drawn between nodes.
 - The player party and the bandit parties are captain-style soldier figures with
   floating unit-count labels above them.
 - A uGUI HUD shows the day, gold and net daily cashflow, morale, renown, the
-  warband size against the leadership cap, owned-hold count, the latest report, a
-  tier selector with per-archetype recruit buttons (enabled near any settlement
-  that offers the tier and still has volunteers), a promotion panel for spending
-  banked experience, captain equipment, and a Wait-a-Day action.
+  warband size against the leadership cap, owned-hold count, and the latest report.
+  A destination panel inspects the current selection — a hold's garrison, threat
+  (stars), reward, and income (and its garrison upkeep if owned), or a band's
+  strength against the warband's — with the march cost in days and a contextual
+  assault/hunt/rest confirm button, alongside a Wait-a-Day action. A tier selector
+  drives per-archetype recruit buttons under a status line that names why
+  recruiting is blocked when it is (no settlement in range, warband full, too poor,
+  tier not offered). A promotion panel shows an XP progress bar toward each stack's
+  next tier. Captain equipment selects the player's weapon.
 
 ## Future Campaign Features
 

@@ -170,6 +170,20 @@ public sealed class OverworldSimulationTests
     }
 
     [Test]
+    public void DaysTo_CountsWholeDaysAtDistancePerDay()
+    {
+        CampaignState state = StateWithRoster(3);
+        state.PartyPosition = Vector2.zero;
+        OverworldSimulation sim = new OverworldSimulation(state);
+
+        // DistancePerDay is 4: a 10-unit march rounds up to 3 days.
+        Assert.That(sim.DaysTo(new Vector2(10f, 0f)), Is.EqualTo(3));
+        Assert.That(sim.DaysTo(new Vector2(4f, 0f)), Is.EqualTo(1));
+        Assert.That(sim.DaysTo(Vector2.zero), Is.EqualTo(0), "Standing still costs no day.");
+        Assert.That(sim.DaysTo(new Vector2(0.005f, 0f)), Is.EqualTo(0), "A negligible hop costs no day.");
+    }
+
+    [Test]
     public void WaitOneDay_AdvancesDayAndCatchesAdjacentThreat()
     {
         CampaignState state = StateWithRoster(2);
