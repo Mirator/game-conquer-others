@@ -193,8 +193,22 @@ public sealed class BattleFighterPresentation
         baseColors = new Color[renderers.Length];
         for (int i = 0; i < renderers.Length; i++)
         {
+            // Authored fighters carry their team colour in a MaterialPropertyBlock
+            // (set by FighterView.ApplyTeam above), not in the shared material. Capture
+            // that override as the base colour so the hit-flash restore returns the red
+            // cloth instead of wiping it to the FBX material's neutral default.
             Material shared = renderers[i].sharedMaterial;
-            baseColors[i] = shared != null ? shared.color : Color.white;
+            Color fallback = shared != null ? shared.color : Color.white;
+            if (renderers[i].HasPropertyBlock())
+            {
+                renderers[i].GetPropertyBlock(colorProperties);
+                Color tint = colorProperties.GetColor("_BaseColor");
+                baseColors[i] = tint.a > 0f ? tint : fallback;
+            }
+            else
+            {
+                baseColors[i] = fallback;
+            }
         }
         if (hasAuthoredModel)
         {
