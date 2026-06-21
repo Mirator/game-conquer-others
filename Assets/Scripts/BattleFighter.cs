@@ -48,6 +48,10 @@ public abstract class BattleFighter : MonoBehaviour
     private const float AttackRange = 2.2f;
     private const float MaxStamina = 100f;
     private const float PerfectBlockWindow = 0.2f;
+    // Minimum spacing between perfect-block re-arms so re-aiming the guard to read an
+    // attack still works, but rapidly oscillating the block direction cannot hold the
+    // window open continuously.
+    private const float PerfectBlockReArmLockout = 0.55f;
     private const float CounterWindow = 0.65f;
     private const float BowPrecisionThreshold = 0.7f;
     private const float BowFullPrecisionTime = 1.4f;
@@ -64,6 +68,7 @@ public abstract class BattleFighter : MonoBehaviour
     private float hitStopTimer;
     private float staggerTimer;
     private float blockAge;
+    private float blockReArmCooldown;
     private float counterWindowTimer;
     private float damageDisplayTimer;
     private float bowDrawTimer;
@@ -124,6 +129,7 @@ public abstract class BattleFighter : MonoBehaviour
         {
             counterWindowTimer = Mathf.Max(0f, counterWindowTimer - Time.deltaTime);
             damageDisplayTimer = Mathf.Max(0f, damageDisplayTimer - Time.deltaTime);
+            blockReArmCooldown = Mathf.Max(0f, blockReArmCooldown - Time.deltaTime);
             if (IsBlocking)
                 blockAge += Time.deltaTime;
             stamina = Mathf.Min(MaxStamina, stamina + (IsBlocking ? CombatBalance.StaminaRegenBlocking : CombatBalance.StaminaRegenIdle) * Time.deltaTime);
@@ -216,10 +222,16 @@ public abstract class BattleFighter : MonoBehaviour
         bool wasBlocking = IsBlocking;
         bool changedDirection = direction != BlockDirection;
         IsBlocking = active && canBlock;
-        // Raising the guard or re-aiming it to a new direction re-arms the perfect-block
-        // window (re-aiming to meet an incoming attack is an intended defensive read).
-        if (IsBlocking && (!wasBlocking || changedDirection))
+        // Raising the guard always re-arms the perfect-block window. Re-aiming it to a
+        // new direction also re-arms (an intended last-moment defensive read), but only
+        // after a short lockout so oscillating the block direction can't hold the window
+        // open every frame.
+        bool reArm = IsBlocking && (!wasBlocking || (changedDirection && blockReArmCooldown <= 0f));
+        if (reArm)
+        {
             blockAge = 0f;
+            blockReArmCooldown = PerfectBlockReArmLockout;
+        }
         if (active)
             BlockDirection = direction;
         return IsBlocking;
@@ -356,7 +368,7 @@ public abstract class BattleFighter : MonoBehaviour
         }
     }
 
-    private static bool loggedVisualFault;
+    private bool loggedVisualFault;
     private void UpdateVisuals()
     {
         hitFlashTimer = Mathf.Max(0f, hitFlashTimer - Time.deltaTime);

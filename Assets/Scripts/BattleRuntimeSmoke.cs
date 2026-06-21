@@ -78,6 +78,14 @@ public sealed class BattleRuntimeSmoke : MonoBehaviour
         BattleSetup setup = director.Campaign.BuildSetupFor(target);
         bool largeRun = HasArgument("-smokelarge");
         bool duelRun = HasArgument("-smokeduel");
+        if (largeRun || duelRun)
+        {
+            // BuildSetupFor pre-populates explicit rosters; clear them so the scalar
+            // count overrides below actually drive the spawn (BattleBootstrap prefers a
+            // non-empty composition over the counts).
+            setup.AllyComposition = null;
+            setup.EnemyComposition = null;
+        }
         if (largeRun)
         {
             setup.AllyCount = 5;
