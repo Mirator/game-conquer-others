@@ -14,6 +14,7 @@ public sealed class GameSettings
     public int resolutionHeight;
     public int qualityPreset;
     public bool vSync = true;
+    public bool reduceMotion;
 
     public static GameSettings Defaults()
     {

@@ -198,6 +198,12 @@ public sealed class GameDirector : MonoBehaviour
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
 
+        // The title owns a dedicated camera and dawn lighting. Hide it before a
+        // map or battle creates its own camera, rather than allowing even one
+        // frame of competing cameras/listeners during the hand-off.
+        if (target != Mode.Title)
+            frontend?.ShowTitle(false);
+
         if (battleRoot != null)
         {
             Destroy(battleRoot);

@@ -90,10 +90,12 @@ public sealed class PresentationValidationTests
         SettingsService.ResetForTests();
         SettingsService.Current.mouseSensitivity = 1.37f;
         SettingsService.Current.cameraShake = 0.42f;
+        SettingsService.Current.reduceMotion = true;
         SettingsService.SaveAndApply();
         SettingsService.Load();
         Assert.That(SettingsService.Current.mouseSensitivity, Is.EqualTo(1.37f).Within(0.001f));
         Assert.That(SettingsService.Current.cameraShake, Is.EqualTo(0.42f).Within(0.001f));
+        Assert.That(SettingsService.Current.reduceMotion, Is.True);
         SettingsService.ResetForTests();
     }
 }

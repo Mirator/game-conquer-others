@@ -6,6 +6,32 @@ using UnityEngine.TestTools;
 public sealed class FrontendLifecycleTests
 {
     [UnityTest]
+    public IEnumerator Director_ActivatesTitleBackdropOnlyInTitleMode()
+    {
+        GameDirector director = Object.FindFirstObjectByType<GameDirector>();
+        Assert.That(director, Is.Not.Null);
+        director.ReturnToTitle();
+        while (!director.IsModeReady(GameDirector.Mode.Title))
+            yield return null;
+
+        TitleBackdrop backdrop = Object.FindFirstObjectByType<TitleBackdrop>();
+        Assert.That(backdrop, Is.Not.Null);
+        Assert.That(backdrop.IsVisible, Is.True);
+        Assert.That(backdrop.TitleCamera, Is.Not.Null);
+        Assert.That(backdrop.TitleCamera.enabled, Is.True);
+
+        director.StartNewCampaign();
+        while (!director.IsModeReady(GameDirector.Mode.Map))
+            yield return null;
+        Assert.That(backdrop.IsVisible, Is.False);
+        Assert.That(backdrop.TitleCamera.enabled, Is.False);
+
+        director.ReturnToTitle();
+        while (!director.IsModeReady(GameDirector.Mode.Title))
+            yield return null;
+    }
+
+    [UnityTest]
     public IEnumerator Director_BuildsReadableCampaignDiorama()
     {
         GameDirector director = Object.FindFirstObjectByType<GameDirector>();
