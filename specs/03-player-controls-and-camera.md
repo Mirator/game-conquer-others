@@ -69,6 +69,8 @@
 The overworld uses a separate top-down camera, controlled by
 `CampaignMapController.CameraControls`:
 
+- The campaign opens zoomed in on the player's warband (not the whole map); the
+  player zooms/pans out from there.
 - Mouse-wheel scroll zooms along the camera's forward axis, clamped between
   heights 14 and 78.
 - Holding the right mouse button and dragging pans across the ground plane; pan

@@ -13,6 +13,7 @@ public sealed class CampaignMapController : MonoBehaviour
     private const float MaxCameraHeight = 78f;
     private const float ZoomStep = 6f;
     private const float PanSpeed = 0.05f;
+    private const float StartCameraHeight = 22f; // zoomed in on the warband at campaign start, not the whole map
 
     private GameDirector director;
     private CampaignState campaign;
@@ -138,7 +139,6 @@ public sealed class CampaignMapController : MonoBehaviour
         GameObject camObject = new GameObject("Map Camera");
         camObject.transform.SetParent(transform);
         camObject.tag = "MainCamera";
-        camObject.transform.position = new Vector3(0f, 52f, -24f);
         camObject.transform.rotation = Quaternion.Euler(62f, 0f, 0f);
         cam = camObject.AddComponent<Camera>();
         cam.fieldOfView = 50f;
@@ -146,6 +146,7 @@ public sealed class CampaignMapController : MonoBehaviour
         cam.clearFlags = CameraClearFlags.SolidColor;
         cam.backgroundColor = new Color(0.05f, 0.06f, 0.08f);
         camObject.AddComponent<AudioListener>();
+        FocusCameraOn(campaign.PartyPosition, StartCameraHeight);
 
         GameObject table = GameObject.CreatePrimitive(PrimitiveType.Cube);
         table.name = "Map Table";
@@ -445,6 +446,16 @@ public sealed class CampaignMapController : MonoBehaviour
     }
 
     // Mouse wheel zooms along the view; right-button drag pans across the map.
+    // Centres the fixed-pitch camera over a map position at a given height by
+    // sliding back along its view axis, so the point sits under the screen centre.
+    private void FocusCameraOn(Vector2 mapPosition, float height)
+    {
+        Vector3 ground = WorldOf(mapPosition);
+        Vector3 forward = cam.transform.forward;
+        float back = (height - ground.y) / -forward.y; // forward.y is negative (camera looks down)
+        cam.transform.position = ground - forward * back;
+    }
+
     private void CameraControls()
     {
         if (Mouse.current == null)
