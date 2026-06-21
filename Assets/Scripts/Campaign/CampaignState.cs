@@ -14,6 +14,9 @@ public sealed class CampaignState
     public int Seed;
     public Vector2 PartyPosition;     // the player warband's overworld location
     public int Day = 1;               // campaign clock, advanced by travel
+    // Fraction of the current campaign day already spent travelling. Persisted so
+    // entering a battle or reloading cannot erase the remaining daylight/time cost.
+    public float DayProgress;
     public bool CampaignOver;         // set when the player is defeated
     public string LastReport = "March your warband across the land. Hunt bandits, raid holds, grow your host.";
     public WeaponType PlayerWeapon = WeaponType.SwordAndShield;

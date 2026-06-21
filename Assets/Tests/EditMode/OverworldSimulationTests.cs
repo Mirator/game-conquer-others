@@ -176,8 +176,9 @@ public sealed class OverworldSimulationTests
         state.PartyPosition = Vector2.zero;
         OverworldSimulation sim = new OverworldSimulation(state);
 
-        // DistancePerDay is 4: a 10-unit march rounds up to 3 days.
-        Assert.That(sim.DaysTo(new Vector2(10f, 0f)), Is.EqualTo(3));
+        // DistancePerDay is 4: a 10-unit march crosses two day boundaries,
+        // matching the two economy ticks that Tick will apply.
+        Assert.That(sim.DaysTo(new Vector2(10f, 0f)), Is.EqualTo(2));
         Assert.That(sim.DaysTo(new Vector2(4f, 0f)), Is.EqualTo(1));
         Assert.That(sim.DaysTo(Vector2.zero), Is.EqualTo(0), "Standing still costs no day.");
         Assert.That(sim.DaysTo(new Vector2(0.005f, 0f)), Is.EqualTo(0), "A negligible hop costs no day.");
@@ -212,6 +213,27 @@ public sealed class OverworldSimulationTests
         sim.Tick(8f / OverworldSimulation.TravelSpeed);
         Assert.That(state.Day, Is.EqualTo(3));
         Assert.That(sim.DayFraction, Is.EqualTo(0.5f).Within(0.001f), "The fraction wraps with the day.");
+        Assert.That(state.DayProgress, Is.EqualTo(0.5f).Within(0.001f), "Campaign state tracks the remaining partial day.");
+    }
+
+    [Test]
+    public void DayFraction_SurvivesMapRecreation()
+    {
+        CampaignState state = StateWithRoster(3);
+        OverworldSimulation firstMap = new OverworldSimulation(state);
+        firstMap.BeginTravel(new Vector2(2f, 0f), null, null);
+        firstMap.Tick(2f / OverworldSimulation.TravelSpeed);
+
+        Assert.That(state.DayProgress, Is.EqualTo(0.5f).Within(0.001f));
+
+        OverworldSimulation rebuiltMap = new OverworldSimulation(state);
+        Assert.That(rebuiltMap.DayFraction, Is.EqualTo(0.5f).Within(0.001f));
+        Assert.That(rebuiltMap.DaysTo(new Vector2(4f, 0f)), Is.EqualTo(1), "The remaining half-day carries into the next march.");
+        rebuiltMap.BeginTravel(new Vector2(4f, 0f), null, null);
+        rebuiltMap.Tick(2f / OverworldSimulation.TravelSpeed);
+
+        Assert.That(state.Day, Is.EqualTo(2), "Completing the carried half-day advances the campaign exactly once.");
+        Assert.That(state.DayProgress, Is.EqualTo(0f).Within(0.001f));
     }
 
     [Test]

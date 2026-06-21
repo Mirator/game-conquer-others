@@ -47,12 +47,16 @@ public sealed class OverworldSimulation
     private EnemyParty pendingParty;
     private float dayAccumulator;
 
-    // 0..1 progress toward the next campaign day; advances while marching, frozen
-    // when idle. Transient (not saved): a fresh sim on load starts at 0, a coherent
-    // start-of-day. Drives the overworld day/night phase.
+    // 0..1 progress toward the next campaign day; advances while marching and
+    // freezes when idle. It is mirrored to CampaignState so a map rebuild after a
+    // battle, or a save/load, resumes at the same campaign time.
     public float DayFraction => Mathf.Clamp01(dayAccumulator / DistancePerDay);
 
-    public OverworldSimulation(CampaignState campaign) => this.campaign = campaign;
+    public OverworldSimulation(CampaignState campaign)
+    {
+        this.campaign = campaign;
+        dayAccumulator = Mathf.Clamp01(campaign.DayProgress) * DistancePerDay;
+    }
 
     // The player's fighting strength: the captain plus the warband.
     public int PlayerStrength => campaign.Roster + 1;
@@ -89,13 +93,14 @@ public sealed class OverworldSimulation
         return best;
     }
 
-    // Whole campaign days a march to target would take from the current position,
-    // at DistancePerDay map units per day. Used for the travel preview/ETA; a march
-    // of any non-zero length costs at least one day.
+    // Complete campaign days that will elapse before the party reaches target.
+    // This intentionally uses the already-spent fraction of the current day, so the
+    // HUD's day cost exactly matches the economy ticks applied by Tick.
     public int DaysTo(Vector2 target)
     {
         float distance = (target - campaign.PartyPosition).magnitude;
-        return distance <= 0.01f ? 0 : Mathf.Max(1, Mathf.CeilToInt(distance / DistancePerDay));
+        return distance <= 0.01f ? 0
+            : Mathf.FloorToInt((dayAccumulator + distance) / DistancePerDay + 0.0001f);
     }
 
     public void BeginTravel(Vector2 target, Territory territory, EnemyParty party)
@@ -127,6 +132,7 @@ public sealed class OverworldSimulation
             campaign.Day++;
             campaign.ApplyDayTick();
         }
+        campaign.DayProgress = DayFraction;
 
         StepEnemyParties(move.magnitude);
 

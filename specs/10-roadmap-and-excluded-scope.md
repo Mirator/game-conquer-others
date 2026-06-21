@@ -37,7 +37,7 @@ the game's strategic scope. The ordered remediation plan is defined in
 - Free-roam overworld campaign map (click-to-move party, day clock, roaming
   bandit parties, settlement assaults) with a persistent warband roster (see
   [11-campaign-map-and-meta-loop.md](11-campaign-map-and-meta-loop.md)).
-- Campaign save/load (PlayerPrefs snapshot, format version 4) with Continue on
+- Campaign save/load (PlayerPrefs snapshot, format version 5) with Continue on
   the title screen; autosaves on new campaign, battle launch, battle conclusion,
   return-to-title, and quit, and is deleted on defeat.
 - Fighter archetypes (Soldier, Shieldbearer, Berserker, Archer, Captain) layered

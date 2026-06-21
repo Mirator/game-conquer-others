@@ -30,7 +30,7 @@ listener. Each mode's camera carries the single active `AudioListener`.
 | `CampaignState` | Persistent territory graph, economy, mixed-unit warband, and progression rules (`Territory.cs` also defines `EnemyParty` and the `Settlement` size class). |
 | `CampaignTypes` | Unit catalog, unit roster, weapon catalog, and arena-type definitions; also defines `Archetype` + `ArchetypeCatalog`, the `BattleKind` enum, the `SettlementType` enum + `SettlementCatalog`, and the per-(tier x archetype) `RosterEntry` (which banks battle experience). |
 | `OverworldSimulation` | Pure deterministic overworld travel and enemy-party simulation. |
-| `CampaignSaveService` | PlayerPrefs campaign save/load/delete (save v4). |
+| `CampaignSaveService` | PlayerPrefs campaign save/load/delete (save v5). |
 | `CampaignMapController` | Builds and runs the campaign map view, camera, and UI. |
 | `AIProfile` | Archetype behavior presets layered on a fighter's unit stats and weapon. |
 | `CombatBalance` / `CombatBalanceData` | Static tuning facade over an optional Resources `ScriptableObject` with baked defaults. |

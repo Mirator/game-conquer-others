@@ -14,6 +14,9 @@ public sealed class CampaignMapController : MonoBehaviour
     private const float ZoomStep = 6f;
     private const float PanSpeed = 0.05f;
     private const float StartCameraHeight = 22f; // zoomed in on the warband at campaign start, not the whole map
+    private const float MapCameraLimitX = 40f;
+    private const float MapCameraLimitZMin = -31f;
+    private const float MapCameraLimitZMax = 35f;
 
     private GameDirector director;
     private CampaignState campaign;
@@ -30,6 +33,7 @@ public sealed class CampaignMapController : MonoBehaviour
     private Text selectionTitle;
     private Text selectionBody;
     private Text equipmentText;
+    private Text trainingEnemyEquipmentText;
     private Text recruitStatus;
     private Text endTitle;
     private RectTransform endScreen;
@@ -409,6 +413,7 @@ public sealed class CampaignMapController : MonoBehaviour
 
         if (campaign.CampaignOver)
         {
+            RefreshUi();
             if (Keyboard.current != null && Keyboard.current.rKey.wasPressedThisFrame)
                 director.RestartCampaign();
             return;
@@ -458,6 +463,8 @@ public sealed class CampaignMapController : MonoBehaviour
 
     private void CameraControls()
     {
+        if (Keyboard.current != null && Keyboard.current.homeKey.wasPressedThisFrame)
+            FocusCameraOn(campaign.PartyPosition, StartCameraHeight);
         if (Mouse.current == null)
             return;
         Transform t = cam.transform;
@@ -478,7 +485,21 @@ public sealed class CampaignMapController : MonoBehaviour
             Vector3 move = (-t.right * delta.x - planarForward * delta.y) * scale;
             move.y = 0f;
             t.position += move;
+            ClampCameraToTable();
         }
+    }
+
+    // Keep the point under the centre of the map camera on the generated table.
+    // This prevents right-dragging into empty space and Home provides an explicit
+    // recovery route back to the warband after exploring the map.
+    private void ClampCameraToTable()
+    {
+        Vector3 forward = cam.transform.forward;
+        float distance = cam.transform.position.y / Mathf.Max(-forward.y, 0.01f);
+        Vector3 center = cam.transform.position + forward * distance;
+        center.x = Mathf.Clamp(center.x, -MapCameraLimitX, MapCameraLimitX);
+        center.z = Mathf.Clamp(center.z, MapCameraLimitZMin, MapCameraLimitZMax);
+        cam.transform.position = center - forward * distance;
     }
 
     // Clicking selects a march destination (or launches training directly); the
@@ -720,19 +741,25 @@ public sealed class CampaignMapController : MonoBehaviour
             promoteY -= 0.18f;
         }
 
-        RectTransform equipment = MedievalUi.Frame(campaignCanvas.transform, "Equipment", new Vector2(0.40f, 0.45f),
-            new Vector2(0.60f, 0.78f), Vector2.zero, Vector2.zero);
+        RectTransform equipment = MedievalUi.Frame(campaignCanvas.transform, "Equipment", new Vector2(0.39f, 0.36f),
+            new Vector2(0.61f, 0.82f), Vector2.zero, Vector2.zero);
         equipmentPanel = equipment.gameObject;
-        MedievalUi.Label(equipment, "Title", "CAPTAIN EQUIPMENT", 27, TextAnchor.MiddleCenter,
-            new Vector2(0.05f, 0.72f), new Vector2(0.95f, 0.96f), Vector2.zero, Vector2.zero, MedievalUi.Gold);
-        MedievalUi.Divider(equipment, "Equipment Divider", new Vector2(0.12f, 0.695f), new Vector2(0.88f, 0.718f),
+        MedievalUi.Label(equipment, "Title", "TRAINING LOADOUT", 27, TextAnchor.MiddleCenter,
+            new Vector2(0.05f, 0.80f), new Vector2(0.95f, 0.96f), Vector2.zero, Vector2.zero, MedievalUi.Gold);
+        MedievalUi.Divider(equipment, "Equipment Divider", new Vector2(0.12f, 0.775f), new Vector2(0.88f, 0.798f),
             Vector2.zero, Vector2.zero);
         equipmentText = MedievalUi.Label(equipment, "Weapon", "", 22, TextAnchor.MiddleCenter,
-            new Vector2(0.12f, 0.35f), new Vector2(0.88f, 0.72f), Vector2.zero, Vector2.zero);
-        MedievalUi.Button(equipment, "Previous Weapon", "<", new Vector2(0.08f, 0.08f), new Vector2(0.32f, 0.31f),
+            new Vector2(0.12f, 0.51f), new Vector2(0.88f, 0.75f), Vector2.zero, Vector2.zero);
+        MedievalUi.Button(equipment, "Previous Weapon", "<", new Vector2(0.08f, 0.35f), new Vector2(0.32f, 0.48f),
             Vector2.zero, Vector2.zero, () => campaign.PlayerWeapon = WeaponCatalog.Previous(campaign.PlayerWeapon));
-        MedievalUi.Button(equipment, "Next Weapon", ">", new Vector2(0.68f, 0.08f), new Vector2(0.92f, 0.31f),
+        MedievalUi.Button(equipment, "Next Weapon", ">", new Vector2(0.68f, 0.35f), new Vector2(0.92f, 0.48f),
             Vector2.zero, Vector2.zero, () => campaign.PlayerWeapon = WeaponCatalog.Next(campaign.PlayerWeapon));
+        trainingEnemyEquipmentText = MedievalUi.Label(equipment, "Training Enemy Weapon", "", 18, TextAnchor.MiddleCenter,
+            new Vector2(0.12f, 0.17f), new Vector2(0.88f, 0.34f), Vector2.zero, Vector2.zero);
+        MedievalUi.Button(equipment, "Previous Training Enemy Weapon", "<", new Vector2(0.08f, 0.03f), new Vector2(0.32f, 0.14f),
+            Vector2.zero, Vector2.zero, () => campaign.TrainingEnemyWeapon = WeaponCatalog.Previous(campaign.TrainingEnemyWeapon));
+        MedievalUi.Button(equipment, "Next Training Enemy Weapon", ">", new Vector2(0.68f, 0.03f), new Vector2(0.92f, 0.14f),
+            Vector2.zero, Vector2.zero, () => campaign.TrainingEnemyWeapon = WeaponCatalog.Next(campaign.TrainingEnemyWeapon));
 
         recruitPanel.SetActive(false);
         promotePanel.SetActive(false);
@@ -768,6 +795,7 @@ public sealed class CampaignMapController : MonoBehaviour
             new Vector2(0.2f, 0.42f), new Vector2(0.8f, 0.66f), Vector2.zero, Vector2.zero, MedievalUi.Gold);
         MedievalUi.Label(endScreen, "End Hint", "PRESS R TO BEGIN A NEW CAMPAIGN", 28, TextAnchor.MiddleCenter,
             new Vector2(0.25f, 0.31f), new Vector2(0.75f, 0.43f), Vector2.zero, Vector2.zero);
+        endScreen.gameObject.SetActive(false);
     }
 
     // Summons one panel and hides the others; clicking the open panel's toolbar
@@ -931,7 +959,10 @@ public sealed class CampaignMapController : MonoBehaviour
         // hidden panels are skipped. TogglePanel sets uiDirty so a panel refreshes
         // the instant it opens.
         if (openPanel == HudPanel.Equipment)
-            equipmentText.text = $"{WeaponCatalog.Label(campaign.PlayerWeapon)}\n{WeaponCatalog.Description(campaign.PlayerWeapon)}";
+        {
+            equipmentText.text = $"CAPTAIN: {WeaponCatalog.Label(campaign.PlayerWeapon)}\n{WeaponCatalog.Description(campaign.PlayerWeapon)}";
+            trainingEnemyEquipmentText.text = $"TRAINING FOE: {WeaponCatalog.Label(campaign.TrainingEnemyWeapon)}";
+        }
 
         if (openPanel == HudPanel.Recruit)
         {
@@ -998,8 +1029,8 @@ public sealed class CampaignMapController : MonoBehaviour
                     $"THREAT {Stars(t.Threat)}     GARRISON {t.Garrison}\n" +
                     $"REWARD {t.RewardGold}g     INCOME {t.Income}/day{upkeep}";
                 marchButtonText.text = mine
-                    ? $"REST AT {t.Name.ToUpperInvariant()}  ({eta}d)"
-                    : $"ASSAULT {t.Name.ToUpperInvariant()}  ({eta}d)";
+                    ? $"REST AT {t.Name.ToUpperInvariant()}  ({TravelTimeLabel(eta)})"
+                    : $"ASSAULT {t.Name.ToUpperInvariant()}  ({TravelTimeLabel(eta)})";
                 break;
             }
             case SelectionKind.Party:
@@ -1008,14 +1039,14 @@ public sealed class CampaignMapController : MonoBehaviour
                 int eta = sim.DaysTo(p.Position);
                 string note = sim.IsThreat(p) ? "Strong enough to give chase." : "Too weak to chase your host.";
                 selectionBody.text = $"{p.Name}  -  strength {p.Strength}  vs your {sim.PlayerStrength}\n{note}";
-                marchButtonText.text = $"HUNT {p.Name}  ({eta}d)";
+                marchButtonText.text = $"HUNT {p.Name}  ({TravelTimeLabel(eta)})";
                 break;
             }
             case SelectionKind.Ground:
             {
                 int eta = sim.DaysTo(selectedGround);
                 selectionBody.text = "Open ground.\nMarch here to scout, reposition, or draw bands out.";
-                marchButtonText.text = $"MARCH HERE  ({eta}d)";
+                marchButtonText.text = $"MARCH HERE  ({TravelTimeLabel(eta)})";
                 break;
             }
             default:
@@ -1026,6 +1057,8 @@ public sealed class CampaignMapController : MonoBehaviour
                 break;
         }
     }
+
+    private static string TravelTimeLabel(int days) => days == 0 ? "SAME DAY" : $"{days}d";
 
     // The action button passes a day in place: roaming bands advance toward the
     // warband while it holds position.

@@ -8,7 +8,7 @@ using UnityEngine;
 [Serializable]
 public sealed class CampaignSaveData
 {
-    public const int CurrentVersion = 4;
+    public const int CurrentVersion = 5;
 
     public int version = CurrentVersion;
     public int seed;
@@ -21,6 +21,7 @@ public sealed class CampaignSaveData
     public int trainingEnemyWeapon;
     public Vector2 partyPosition;
     public int day;
+    public float dayProgress;
     public RosterEntry[] units;
     public TerritorySaveData[] territories;
     public PartySaveData[] parties;
@@ -75,6 +76,7 @@ public static class CampaignSaveService
             trainingEnemyWeapon = (int)state.TrainingEnemyWeapon,
             partyPosition = state.PartyPosition,
             day = state.Day,
+            dayProgress = state.DayProgress,
             units = state.Units.Entries.ToArray(),
             territories = new TerritorySaveData[state.Territories.Count],
             parties = new PartySaveData[state.Parties.Count]
@@ -120,7 +122,10 @@ public static class CampaignSaveService
         if (string.IsNullOrEmpty(json))
             return null;
         CampaignSaveData data = JsonUtility.FromJson<CampaignSaveData>(json);
-        if (data == null || data.version != CampaignSaveData.CurrentVersion || data.territories == null)
+        // Version 5 adds only a travel-day fraction, so version 4 campaigns can
+        // safely resume at the start of their current day instead of being deleted.
+        bool supportedVersion = data != null && (data.version == CampaignSaveData.CurrentVersion || data.version == 4);
+        if (!supportedVersion || data.territories == null)
         {
             Delete();
             return null;
@@ -137,7 +142,8 @@ public static class CampaignSaveService
             PlayerWeapon = (WeaponType)data.playerWeapon,
             TrainingEnemyWeapon = (WeaponType)data.trainingEnemyWeapon,
             PartyPosition = data.partyPosition,
-            Day = data.day
+            Day = data.day,
+            DayProgress = data.version >= CampaignSaveData.CurrentVersion ? Mathf.Clamp01(data.dayProgress) : 0f
         };
         if (data.units != null)
             foreach (RosterEntry entry in data.units)

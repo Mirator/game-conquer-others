@@ -36,8 +36,24 @@ public sealed class BattleProjectile : MonoBehaviour
 
         velocity += Physics.gravity * 0.2f * Time.deltaTime;
         Vector3 next = transform.position + velocity * Time.deltaTime;
+        Vector3 travel = next - previousPosition;
+        int ignoreRaycast = LayerMask.NameToLayer("Ignore Raycast");
+        int mask = ignoreRaycast >= 0 ? ~(1 << ignoreRaycast) : ~0;
         BattleFighter target = battle.FindProjectileTarget(attacker, previousPosition, next, 0.45f);
-        if (target != null)
+        RaycastHit hit = default;
+        bool hitWorld = travel.sqrMagnitude > 0.0001f
+            && Physics.Raycast(previousPosition, travel.normalized, out hit, travel.magnitude,
+                mask, QueryTriggerInteraction.Ignore);
+        float targetDistance = target != null
+            ? Mathf.Clamp(Vector3.Dot(target.transform.position + Vector3.up * 1.05f - previousPosition,
+                travel.normalized), 0f, travel.magnitude)
+            : float.MaxValue;
+
+        // Fighters live on Ignore Raycast and are resolved manually. Compare their
+        // swept position with the world hit so cover blocks only when it is actually
+        // in front of the fighter, rather than allowing shots through walls or
+        // incorrectly blocking a fighter standing before one.
+        if (target != null && (!hitWorld || targetDistance <= hit.distance))
         {
             battle.ReportProjectileHit();
             battle.ReportArrowImpact(next, true);
@@ -46,11 +62,7 @@ public sealed class BattleProjectile : MonoBehaviour
             return;
         }
 
-        Vector3 travel = next - previousPosition;
-        int ignoreRaycast = LayerMask.NameToLayer("Ignore Raycast");
-        int mask = ignoreRaycast >= 0 ? ~(1 << ignoreRaycast) : ~0;
-        if (travel.sqrMagnitude > 0.0001f
-            && Physics.Raycast(previousPosition, travel.normalized, out RaycastHit hit, travel.magnitude, mask, QueryTriggerInteraction.Ignore))
+        if (hitWorld)
         {
             battle.ReportArrowImpact(hit.point, false);
             Embed(hit.point + velocity.normalized * 0.08f, hit.collider.transform, 4f);

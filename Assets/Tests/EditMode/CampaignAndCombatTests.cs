@@ -144,6 +144,7 @@ public sealed class CampaignAndCombatTests
         original.ApplyVictory(target, new BattleResult { PlayerWon = true, VeteransSurvived = 1 });
         original.Renown = 55;
         original.Morale = 42;
+        original.DayProgress = 0.5f;
         original.Units.AddXp(UnitType.Veteran, Archetype.Soldier, 77);
 
         CampaignSaveService.Save(original);
@@ -156,6 +157,7 @@ public sealed class CampaignAndCombatTests
         Assert.That(loaded.Gold, Is.EqualTo(original.Gold));
         Assert.That(loaded.Renown, Is.EqualTo(55), "Renown survives the round trip.");
         Assert.That(loaded.Morale, Is.EqualTo(42), "Morale survives the round trip.");
+        Assert.That(loaded.DayProgress, Is.EqualTo(0.5f).Within(0.001f), "Partial travel time survives the round trip.");
         Assert.That(loaded.PlayerWeapon, Is.EqualTo(WeaponType.Bow));
         Assert.That(loaded.Units.Veterans, Is.EqualTo(original.Units.Veterans));
         Assert.That(loaded.Units.Xp(UnitType.Veteran, Archetype.Soldier),
@@ -297,6 +299,39 @@ public sealed class CampaignAndCombatTests
     }
 
     [Test]
+    public void CampaignSave_Version4CampaignRemainsLoadable()
+    {
+        CampaignSaveService.Delete();
+        CampaignSaveData legacy = new CampaignSaveData
+        {
+            version = 4,
+            seed = 9,
+            day = 3,
+            territories = new[]
+            {
+                new TerritorySaveData
+                {
+                    id = 0,
+                    name = "Legacy Hold",
+                    owner = (int)TerritoryOwner.Enemy,
+                    garrison = 2,
+                    difficultyScale = 1f,
+                    arena = (int)ArenaType.Courtyard,
+                    adjacentIds = System.Array.Empty<int>()
+                }
+            }
+        };
+        PlayerPrefs.SetString("ConquerOthers.Campaign", JsonUtility.ToJson(legacy));
+
+        CampaignState loaded = CampaignSaveService.Load();
+        CampaignSaveService.Delete();
+
+        Assert.That(loaded, Is.Not.Null);
+        Assert.That(loaded.Day, Is.EqualTo(3));
+        Assert.That(loaded.DayProgress, Is.EqualTo(0f), "Older saves resume at the start of their current day.");
+    }
+
+    [Test]
     public void TimeOfDayForDay_IsDeterministicAndInRange()
     {
         for (int day = 1; day <= 60; day++)
@@ -332,8 +367,11 @@ public sealed class CampaignAndCombatTests
         CampaignState campaign = CampaignState.CreateDefault(11);
         Assert.That(campaign.BuildSetupFor(FirstEnemyTerritory(campaign)).Kind, Is.EqualTo(BattleKind.SettlementAssault));
         Assert.That(campaign.BuildPartySetup(campaign.Parties[0]).Kind, Is.EqualTo(BattleKind.BanditField));
-        Assert.That(campaign.BuildTrainingSetup().Kind, Is.EqualTo(BattleKind.Training));
-        Assert.That(campaign.BuildTrainingSetup().TimeOfDay, Is.EqualTo(0.5f));
+        campaign.TrainingEnemyWeapon = WeaponType.Bow;
+        BattleSetup training = campaign.BuildTrainingSetup();
+        Assert.That(training.Kind, Is.EqualTo(BattleKind.Training));
+        Assert.That(training.TimeOfDay, Is.EqualTo(0.5f));
+        Assert.That(training.TrainingEnemyWeapon, Is.EqualTo(WeaponType.Bow));
     }
 
     [Test]

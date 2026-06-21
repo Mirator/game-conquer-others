@@ -35,8 +35,8 @@ The ready screen communicates:
 
 - Bottom-left player panel with health and stamina bars.
 - Top-right count of living blue and red fighters.
-- Top-left active ally order and `1 Follow / 2 Hold / 3 Charge` controls during
-  campaign battles.
+- Top-left active ally order and `1 Follow / 2 Hold / 3 Charge / 4 Advance`
+  controls during campaign battles.
 - A single center `+` reticle:
   - It reads `DRAW` while a bow charges and `STEADY` once the bow shot is
     precise.
@@ -66,7 +66,7 @@ Victory and defeat screens show:
 ## Cursor Rules
 
 - Cursor is locked and hidden during active battle.
-- Escape releases and shows the cursor.
+- Escape opens the pause screen and releases/shows the cursor while paused.
 - Clicking during battle locks the cursor again.
 - Result screens unlock and show the cursor.
 

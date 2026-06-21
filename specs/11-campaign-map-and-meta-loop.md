@@ -28,8 +28,9 @@ gives the battle a reason to repeat.
 ## Map Rules
 
 - Click-to-select drives travel: clicking a hold, a bandit band, or open ground
-  selects it as a destination and shows a dotted route to it, the march cost in
-  days, and — for a hold — its garrison, threat, reward, and income. A separate
+  selects it as a destination and shows a dotted route to it, the number of
+  complete campaign days that will elapse, and — for a hold — its garrison,
+  threat, reward, and income. A separate
   **march** button commits the journey; it resolves on arrival (assault an enemy
   hold, hunt a band, or rest at a friendly hold). Reviewing before committing
   means a misclick no longer sends the warband on a long march.
@@ -80,7 +81,8 @@ gives the battle a reason to repeat.
 |---|---|
 | Left mouse | Click a hold, a bandit band, or open ground to select it as a march destination (the march button then commits) |
 | Mouse wheel | Zoom the camera |
-| Right-button drag | Pan the camera across the map |
+| Right-button drag | Pan the camera across the map (kept within the map table) |
+| Home | Recenter the camera on the warband |
 | R (on the end screen) | Begin a new campaign |
 
 ## Presentation
