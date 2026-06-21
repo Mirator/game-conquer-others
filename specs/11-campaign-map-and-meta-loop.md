@@ -87,10 +87,17 @@ gives the battle a reason to repeat.
 
 ## Presentation
 
-- The map is runtime-generated in the same low-poly style as the battle, reusing
-  shared materials from `RuntimeAssets`.
+- The map is runtime-generated as a low-poly 3D diorama, reusing shared
+  materials, curated props, and primitive dressing. Every territory gets a
+  deterministic regional district: forest groves, marsh pools/reeds, highland
+  ridges/boulders, or courtyard roads/fences. Roads and roadside stones connect
+  adjacent holds without becoming collision geometry.
+- Settlements have readable silhouettes by size: villages are clusters of homes,
+  towns add a hall and denser buildings, and castles add a keep, towers, gate, and
+  standard. Decoration never catches map clicks; the table, hold nodes, parties,
+  and Training Arena remain the only interactive map geometry.
 - The map is roughly twice as large per axis, viewed through a zoom/pan camera
-  over a table-like ground plane.
+  over the miniature world.
 - Hold nodes are colored by owner (blue player / red enemy), labelled with the
   hold's name on the map (the name color doubles as an assault cue — red enemy
   holds you can march on, blue your own), and all enemy holds pulse. The selected
@@ -98,6 +105,9 @@ gives the battle a reason to repeat.
   Adjacency edges are drawn between nodes.
 - The player party and the bandit parties are captain-style soldier figures with
   floating unit-count labels above them.
+- Hovering a hold, party, or the Training Arena adds a gold emphasis and a compact
+  world-space tooltip. Holds also show their settlement tier and garrison; a small
+  HUD legend explains blue ownership, red ownership, and gold special/selected sites.
 - The map runs a day/night cycle. `CampaignState.OverworldSunPhase(day, dayFraction)`
   gives a continuous 0..1 phase that advances smoothly while the warband marches
   (tracking `OverworldSimulation.DayFraction`) and freezes when it stands still, so

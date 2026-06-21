@@ -92,6 +92,7 @@ public static class PresentationSmokeRunner
             if (!AfterDelay(0.9d))
                 return;
             Capture("presentation-map.png");
+            Capture("presentation-map-diorama.png");
             Advance();
             return;
         }

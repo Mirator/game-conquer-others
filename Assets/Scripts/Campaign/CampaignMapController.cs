@@ -25,6 +25,7 @@ public sealed class CampaignMapController : MonoBehaviour
     private Light mapSun;
     private GameObject trainingNode;
     private Renderer trainingRenderer;
+    private TextMesh mapTooltip;
     private GameObject partyMarker;
     private TextMesh partyCountLabel;
     private Canvas campaignCanvas;
@@ -72,6 +73,9 @@ public sealed class CampaignMapController : MonoBehaviour
     private Territory selectedTerritory;
     private EnemyParty selectedParty;
     private Vector2 selectedGround;
+    private Territory hoveredTerritory;
+    private EnemyParty hoveredParty;
+    private bool hoveredTraining;
     private bool uiDirty;
 
     private readonly List<Transform> travelDashes = new();
@@ -101,6 +105,7 @@ public sealed class CampaignMapController : MonoBehaviour
     {
         public EnemyParty Party;
         public Transform Marker;
+        public Renderer Renderer;
     }
 
     private struct NodeView
@@ -108,7 +113,9 @@ public sealed class CampaignMapController : MonoBehaviour
         public GameObject Go;
         public Territory Territory;
         public Renderer Renderer;
+        public Renderer Halo;
         public TextMesh Label;
+        public TextMesh Badge;
     }
 
     private struct RecruitWidget
@@ -152,22 +159,13 @@ public sealed class CampaignMapController : MonoBehaviour
         camObject.AddComponent<AudioListener>();
         FocusCameraOn(campaign.PartyPosition, StartCameraHeight);
 
-        GameObject table = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        table.name = "Map Table";
-        table.transform.SetParent(transform);
-        table.transform.position = new Vector3(0f, -0.5f, 2f);
-        table.transform.localScale = new Vector3(92f, 1f, 76f);
-        table.GetComponent<Renderer>().sharedMaterial = RuntimeAssets.Material(new Color(0.18f, 0.2f, 0.16f));
-
-        foreach (Territory t in campaign.Territories)
-            foreach (int adj in t.AdjacentIds)
-                if (adj > t.Id)
-                    BuildEdge(t, campaign.GetById(adj));
+        new MapDioramaBuilder(transform).Build(campaign);
 
         foreach (Territory t in campaign.Territories)
             BuildNode(t);
         BuildTrainingNode();
         BuildPartyMarkers();
+        BuildMapTooltip();
     }
 
     private static Vector3 WorldOf(Territory t) => WorldOf(t.MapPosition);
@@ -184,7 +182,7 @@ public sealed class CampaignMapController : MonoBehaviour
             GameObject figure = BuildPartyFigure($"Party {party.Name}", new Color(0.85f, 0.2f, 0.12f), false, true);
             figure.transform.position = WorldOf(party.Position);
             AddCountLabel(figure.transform, party.Strength);
-            partyViews.Add(new PartyView { Party = party, Marker = figure.transform });
+            partyViews.Add(new PartyView { Party = party, Marker = figure.transform, Renderer = figure.GetComponentInChildren<Renderer>() });
         }
     }
 
@@ -247,6 +245,16 @@ public sealed class CampaignMapController : MonoBehaviour
         go.transform.localScale = new Vector3(1.6f, 0.3f, 1.6f);
         Renderer r = go.GetComponent<Renderer>();
         r.sharedMaterial = RuntimeAssets.Material(Color.white);
+
+        GameObject halo = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        halo.name = "Selection Halo";
+        Destroy(halo.GetComponent<Collider>());
+        halo.transform.SetParent(go.transform, false);
+        halo.transform.localPosition = new Vector3(0f, -0.16f, 0f);
+        halo.transform.localScale = new Vector3(1.55f, 0.04f, 1.55f);
+        Renderer haloRenderer = halo.GetComponent<Renderer>();
+        haloRenderer.sharedMaterial = RuntimeAssets.Material(new Color(0.96f, 0.77f, 0.2f), true);
+        halo.SetActive(false);
 
         GameObject keep = GameObject.CreatePrimitive(PrimitiveType.Cube);
         keep.name = "Keep";
@@ -331,7 +339,11 @@ public sealed class CampaignMapController : MonoBehaviour
         label.characterSize = 0.06f;
         label.color = NameColorFor(t);
 
-        nodes.Add(new NodeView { Go = go, Territory = t, Renderer = r, Label = label });
+        TextMesh badge = CreateWorldLabel(go.transform, "Settlement Badge",
+            $"{SettlementCatalog.Label(t.Settlement)}  •  {t.Garrison} GARRISON", 25,
+            new Vector3(0f, 2.75f, 0f), new Color(0.95f, 0.9f, 0.76f));
+
+        nodes.Add(new NodeView { Go = go, Territory = t, Renderer = r, Halo = haloRenderer, Label = label, Badge = badge });
     }
 
     // Hold name color doubles as an at-a-glance assault cue: red names mark enemy
@@ -341,22 +353,6 @@ public sealed class CampaignMapController : MonoBehaviour
         TerritoryOwner.Player => new Color(0.55f, 0.78f, 1f),
         _ => new Color(1f, 0.55f, 0.45f)
     };
-
-    private void BuildEdge(Territory a, Territory b)
-    {
-        Vector3 pa = WorldOf(a);
-        Vector3 pb = WorldOf(b);
-        Vector3 mid = (pa + pb) * 0.5f;
-        mid.y = 0.05f;
-        GameObject edge = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        edge.name = "Edge";
-        Destroy(edge.GetComponent<Collider>());
-        edge.transform.SetParent(transform);
-        edge.transform.position = mid;
-        edge.transform.localScale = new Vector3(0.18f, 0.05f, Vector3.Distance(pa, pb));
-        edge.transform.rotation = Quaternion.LookRotation((pb - pa).normalized);
-        edge.GetComponent<Renderer>().sharedMaterial = RuntimeAssets.Material(new Color(0.3f, 0.28f, 0.22f));
-    }
 
     private void BuildTrainingNode()
     {
@@ -387,6 +383,35 @@ public sealed class CampaignMapController : MonoBehaviour
         label.fontSize = 42;
         label.characterSize = 0.065f;
         label.color = new Color(1f, 0.84f, 0.32f);
+    }
+
+    private static TextMesh CreateWorldLabel(Transform parent, string name, string value, int size, Vector3 localPosition, Color color)
+    {
+        GameObject labelObject = new GameObject(name);
+        labelObject.transform.SetParent(parent, false);
+        labelObject.transform.localPosition = localPosition;
+        labelObject.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+        TextMesh label = labelObject.AddComponent<TextMesh>();
+        label.text = value;
+        label.anchor = TextAnchor.MiddleCenter;
+        label.alignment = TextAlignment.Center;
+        label.fontSize = size;
+        label.characterSize = 0.045f;
+        label.color = color;
+        return label;
+    }
+
+    private void BuildMapTooltip()
+    {
+        GameObject tooltip = new GameObject("Map Hover Tooltip");
+        tooltip.transform.SetParent(transform, false);
+        mapTooltip = tooltip.AddComponent<TextMesh>();
+        mapTooltip.anchor = TextAnchor.MiddleCenter;
+        mapTooltip.alignment = TextAlignment.Center;
+        mapTooltip.fontSize = 34;
+        mapTooltip.characterSize = 0.06f;
+        mapTooltip.color = MedievalUi.Gold;
+        tooltip.SetActive(false);
     }
 
     private static Color ColorFor(Territory t) => t.Owner switch
@@ -420,9 +445,15 @@ public sealed class CampaignMapController : MonoBehaviour
         }
 
         if (sim.Travelling)
+        {
+            ClearHover();
             Dispatch(sim.Tick(Time.deltaTime));
+        }
         else if (Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame)
             HandleClick();
+
+        if (!sim.Travelling)
+            UpdateHover();
 
         float timeOfDay = CampaignState.OverworldSunPhase(campaign.Day, sim.DayFraction);
         ApplyMapLighting(timeOfDay);
@@ -530,6 +561,84 @@ public sealed class CampaignMapController : MonoBehaviour
         SelectGround(new Vector2(hit.point.x / 1.4f, hit.point.z / 1.4f));
     }
 
+    // Hover mirrors the click targets, but is deliberately presentation-only: it
+    // never changes travel or selection state and disappears above the HUD.
+    private void UpdateHover()
+    {
+        if (Mouse.current == null || EventSystem.current != null && EventSystem.current.IsPointerOverGameObject()
+            || !Physics.Raycast(cam.ScreenPointToRay(Mouse.current.position.ReadValue()), out RaycastHit hit, 200f))
+        {
+            ClearHover();
+            return;
+        }
+
+        Territory territory = null;
+        EnemyParty party = null;
+        bool training = hit.collider.gameObject == trainingNode;
+        if (!training)
+        {
+            foreach (PartyView view in partyViews)
+                if (view.Marker != null && hit.collider.gameObject == view.Marker.gameObject)
+                {
+                    party = view.Party;
+                    break;
+                }
+            if (party == null)
+                foreach (NodeView node in nodes)
+                    if (node.Go == hit.collider.gameObject)
+                    {
+                        territory = node.Territory;
+                        break;
+                    }
+        }
+
+        hoveredTerritory = territory;
+        hoveredParty = party;
+        hoveredTraining = training;
+        RefreshMapTooltip();
+    }
+
+    private void ClearHover()
+    {
+        if (hoveredTerritory == null && hoveredParty == null && !hoveredTraining && (mapTooltip == null || !mapTooltip.gameObject.activeSelf))
+            return;
+        hoveredTerritory = null;
+        hoveredParty = null;
+        hoveredTraining = false;
+        if (mapTooltip != null)
+            mapTooltip.gameObject.SetActive(false);
+    }
+
+    private void RefreshMapTooltip()
+    {
+        if (mapTooltip == null)
+            return;
+        if (hoveredTerritory != null)
+        {
+            Territory territory = hoveredTerritory;
+            mapTooltip.text = $"{territory.Name.ToUpperInvariant()}\n{SettlementCatalog.Label(territory.Settlement)}  •  GARRISON {territory.Garrison}";
+            mapTooltip.transform.position = WorldOf(territory.MapPosition) + Vector3.up * 4.7f;
+        }
+        else if (hoveredParty != null)
+        {
+            mapTooltip.text = $"{hoveredParty.Name}\nHOST {hoveredParty.Strength}";
+            mapTooltip.transform.position = WorldOf(hoveredParty.Position) + Vector3.up * 3.2f;
+        }
+        else if (hoveredTraining)
+        {
+            mapTooltip.text = "TRAINING ARENA\nCONSEQUENCE-FREE PRACTICE";
+            mapTooltip.transform.position = trainingNode.transform.position + Vector3.up * 3.2f;
+        }
+        else
+        {
+            mapTooltip.gameObject.SetActive(false);
+            return;
+        }
+
+        mapTooltip.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
+        mapTooltip.gameObject.SetActive(true);
+    }
+
     private void SelectTerritory(Territory t)
     {
         selectionKind = SelectionKind.Territory;
@@ -614,20 +723,35 @@ public sealed class CampaignMapController : MonoBehaviour
         {
             Color color = ColorFor(n.Territory);
             bool selected = selectionKind == SelectionKind.Territory && n.Territory == selectedTerritory;
-            if (selected)
+            bool hovered = n.Territory == hoveredTerritory;
+            if (selected || hovered)
                 color = Color.Lerp(color, new Color(1f, 0.86f, 0.32f), 0.55f + pulse * 0.45f);
             else if (n.Territory.Owner == TerritoryOwner.Enemy)
                 color = Color.Lerp(color, Color.white, pulse * 0.5f);
             nodeColorProperties.SetColor("_BaseColor", color);
             nodeColorProperties.SetColor("_Color", color);
             n.Renderer.SetPropertyBlock(nodeColorProperties);
+            if (n.Halo != null)
+                n.Halo.gameObject.SetActive(selected || hovered);
         }
         if (trainingRenderer != null)
         {
-            Color color = Color.Lerp(new Color(0.72f, 0.55f, 0.14f), Color.white, pulse * 0.4f);
+            float emphasis = hoveredTraining ? 0.68f + pulse * 0.32f : pulse * 0.4f;
+            Color color = Color.Lerp(new Color(0.72f, 0.55f, 0.14f), Color.white, emphasis);
             nodeColorProperties.SetColor("_BaseColor", color);
             nodeColorProperties.SetColor("_Color", color);
             trainingRenderer.SetPropertyBlock(nodeColorProperties);
+        }
+        foreach (PartyView view in partyViews)
+        {
+            if (view.Renderer == null)
+                continue;
+            Color color = view.Party == hoveredParty
+                ? Color.Lerp(new Color(0.85f, 0.2f, 0.12f), new Color(1f, 0.82f, 0.3f), 0.65f + pulse * 0.35f)
+                : new Color(0.85f, 0.2f, 0.12f);
+            nodeColorProperties.SetColor("_BaseColor", color);
+            nodeColorProperties.SetColor("_Color", color);
+            view.Renderer.SetPropertyBlock(nodeColorProperties);
         }
     }
 
@@ -704,6 +828,11 @@ public sealed class CampaignMapController : MonoBehaviour
             new Vector2(0.10f, 0f), new Vector2(0.98f, 1f), Vector2.zero, Vector2.zero);
         reportText = MedievalUi.Label(campaignCanvas.transform, "Report", "", 16, TextAnchor.MiddleCenter,
             new Vector2(0.30f, 0.905f), new Vector2(0.70f, 0.94f), Vector2.zero, Vector2.zero);
+
+        RectTransform legend = MedievalUi.Frame(campaignCanvas.transform, "Map Legend", new Vector2(0.012f, 0.81f),
+            new Vector2(0.185f, 0.93f), Vector2.zero, Vector2.zero);
+        MedievalUi.Label(legend, "Legend", "MAP KEY\nBLUE  YOUR HOLD\nRED  ENEMY HOLD\nGOLD  TRAINING / SELECTED", 15,
+            TextAnchor.MiddleLeft, new Vector2(0.08f, 0.06f), new Vector2(0.94f, 0.94f), Vector2.zero, Vector2.zero);
 
         // On-demand panels: hidden until summoned from the bottom toolbar. Only the
         // outer frame rects differ from the old always-on layout; the child widgets
