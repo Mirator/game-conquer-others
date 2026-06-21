@@ -72,7 +72,9 @@ Successful block:
 - Raising the correct block direction within 0.20 seconds of impact produces a
   perfect block.
 - Changing direction while holding block starts a fresh perfect-block timing
-  window, rewarding last-moment reads.
+  window, rewarding last-moment reads. A short lockout (~0.55s) between re-arms
+  keeps this a deliberate read rather than something held open by rapidly
+  oscillating the guard direction.
 - A perfect block creates a 0.65-second counter window.
 - A counter attack costs less stamina, winds up 38% faster, and deals 45% bonus
   damage.

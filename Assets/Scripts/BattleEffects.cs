@@ -153,7 +153,8 @@ public sealed class BattleEffects : MonoBehaviour
     {
         if (clip == null || spatialPool.Count == 0)
             return;
-        AudioSource source = spatialPool[spatialCursor++ % spatialPool.Count];
+        AudioSource source = spatialPool[spatialCursor];
+        spatialCursor = (spatialCursor + 1) % spatialPool.Count;
         source.Stop();
         source.transform.position = position;
         source.clip = clip;
@@ -177,7 +178,8 @@ public sealed class BattleEffects : MonoBehaviour
 
     private void SpawnSparks(Vector3 position, Color color, int count)
     {
-        ParticleSystem particles = particlePool[particleCursor++ % particlePool.Count];
+        ParticleSystem particles = particlePool[particleCursor];
+        particleCursor = (particleCursor + 1) % particlePool.Count;
         particles.transform.position = position;
         ParticleSystem.MainModule main = particles.main;
         main.startColor = color;

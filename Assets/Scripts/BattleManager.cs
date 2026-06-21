@@ -501,7 +501,12 @@ public sealed class BattleManager : MonoBehaviour
         tactics.OnFighterRemoved(dead);
         if (dead is AIFighter deadAi)
             holdPositions.Remove(deadAi);
-        if (dead.IsPlayer)
+        // The outcome latches on the first death that resolves it, and a dead player
+        // always resolves to Defeat. This keeps a same-frame mutual kill (the player and
+        // the last enemy dying together) deterministic regardless of processing order.
+        if (State == BattleState.Victory || State == BattleState.Defeat)
+            return;
+        if (dead.IsPlayer || (Player != null && !Player.IsAlive))
         {
             State = BattleState.Defeat;
             UnlockCursor();

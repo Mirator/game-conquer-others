@@ -103,7 +103,7 @@ public sealed class FrontendUi : MonoBehaviour
         AddSettingSlider("MASTER VOLUME", value.masterVolume, y, v => { value.masterVolume = v; SettingsService.SaveAndApply(); }); y -= 0.1f;
         AddSettingSlider("MUSIC VOLUME", value.musicVolume, y, v => { value.musicVolume = v; SettingsService.SaveAndApply(); }); y -= 0.1f;
         AddSettingSlider("EFFECTS VOLUME", value.effectsVolume, y, v => { value.effectsVolume = v; SettingsService.SaveAndApply(); }); y -= 0.1f;
-        AddSettingSlider("MOUSE SENSITIVITY", value.mouseSensitivity, y, v => { value.mouseSensitivity = Mathf.Lerp(0.35f, 2f, v); SettingsService.SaveAndApply(); }); y -= 0.1f;
+        AddSettingSlider("MOUSE SENSITIVITY", Mathf.InverseLerp(0.35f, 2f, value.mouseSensitivity), y, v => { value.mouseSensitivity = Mathf.Lerp(0.35f, 2f, v); SettingsService.SaveAndApply(); }); y -= 0.1f;
         AddSettingSlider("CAMERA SHAKE", value.cameraShake, y, v => { value.cameraShake = v; SettingsService.SaveAndApply(); });
         string quality = QualitySettings.names.Length > 0
             ? QualitySettings.names[Mathf.Clamp(value.qualityPreset, 0, QualitySettings.names.Length - 1)] : "PC";
