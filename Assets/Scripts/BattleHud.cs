@@ -154,8 +154,11 @@ public sealed class BattleHud : MonoBehaviour
             $"PERFECT BLOCKS  {battle.PlayerPerfectBlocks}      COUNTERS  {battle.PlayerCounterHits}\n\n" +
             $"BLUE LOSSES  {battle.InitialAllies - battle.CountAlive(Team.Allies)} / {battle.InitialAllies}      " +
             $"RED LOSSES  {battle.InitialEnemies - battle.CountAlive(Team.Enemies)} / {battle.InitialEnemies}";
-        stateButtonLabel.text = battle.IsTraining ? "RETURN TO MAP"
-            : battle.State == BattleManager.BattleState.Victory ? "CLAIM TERRITORY" : "RETURN TO MAP";
+        // Only a won settlement assault claims a hold; a bandit rout (or any defeat)
+        // simply returns to the map, so the button must not promise territory.
+        bool claimsTerritory = battle.State == BattleManager.BattleState.Victory
+            && !battle.IsTraining && battle.EncounterKind == BattleKind.SettlementAssault;
+        stateButtonLabel.text = claimsTerritory ? "CLAIM TERRITORY" : "RETURN TO MAP";
     }
 
     private static string CommandLabel(BattleManager.AllyCommand command) => command switch
