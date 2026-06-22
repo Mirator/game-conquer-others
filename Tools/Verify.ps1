@@ -18,34 +18,71 @@ if (-not (Test-Path -LiteralPath $UnityEditorPath)) {
 $logs = Join-Path $projectRoot "Logs"
 New-Item -ItemType Directory -Force -Path $logs | Out-Null
 
-function Invoke-Unity {
-    param([string[]]$Arguments, [string]$Label)
-    $quoted = $Arguments | ForEach-Object {
+# A force-killed batchmode run can leave a stale project lock that blocks the next
+# launch. Clear it only when no Unity editor is actually running, so we never yank
+# the lock out from under an open editor.
+$lockFile = Join-Path $projectRoot "Temp/UnityLockfile"
+if ((Test-Path -LiteralPath $lockFile) -and -not (Get-Process Unity -ErrorAction SilentlyContinue)) {
+    Remove-Item -LiteralPath $lockFile -Force -ErrorAction SilentlyContinue
+}
+
+function Quote-Args {
+    param([string[]]$Arguments)
+    return ($Arguments | ForEach-Object {
         if ($_ -match "\s") { '"' + $_.Replace('"', '\"') + '"' } else { $_ }
-    }
-    $process = Start-Process -FilePath $UnityEditorPath -ArgumentList ($quoted -join " ") -PassThru
-    if (-not $process.WaitForExit(600000)) {
+    }) -join " "
+}
+
+function Invoke-Unity {
+    param([string[]]$Arguments, [string]$Label, [int]$TimeoutMs = 600000)
+    $process = Start-Process -FilePath $UnityEditorPath -ArgumentList (Quote-Args $Arguments) -PassThru
+    if (-not $process.WaitForExit($TimeoutMs)) {
         $process.Kill()
-        throw "$Label timed out after 10 minutes."
+        throw "$Label timed out."
     }
     if ($process.ExitCode -ne 0) {
         throw "$Label failed with exit code $($process.ExitCode)."
     }
 }
 
-Invoke-Unity -Arguments @(
-    "-batchmode", "-nographics", "-projectPath", $projectRoot,
-    "-runTests", "-testPlatform", "EditMode",
-    "-testResults", (Join-Path $logs "editmode-results.xml"),
-    "-logFile", (Join-Path $logs "editmode-tests.log")
-) -Label "EditMode tests"
+# Test runs are judged by the NUnit results XML, not the process exit code: Unity's
+# batchmode teardown can return a nonzero code (commonly 127) even when every test
+# passed, so trusting the exit code produces false failures. A missing results file
+# is treated as a real failure (Unity died before writing results).
+function Invoke-UnityTests {
+    param([string]$Platform, [int]$TimeoutMs = 900000)
+    $results = Join-Path $logs "$($Platform.ToLower())-results.xml"
+    $log = Join-Path $logs "$($Platform.ToLower())-tests.log"
+    if (Test-Path -LiteralPath $results) { Remove-Item -LiteralPath $results -Force }
 
-Invoke-Unity -Arguments @(
-    "-batchmode", "-nographics", "-projectPath", $projectRoot,
-    "-runTests", "-testPlatform", "PlayMode",
-    "-testResults", (Join-Path $logs "playmode-results.xml"),
-    "-logFile", (Join-Path $logs "playmode-tests.log")
-) -Label "PlayMode tests"
+    $arguments = @(
+        "-batchmode", "-nographics", "-projectPath", $projectRoot,
+        "-runTests", "-testPlatform", $Platform,
+        "-testResults", $results, "-logFile", $log
+    )
+    $process = Start-Process -FilePath $UnityEditorPath -ArgumentList (Quote-Args $arguments) -PassThru
+    if (-not $process.WaitForExit($TimeoutMs)) {
+        $process.Kill()
+        throw "$Platform tests timed out. See $log."
+    }
+
+    if (-not (Test-Path -LiteralPath $results)) {
+        throw "$Platform tests produced no results (Unity exited $($process.ExitCode)). See $log."
+    }
+
+    [xml]$xml = Get-Content -LiteralPath $results
+    $run = $xml."test-run"
+    $failed = [int]$run.failed
+    Write-Host "$Platform: $($run.passed)/$($run.total) passed, $failed failed (Unity exit $($process.ExitCode))."
+    if ($failed -gt 0 -or $run.result -ne "Passed") {
+        Select-String -LiteralPath $results -Pattern 'result="Failed"' |
+            Select-Object -First 20 | ForEach-Object { Write-Host ("  " + $_.Line.Trim()) }
+        throw "$Platform tests reported $failed failure(s); result=$($run.result)."
+    }
+}
+
+Invoke-UnityTests -Platform "EditMode"
+Invoke-UnityTests -Platform "PlayMode"
 
 if (-not $SkipBuild) {
     Invoke-Unity -Arguments @(

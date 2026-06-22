@@ -57,4 +57,14 @@ public static class CombatBalance
     public static float DamageThrust => Active.damageThrust;
     public static float DamageDefault => Active.damageDefault;
     public static float DamageTwoHandedScale => Active.damageTwoHandedScale;
+
+    // Coordination
+    public static int MaxPlayerAttackers => Active.maxPlayerAttackers;
+    public static int MaxTargetAttackers => Active.maxTargetAttackers;
+    public static float SupportEngagementNear => Active.supportEngagementNear;
+    public static float SupportEngagementFar => Active.supportEngagementFar;
+    public static float SupportSlotSpreadDegrees => Active.supportSlotSpreadDegrees;
+    public static float[] SupportAngles => Active.supportAngles;
+    public static float SeparationFalloff => Active.separationFalloff;
+    public static float SeparationMaxForce => Active.separationMaxForce;
 }
