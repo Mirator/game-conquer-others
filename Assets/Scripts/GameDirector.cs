@@ -128,7 +128,7 @@ public sealed class GameDirector : MonoBehaviour
 
     public void TogglePause()
     {
-        if (CurrentMode != Mode.Battle && !IsPaused)
+        if (!IsPaused && CurrentMode != Mode.Battle && CurrentMode != Mode.Map)
             return;
         if (IsPaused)
             Resume();
@@ -138,7 +138,10 @@ public sealed class GameDirector : MonoBehaviour
 
     public void Pause()
     {
-        if (IsPaused || CurrentMode != Mode.Battle)
+        // Pausable both mid-battle and on the campaign map (where it freezes travel
+        // and the day clock while the menu is open). Resume re-locks the cursor only
+        // when a battle is actually being fought.
+        if (IsPaused || (CurrentMode != Mode.Battle && CurrentMode != Mode.Map))
             return;
         IsPaused = true;
         Time.timeScale = 0f;
