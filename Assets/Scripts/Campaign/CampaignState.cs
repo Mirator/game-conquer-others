@@ -189,6 +189,8 @@ public sealed class CampaignState
                     float d = (Territories[a].MapPosition - Territories[b].MapPosition).sqrMagnitude;
                     if (d < best) { best = d; bestA = a; bestB = b; }
                 }
+            if (bestB < 0)
+                break; // no connectable node found (degenerate positions); stop rather than crash
             AddEdge(bestA, bestB);
             inTree.Add(bestB);
         }

@@ -1,5 +1,7 @@
 using UnityEngine;
 
+// Abstract base for every combatant: health, stamina, the attack phase machine,
+// and the hit/block/perfect-block/counter rules. PlayerFighter and AIFighter derive from it.
 public abstract class BattleFighter : MonoBehaviour
 {
     public Team Team { get; private set; }

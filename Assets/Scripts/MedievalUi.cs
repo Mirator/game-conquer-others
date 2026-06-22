@@ -4,6 +4,8 @@ using UnityEngine.EventSystems;
 using UnityEngine.InputSystem.UI;
 using UnityEngine.UI;
 
+// Shared uGUI construction helpers (canvases, framed panels, labels, bars,
+// buttons, sliders) in the game's medieval style, used to build every screen.
 public static class MedievalUi
 {
     public static readonly Color Ink = new(0.035f, 0.028f, 0.022f, 0.94f);

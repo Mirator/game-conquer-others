@@ -2,6 +2,8 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
+// Public gameplay facade: owns the fighter registry, the battle state machine
+// (Ready/Fighting/Victory/Defeat), telemetry, ally commands, and feedback routing.
 public sealed class BattleManager : MonoBehaviour
 {
     public enum BattleState { Ready, Fighting, Victory, Defeat }
