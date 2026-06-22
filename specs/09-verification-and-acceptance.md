@@ -93,6 +93,13 @@ a headless 6v6 natural-combat smoke, and a command/morale smoke.
 `.\Tools\RunStandaloneSmokes.ps1` re-runs all three smokes against an existing
 build.
 
+The test passes are judged by the NUnit results XML (pass/fail counts), not the
+Unity process exit code: batchmode teardown can return a nonzero code (commonly
+127) even when every test passed, so the exit code alone would report false
+failures. A missing results file is treated as a real failure (Unity died before
+writing results), and a stale `Temp/UnityLockfile` from a force-killed run is
+cleared first when no editor is open.
+
 Deterministic PlayMode tests cover directional combat diagnostics, perfect
 blocks and counters, attack-permission limits, engagement-slot distribution,
 separation steering, and battle-result lifecycle behavior.

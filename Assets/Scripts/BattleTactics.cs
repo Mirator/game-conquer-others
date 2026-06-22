@@ -69,7 +69,7 @@ public sealed class BattleTactics
         }
         if (attackers.Contains(attacker))
             return true;
-        int limit = target.IsPlayer ? 1 : 2;
+        int limit = target.IsPlayer ? CombatBalance.MaxPlayerAttackers : CombatBalance.MaxTargetAttackers;
         if (attackers.Count >= limit)
             return false;
         attackers.Add(attacker);
@@ -105,9 +105,12 @@ public sealed class BattleTactics
         if (engagementSlotFrame != Time.frameCount)
             RebuildEngagementSlots();
         int index = engagementSlots.TryGetValue(seeker, out int slot) ? slot : 0;
-        float angle = SupportAngles[index % SupportAngles.Length] + index / SupportAngles.Length * 18f;
+        float[] supportAngles = CombatBalance.SupportAngles;
+        float angle = supportAngles[index % supportAngles.Length]
+            + index / supportAngles.Length * CombatBalance.SupportSlotSpreadDegrees;
         Vector3 slotDirection = Quaternion.AngleAxis(angle, Vector3.up) * target.transform.forward;
-        return target.transform.position + slotDirection.normalized * Mathf.Lerp(2.8f, 3.5f, index % 3 / 2f);
+        return target.transform.position + slotDirection.normalized
+            * Mathf.Lerp(CombatBalance.SupportEngagementNear, CombatBalance.SupportEngagementFar, index % 3 / 2f);
     }
 
     public Vector3 GetSeparation(BattleFighter seeker)
@@ -126,6 +129,11 @@ public sealed class BattleTactics
         separationFrame = Time.frameCount;
         separationByFighter.Clear();
         EnsureGrid();
+        // The 2.5m onset radius (and its 6.25 squared cull) is fixed to the spatial-hash
+        // cell size so the 3x3 neighbour block covers every fighter that can push; only
+        // the force shaping is tuning, hoisted here so the inner loop reads no properties.
+        float falloff = CombatBalance.SeparationFalloff;
+        float maxForce = CombatBalance.SeparationMaxForce;
         for (int i = 0; i < fighters.Count; i++)
         {
             BattleFighter self = fighters[i];
@@ -144,9 +152,9 @@ public sealed class BattleTactics
                 if (distanceSquared >= 6.25f || distanceSquared <= 0.001f)
                     continue;
                 float distance = Mathf.Sqrt(distanceSquared);
-                force += offset / distance * Mathf.Clamp01((2.5f - distance) / 1.8f);
+                force += offset / distance * Mathf.Clamp01((2.5f - distance) / falloff);
             }
-            separationByFighter[self] = Vector3.ClampMagnitude(force, 1.4f);
+            separationByFighter[self] = Vector3.ClampMagnitude(force, maxForce);
         }
     }
 
@@ -305,6 +313,4 @@ public sealed class BattleTactics
     }
 
     private static int CompareByInstanceId(AIFighter a, AIFighter b) => a.GetInstanceID().CompareTo(b.GetInstanceID());
-
-    private static readonly float[] SupportAngles = { -72f, 72f, -138f, 138f, 180f, -105f, 105f };
 }

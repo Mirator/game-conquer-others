@@ -375,9 +375,12 @@ public abstract class BattleFighter : MonoBehaviour
         hitFlashTimer = Mathf.Max(0f, hitFlashTimer - Time.deltaTime);
         if (presentation == null)
             return;
-        // Presentation is purely visual, so a transient fault here must never spam
-        // the console or interrupt the simulation. Swallow it, but record the first
-        // occurrence (with full stack) so the root cause stays diagnosable.
+        // Presentation is purely visual, so a fault here must never interrupt the
+        // simulation. But it must not hide bugs either: in the editor and dev builds
+        // surface every fault loudly (so tests fail and developers notice), and only
+        // in a shipped player build fall back to logging the first occurrence (with
+        // full stack) and staying quiet so a persistent fault cannot spam the console
+        // or stall a 120-fighter battle.
         try
         {
             presentation.Update(battle, IsPlayer, IsBlocking, AttackDirection, BlockDirection, Phase,
@@ -385,6 +388,11 @@ public abstract class BattleFighter : MonoBehaviour
         }
         catch (System.Exception e)
         {
+            if (Application.isEditor || Debug.isDebugBuild)
+            {
+                Debug.LogException(e, this);
+                return;
+            }
             if (loggedVisualFault)
                 return;
             loggedVisualFault = true;

@@ -54,4 +54,21 @@ public sealed class CombatBalanceData : ScriptableObject
     public float damageThrust = 20f;
     public float damageDefault = 25f;
     public float damageTwoHandedScale = 1.38f;
+
+    [Header("Coordination")]
+    // Active-attacker limits: at most this many AI may actively attack the player /
+    // any other single target at once; the rest circle or seek another opponent.
+    public int maxPlayerAttackers = 1;
+    public int maxTargetAttackers = 2;
+    // Non-active supporters hold between these distances from their target, fanned
+    // across the support angles below (the spread offsets each overflow ring so a
+    // crowd does not stack on one arc).
+    public float supportEngagementNear = 2.8f;
+    public float supportEngagementFar = 3.5f;
+    public float supportSlotSpreadDegrees = 18f;
+    public float[] supportAngles = { -72f, 72f, -138f, 138f, 180f, -105f, 105f };
+    // Separation-force shaping (the 2.5m onset radius is fixed to the spatial-hash
+    // cell size in BattleTactics and is intentionally not tunable here).
+    public float separationFalloff = 1.8f;
+    public float separationMaxForce = 1.4f;
 }
