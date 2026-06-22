@@ -45,6 +45,10 @@ matching blocks, and maintaining useful range.
 
 - Starting an attack costs 18 stamina.
 - A fighter cannot attack while blocking, staggered, dead, or already attacking.
+- After a melee swing's recovery ends there is a brief cooldown (default 0.16s,
+  `CombatBalance.MeleeAttackCooldown`) before the next swing may begin, so
+  high-stamina fighters have a readable rhythm rather than machine-gunning
+  attacks. Counters and ranged shots are exempt.
 - Attacks sweep a direction-specific weapon path throughout release.
 - The path follows the visible left slash, right slash, overhead, or thrust.
 - One swing can damage at most one living opposing fighter.

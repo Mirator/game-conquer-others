@@ -231,6 +231,75 @@ public sealed class CombatRulesTests
         yield return DestroyRoot(root);
     }
 
+    [UnityTest]
+    public IEnumerator AttackCooldown_BlocksRapidMeleeSwings()
+    {
+        BattleManager battle = CreateFacingDuel(out GameObject root, out _);
+        battle.Player.DebugRestoreStamina();
+        battle.Player.DebugSetAttackCooldown(0.2f);
+        Assert.That(battle.Player.DebugPrepareAttack(CombatDirection.Right), Is.False,
+            "The post-swing cooldown should block an immediate next swing.");
+        battle.Player.DebugSetAttackCooldown(0f);
+        Assert.That(battle.Player.DebugPrepareAttack(CombatDirection.Right), Is.True,
+            "A swing should be allowed once the cooldown elapses.");
+        yield return DestroyRoot(root);
+    }
+
+    [UnityTest]
+    public IEnumerator AttackCooldown_DoesNotBlockCounters()
+    {
+        BattleManager battle = CreateFacingDuel(out GameObject root, out BattleFighter attacker);
+        battle.Player.DebugSetBlock(true, CombatDirection.Right);
+        battle.Player.ReceiveHit(25f, attacker, CombatDirection.Right); // perfect block opens a counter window
+        battle.Player.DebugClearCombatReaction();
+        battle.Player.DebugSetBlock(false, CombatDirection.Right);
+        battle.Player.DebugRestoreStamina();
+        battle.Player.DebugSetAttackCooldown(0.2f);
+        Assert.That(battle.Player.DebugPrepareAttack(CombatDirection.Up), Is.True,
+            "A perfect-block counter should bypass the swing cooldown.");
+        Assert.That(battle.Player.IsCounterAttack, Is.True, "The bypassing attack should be the counter.");
+        yield return DestroyRoot(root);
+    }
+
+    [UnityTest]
+    public IEnumerator ExhaustedBlock_BreaksGuardAndTakesFullDamage()
+    {
+        BattleManager battle = CreateFacingDuel(out GameObject root, out BattleFighter attacker);
+        float startingHealth = battle.Player.CurrentHealth;
+        // A correct-direction, expired-window block would normally absorb the blow
+        // (see NonPerfectBlock_DrainsStaminaButStillBlocks). With no stamina to pay,
+        // the guard breaks and the hit lands in full — the guard-break path.
+        battle.Player.DebugSetStamina(0f);
+        battle.Player.DebugSetBlock(true, CombatDirection.Right);
+        battle.Player.DebugExpirePerfectBlock();
+        battle.Player.ReceiveHit(25f, attacker, CombatDirection.Right);
+        Assert.That(Mathf.Approximately(battle.Player.CurrentHealth, startingHealth - 25f), Is.True,
+            "An exhausted guard should break and take full damage despite a correct-direction block.");
+        yield return DestroyRoot(root);
+    }
+
+    [UnityTest]
+    public IEnumerator LateGuardRead_SnapsSkilledGuardToTheReaimedSwing()
+    {
+        BattleManager battle = CreateFacingDuel(out GameObject root, out BattleFighter enemy);
+        AIFighter ai = (AIFighter)enemy;
+        ai.SetProfile(new AIProfile { blockChance = 1f, lateReadChance = 1f });
+        SetTarget(ai, battle.Player);
+        // The AI guessed the wrong guard (Left) and is holding it.
+        SetPrivate(ai, "blockTimer", 0.5f);
+        SetPrivate(ai, "lateReadArmed", true);
+        SetPrivate(ai, "plannedBlockDirection", CombatDirection.Left);
+
+        // The player commits a Right swing — now in the release that the AI reads.
+        Assert.That(battle.Player.DebugForceAttackTelegraph(CombatDirection.Right), Is.True);
+        Assert.That(battle.Player.Phase, Is.EqualTo(CombatPhase.AttackRelease));
+
+        Invoke(ai, "TryLateGuardRead");
+        Assert.That(GetPrivate<CombatDirection>(ai, "plannedBlockDirection"), Is.EqualTo(CombatDirection.Right),
+            "A lateReadChance=1 fighter should re-snap its guard to the swing's true line.");
+        yield return DestroyRoot(root);
+    }
+
     private static BattleManager CreateFacingDuel(out GameObject root, out BattleFighter attacker)
     {
         BattleManager battle = CreateDuel(out root);
@@ -274,6 +343,15 @@ public sealed class CombatRulesTests
     {
         typeof(AIFighter).GetField("target", BindingFlags.Instance | BindingFlags.NonPublic)?.SetValue(fighter, target);
     }
+
+    private static void SetPrivate(object obj, string field, object value)
+        => obj.GetType().GetField(field, BindingFlags.Instance | BindingFlags.NonPublic)?.SetValue(obj, value);
+
+    private static T GetPrivate<T>(object obj, string field)
+        => (T)obj.GetType().GetField(field, BindingFlags.Instance | BindingFlags.NonPublic).GetValue(obj);
+
+    private static void Invoke(object obj, string method)
+        => obj.GetType().GetMethod(method, BindingFlags.Instance | BindingFlags.NonPublic)?.Invoke(obj, null);
 
     private static IEnumerator DestroyRoot(GameObject root)
     {

@@ -27,6 +27,7 @@ public sealed class AIFighter : BattleFighter
     private bool committedAttack;
     private bool retreating;
     private float retreatTimer;
+    private bool lateReadArmed = true;
     private CombatDirection plannedBlockDirection = CombatDirection.Right;
 
     // Collision mask for tactical pathing: everything except the built-in
@@ -146,6 +147,7 @@ public sealed class AIFighter : BattleFighter
             return;
         }
 
+        TryLateGuardRead();
         SetBlock(blockTimer > 0f, plannedBlockDirection);
         Vector3 toTarget = target.transform.position - transform.position;
         toTarget.y = 0f;
@@ -185,6 +187,13 @@ public sealed class AIFighter : BattleFighter
         }
 
         Vector3 circle = Vector3.Cross(Vector3.up, toTarget.normalized) * orbitDirection;
+        // Out of wind: ease back to the outer edge and recover rather than throw a
+        // weak swing. EvaluateDefense still raises a guard against any incoming threat.
+        if (StaminaNormalized < profile.staminaCaution)
+        {
+            TacticalMove((-toTarget.normalized * 0.6f + circle * 0.4f + separation).normalized * 1.4f);
+            return;
+        }
         TacticalMove((circle * 0.55f + separation).normalized * 1.15f);
         if (attackDelay <= 0f && blockTimer <= 0f && !IsBlocking && !IsAttacking)
         {
@@ -267,8 +276,32 @@ public sealed class AIFighter : BattleFighter
         if (target.IsBlocking && Random.value < profile.feintChance)
             return RandomWrongDirection(target.BlockDirection);
         if (target.Phase == CombatPhase.AttackRecovery && Random.value < profile.recoveryPunishChance)
-            return CombatDirection.Up;
+            return RandomPunishDirection();
         return RandomDirection();
+    }
+
+    // Skilled fighters don't just commit to a guess at wind-up: they watch the
+    // swing and, once it commits to a release, get one chance to correct their
+    // guard to its true line — defeating a re-aimed charge, but still beaten by a
+    // feint cancelled before release.
+    private void TryLateGuardRead()
+    {
+        if (profile.lateReadChance <= 0f || IsAttacking)
+            return;
+        BattleFighter threat = battle.FindIncomingThreat(this) ?? target;
+        if (threat == null || !threat.IsAttackThreatening)
+        {
+            lateReadArmed = true;
+            return;
+        }
+        if (threat.Phase != CombatPhase.AttackRelease)
+        {
+            lateReadArmed = true; // still winding up: re-arm for the committed swing
+            return;
+        }
+        if (lateReadArmed && blockTimer > 0f && Random.value < profile.lateReadChance)
+            plannedBlockDirection = threat.AttackDirection;
+        lateReadArmed = false; // one read per swing, hit or miss
     }
 
     private void UpdateRangedFighter()
@@ -327,6 +360,18 @@ public sealed class AIFighter : BattleFighter
     }
 
     private static CombatDirection RandomDirection() => (CombatDirection)Random.Range(0, 4);
+
+    // Punishing a recovering target still favours the heavy overhead, but mixes in
+    // other lines so a sharp opponent can't pre-guard a single predictable answer.
+    private static CombatDirection RandomPunishDirection()
+    {
+        float roll = Random.value;
+        if (roll < 0.5f)
+            return CombatDirection.Up;
+        if (roll < 0.75f)
+            return CombatDirection.Thrust;
+        return Random.value < 0.5f ? CombatDirection.Left : CombatDirection.Right;
+    }
 
     private static CombatDirection RandomWrongDirection(CombatDirection incoming)
     {

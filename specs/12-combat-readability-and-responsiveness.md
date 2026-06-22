@@ -52,7 +52,7 @@ or central HUD.
 
 ## Required Improvements
 
-Implementation status: P0, P1, P2, and P3 are delivered.
+Implementation status: P0, P1, P2, P3, and the P4 feedback-clarity pass are delivered.
 
 ### P0 - Restore Player Responsiveness
 
@@ -115,6 +115,33 @@ minimum fighter distance, close pairs, and invalid target assignments.
 Delivered with one primary-threat direction/progress cue, damage-gated health
 bars, allies avoiding the player's active opponent, longer blocked-attacker
 recovery, and a timed perfect-block/counter system.
+
+### P4 - Feedback Clarity Pass
+
+1. Floating combat readouts rise and fade over a struck fighter: a damage
+   number on a landed hit (brighter and larger for a counter or a kill), and the
+   short cues `PARRY!`, `BLOCK`, and `GUARD BROKEN`. To keep a large melee
+   legible, readouts spawn only for player-involved exchanges, and the whole
+   feature is gated behind the `showDamageNumbers` setting (default on).
+2. A guard that breaks from stamina exhaustion is now its own beat — a heavy
+   metallic shatter cue, a bright spark burst, an extra camera jolt when the
+   player is involved, and the `GUARD BROKEN` readout — instead of silently
+   becoming an ordinary hit.
+3. The captain's health and stamina bars ease toward their value instead of
+   snapping, with a lagging "chip" behind the health bar that exposes the slice
+   just lost. The centre battle cue fades in with a brief scale punch and fades
+   out at the end of its timer. The `reduceMotion` setting snaps all of these.
+4. Combat poses ease rather than snap between states (presentation only — combat
+   timing is unchanged): the guard raises/lowers on an eased weight, the attack
+   lean is smoothed so the hold-to-release hand-off no longer dips, and the shield
+   slides to its block pose. Getting hit fires a sharp directional recoil scaled by
+   the blow's severity that then eases out, instead of a constant lean that pops
+   back to idle (a perfect block barely flinches; a full unblocked hit snaps hard).
+5. A short post-swing cooldown (`CombatBalance.MeleeAttackCooldown`, default 0.16s)
+   gives melee a readable rhythm rather than letting high-stamina fighters
+   machine-gun swings; counters and ranged shots are exempt. See spec 04.
+
+Delivered.
 
 ## Initial Tuning Targets
 

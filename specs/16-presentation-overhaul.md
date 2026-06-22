@@ -42,7 +42,8 @@ and sonify that state but must not alter it.
 - Escape in battle opens a pause screen with Resume, Settings, Return to Title,
   and Quit.
 - Settings persist through `PlayerPrefs` and cover volume, sensitivity, camera
-  shake, fullscreen, resolution, quality, and VSync.
+  shake, fullscreen, resolution, quality, VSync, reduced motion, and combat-readout
+  visibility (`showDamageNumbers`).
 
 ## Assets And Audio
 
@@ -66,6 +67,14 @@ and sonify that state but must not alter it.
   with synth fallbacks. Spatial SFX play through a pooled set of 16 voices.
 - Impact effects use pooled particle systems and presentation code avoids
   recurring per-frame allocations.
+- A guard broken by stamina exhaustion plays a dedicated metallic shatter cue and
+  a bright spark burst (`BattleEffects.PlayGuardBreak`), distinct from the soft
+  thud of a guard that held.
+- `FloatingCombatText` is a pooled, camera-billboarded world-space readout that
+  rises and fades over a struck fighter (damage numbers and the short cues
+  `PARRY!`, `BLOCK`, `GUARD BROKEN`). It is purely presentational — the
+  simulation never depends on it — and is spawned only for player-involved
+  exchanges to keep a 120-fighter melee legible.
 
 ## Performance Target
 

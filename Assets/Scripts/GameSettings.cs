@@ -15,6 +15,7 @@ public sealed class GameSettings
     public int qualityPreset;
     public bool vSync = true;
     public bool reduceMotion;
+    public bool showDamageNumbers = true;
 
     public static GameSettings Defaults()
     {

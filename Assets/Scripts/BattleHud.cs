@@ -10,7 +10,13 @@ public sealed class BattleHud : MonoBehaviour
     private RectTransform stateScreen;
     private Text healthLabel;
     private Image healthFill;
+    private Image healthChip;
     private Image staminaFill;
+    private float shownHealth = 1f;
+    private float shownChip = 1f;
+    private float shownStamina = 1f;
+    private string lastMessage = "";
+    private float messageAge;
     private Text score;
     private Text order;
     private Text message;
@@ -39,7 +45,7 @@ public sealed class BattleHud : MonoBehaviour
         healthLabel = MedievalUi.Label(captain, "Captain", "THE BLUE CAPTAIN", 24, TextAnchor.MiddleLeft,
             new Vector2(0.04f, 0.66f), new Vector2(0.96f, 0.95f), Vector2.zero, Vector2.zero);
         healthFill = BuildBar(captain, "Health", new Vector2(0.04f, 0.39f), new Vector2(0.96f, 0.62f),
-            new Color(0.18f, 0.72f, 0.29f));
+            new Color(0.18f, 0.72f, 0.29f), out healthChip, new Color(0.78f, 0.16f, 0.1f));
         staminaFill = BuildBar(captain, "Stamina", new Vector2(0.04f, 0.14f), new Vector2(0.7f, 0.28f),
             new Color(0.9f, 0.68f, 0.2f));
         MedievalUi.Label(captain, "Stamina Label", "STAMINA", 15, TextAnchor.MiddleLeft,
@@ -81,7 +87,24 @@ public sealed class BattleHud : MonoBehaviour
     private static Image BuildBar(Transform parent, string name, Vector2 min, Vector2 max, Color color)
     {
         MedievalUi.Well(parent, name + " Back", min, max, Vector2.zero, Vector2.zero, new Color(0.01f, 0.01f, 0.01f, 0.9f));
-        Image fill = MedievalUi.Panel(parent, name + " Fill", min, max, new Vector2(3f, 3f),
+        return MakeFill(parent, name + " Fill", min, max, color);
+    }
+
+    // A bar with a "chip" layer behind the fill: when the value drops, the fill
+    // catches up quickly while the chip lags, leaving a coloured sliver that
+    // shows how much was just lost. The chip is created before the fill so it
+    // draws behind it.
+    private static Image BuildBar(Transform parent, string name, Vector2 min, Vector2 max, Color color,
+        out Image chip, Color chipColor)
+    {
+        MedievalUi.Well(parent, name + " Back", min, max, Vector2.zero, Vector2.zero, new Color(0.01f, 0.01f, 0.01f, 0.9f));
+        chip = MakeFill(parent, name + " Chip", min, max, chipColor);
+        return MakeFill(parent, name + " Fill", min, max, color);
+    }
+
+    private static Image MakeFill(Transform parent, string name, Vector2 min, Vector2 max, Color color)
+    {
+        Image fill = MedievalUi.Panel(parent, name, min, max, new Vector2(3f, 3f),
             new Vector2(-3f, -3f), color).GetComponent<Image>();
         // A Filled image needs a sprite to honour fillAmount; without one the mesh stays
         // full width and the bar never visibly depletes.
@@ -108,8 +131,27 @@ public sealed class BattleHud : MonoBehaviour
 
     private void RefreshFight()
     {
-        healthFill.fillAmount = battle.Player != null ? battle.Player.HealthNormalized : 0f;
-        staminaFill.fillAmount = battle.Player != null ? battle.Player.StaminaNormalized : 0f;
+        float targetHealth = battle.Player != null ? battle.Player.HealthNormalized : 0f;
+        float targetStamina = battle.Player != null ? battle.Player.StaminaNormalized : 0f;
+        bool reduceMotion = SettingsService.Current is { reduceMotion: true };
+        if (reduceMotion)
+        {
+            shownHealth = targetHealth;
+            shownStamina = targetStamina;
+            shownChip = targetHealth;
+        }
+        else
+        {
+            float dt = Time.deltaTime;
+            shownHealth = Mathf.MoveTowards(shownHealth, targetHealth, dt * 1.8f);
+            shownStamina = Mathf.MoveTowards(shownStamina, targetStamina, dt * 2.6f);
+            // The chip rises instantly with healing, then drains slowly to expose the loss.
+            shownChip = Mathf.Max(shownChip, shownHealth);
+            shownChip = Mathf.MoveTowards(shownChip, shownHealth, dt * 0.5f);
+        }
+        healthFill.fillAmount = shownHealth;
+        healthChip.fillAmount = shownChip;
+        staminaFill.fillAmount = shownStamina;
         healthLabel.text = battle.Player != null ? $"THE BLUE CAPTAIN   {battle.Player.CurrentHealth:0}" : "THE BLUE CAPTAIN";
         score.text = $"BLUE  {battle.CountAlive(Team.Allies)}      RED  {battle.CountAlive(Team.Enemies)}";
         order.transform.parent.gameObject.SetActive(!battle.IsTraining);
@@ -118,8 +160,7 @@ public sealed class BattleHud : MonoBehaviour
             $"ORDER: {CommandLabel(battle.CurrentAllyCommand)}    FORMATION: {BattleManager.FormationName(battle.CurrentFormation)}{holdFire}\n" +
             "1 FOLLOW   2 HOLD   3 CHARGE   4 ADVANCE\n" +
             "F FORMATION    H HOLD FIRE";
-        message.gameObject.SetActive(battle.MessageTimer > 0f);
-        message.text = battle.Message;
+        AnimateMessage();
         reticle.text = battle.Player != null && battle.Player.IsRanged
             ? battle.Player.IsChargingAttack ? (battle.Player.BowPrecisionReady ? "STEADY" : "DRAW") : "+"
             : battle.Player != null && battle.Player.IsCounterReady ? "COUNTER" : "+";
@@ -159,6 +200,39 @@ public sealed class BattleHud : MonoBehaviour
         bool claimsTerritory = battle.State == BattleManager.BattleState.Victory
             && !battle.IsTraining && battle.EncounterKind == BattleKind.SettlementAssault;
         stateButtonLabel.text = claimsTerritory ? "CLAIM TERRITORY" : "RETURN TO MAP";
+    }
+
+    // The centre cue fades in with a brief scale punch and fades out at the end
+    // of its timer, instead of snapping on and off. Freshness is tracked by
+    // watching for the message text to change.
+    private void AnimateMessage()
+    {
+        bool show = battle.MessageTimer > 0f;
+        message.gameObject.SetActive(show);
+        if (!show)
+        {
+            messageAge = 0f;
+            return;
+        }
+        if (battle.Message != lastMessage)
+        {
+            lastMessage = battle.Message;
+            messageAge = 0f;
+            message.text = battle.Message;
+        }
+        if (SettingsService.Current is { reduceMotion: true })
+        {
+            message.rectTransform.localScale = Vector3.one;
+            message.color = new Color(MedievalUi.Gold.r, MedievalUi.Gold.g, MedievalUi.Gold.b, 1f);
+            return;
+        }
+        messageAge += Time.deltaTime;
+        float fadeIn = Mathf.Clamp01(messageAge / 0.12f);
+        float fadeOut = Mathf.Clamp01(battle.MessageTimer / 0.18f);
+        float alpha = Mathf.Min(fadeIn, fadeOut);
+        float punch = 1f + 0.18f * (1f - Mathf.Clamp01(messageAge / 0.14f));
+        message.rectTransform.localScale = Vector3.one * punch;
+        message.color = new Color(MedievalUi.Gold.r, MedievalUi.Gold.g, MedievalUi.Gold.b, alpha);
     }
 
     private static string CommandLabel(BattleManager.AllyCommand command) => command switch

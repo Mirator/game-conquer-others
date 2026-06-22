@@ -56,7 +56,20 @@ not attacking.
   target's active block (`feintChance`) and a 55% chance to favor an overhead
   against a target in recovery (`recoveryPunishChance`). Archetypes shift these:
   a Berserker rarely guards and punishes recovery harder, while a Shieldbearer
-  or Captain guards more often and more skillfully.
+  or Captain guards more often and more skillfully. A recovery punish no longer
+  always picks the overhead — it still favors it, but mixes in other lines so a
+  sharp opponent cannot pre-guard one predictable answer.
+- Skilled defenders read a committed swing. When `lateReadChance` is above zero,
+  a guarding fighter gets one chance per swing, at the moment the attack reaches
+  its release, to re-snap its guard to the swing's true direction — defeating a
+  re-aimed charge but still beaten by a feint cancelled before release. The
+  baseline Soldier leaves this at zero (guess once and commit); Shieldbearers and
+  Captains turn it up.
+- Fighters pace their stamina. When `staminaCaution` is above zero and the
+  fighter's stamina drops below it, an active attacker eases back to the outer
+  edge of its range to recover rather than throwing a weak swing (its guard still
+  rises against any incoming threat). The baseline Soldier and the reckless
+  Berserker leave this at zero; Shieldbearers and Captains pace themselves.
 - AI automatically releases attacks after preparation.
 - AI reacts to the most immediate incoming threat, including opponents other
   than its current target.
@@ -87,9 +100,10 @@ top of the tier's own stat scale.
 
 An `AIProfile` carries aggression (plus per-fighter jitter), a range scale,
 guard chance, block-correctness against the player and against AI, feint chance,
-recovery-punish chance, and retreat bravery. The Soldier (Default) profile
-reproduces the original pre-archetype behavior, so an unassigned fighter is
-unchanged.
+recovery-punish chance, retreat bravery, a late-guard-read chance
+(`lateReadChance`), and a stamina-caution threshold (`staminaCaution`). The
+Soldier (Default) profile reproduces the original pre-archetype behavior — both
+new fields default to zero, so an unassigned fighter is unchanged.
 
 ## Team Behavior
 

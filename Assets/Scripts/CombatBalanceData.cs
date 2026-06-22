@@ -19,6 +19,12 @@ public sealed class CombatBalanceData : ScriptableObject
     // Stamina spent per point of damage absorbed by a (non-perfect) block.
     public float blockStaminaDamageFactor = 0.55f;
 
+    [Header("Rhythm")]
+    // Brief settle after a melee swing's recovery before the next swing may begin,
+    // so a high-stamina fighter has weight instead of machine-gunning attacks.
+    // Counters and ranged shots are exempt.
+    public float meleeAttackCooldown = 0.16f;
+
     [Header("Counter")]
     public float counterDamageMultiplier = 1.45f;
 

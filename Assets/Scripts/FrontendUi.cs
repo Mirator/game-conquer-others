@@ -153,10 +153,17 @@ public sealed class FrontendUi : MonoBehaviour
         AddSettingSlider("EFFECTS VOLUME", value.effectsVolume, y, v => { value.effectsVolume = v; SettingsService.SaveAndApply(); }); y -= 0.1f;
         AddSettingSlider("MOUSE SENSITIVITY", Mathf.InverseLerp(0.35f, 2f, value.mouseSensitivity), y, v => { value.mouseSensitivity = Mathf.Lerp(0.35f, 2f, v); SettingsService.SaveAndApply(); }); y -= 0.1f;
         AddSettingSlider("CAMERA SHAKE", value.cameraShake, y, v => { value.cameraShake = v; SettingsService.SaveAndApply(); });
-        MedievalUi.Button(settingsCard, "Reduced Motion", value.reduceMotion ? "REDUCED MOTION: ON" : "REDUCED MOTION: OFF",
-            new Vector2(0.28f, 0.265f), new Vector2(0.72f, 0.33f), Vector2.zero, Vector2.zero, () =>
+        MedievalUi.Button(settingsCard, "Reduced Motion", value.reduceMotion ? "MOTION: REDUCED" : "MOTION: FULL",
+            new Vector2(0.28f, 0.265f), new Vector2(0.48f, 0.33f), Vector2.zero, Vector2.zero, () =>
             {
                 value.reduceMotion = !value.reduceMotion;
+                SettingsService.SaveAndApply();
+                RebuildSettings();
+            });
+        MedievalUi.Button(settingsCard, "Damage Numbers", value.showDamageNumbers ? "DAMAGE #: ON" : "DAMAGE #: OFF",
+            new Vector2(0.52f, 0.265f), new Vector2(0.72f, 0.33f), Vector2.zero, Vector2.zero, () =>
+            {
+                value.showDamageNumbers = !value.showDamageNumbers;
                 SettingsService.SaveAndApply();
                 RebuildSettings();
             });

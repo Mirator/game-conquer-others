@@ -33,7 +33,9 @@ The ready screen communicates:
 
 ## Fighting HUD
 
-- Bottom-left player panel with health and stamina bars.
+- Bottom-left player panel with health and stamina bars. The bars ease toward
+  their value instead of snapping, and the health bar carries a lagging "chip"
+  layer that exposes the slice just lost.
 - Top-right count of living blue and red fighters.
 - Top-left active ally order and `1 Follow / 2 Hold / 3 Charge / 4 Advance`
   controls during campaign battles.
@@ -43,11 +45,17 @@ The ready screen communicates:
   - It reads `COUNTER` while a perfect-block counter window is open.
   - It shows no directional tick marks, no `AIM/ATTACK/BLOCK` direction label,
     and no primary-threat incoming-direction cue.
-- Temporary battle and block messages.
+- Temporary battle and block messages that fade in with a brief scale punch and
+  fade out at the end of their timer.
 - No directional text or telegraph bars are drawn above enemies.
 - World-space health bars only for recently damaged fighters and the current
   primary threat.
+- World-space floating combat readouts on player-involved hits — a damage number
+  and the short cues `PARRY!`, `BLOCK`, and `GUARD BROKEN` — gated behind the
+  `showDamageNumbers` setting (default on).
 - Red damage, gold block, and cyan perfect-block screen flashes.
+- The `reduceMotion` setting snaps the animated bars and messages to their value
+  instead of easing them.
 
 ## Result Screens
 
