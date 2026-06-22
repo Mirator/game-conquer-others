@@ -118,15 +118,12 @@ recovery, and a timed perfect-block/counter system.
 
 ### P4 - Feedback Clarity Pass
 
-1. Floating combat readouts rise and fade over a struck fighter: a damage
-   number on a landed hit (brighter and larger for a counter or a kill), and the
-   short cues `PARRY!`, `BLOCK`, and `GUARD BROKEN`. To keep a large melee
-   legible, readouts spawn only for player-involved exchanges, and the whole
-   feature is gated behind the `showDamageNumbers` setting (default on).
-2. A guard that breaks from stamina exhaustion is now its own beat — a heavy
-   metallic shatter cue, a bright spark burst, an extra camera jolt when the
-   player is involved, and the `GUARD BROKEN` readout — instead of silently
-   becoming an ordinary hit.
+1. Hits read through animation, impact effects, audio, screen flashes, and
+   camera feedback alone — no floating damage numbers or textual hit cues are
+   drawn over fighters, keeping the battle immersive.
+2. A guard that breaks from stamina exhaustion is its own beat — a heavy
+   metallic shatter cue, a bright spark burst, and an extra camera jolt when the
+   player is involved — instead of silently becoming an ordinary hit.
 3. The captain's health and stamina bars ease toward their value instead of
    snapping, with a lagging "chip" behind the health bar that exposes the slice
    just lost. The centre battle cue fades in with a brief scale punch and fades

@@ -13,6 +13,7 @@ public sealed class FrontendUi : MonoBehaviour
     private RectTransform settings;
     private RectTransform pause;
     private RectTransform custom;
+    private Text pauseTitle;
     private RectTransform titleMenu;
     private RectTransform settingsCard;
     private RectTransform customCard;
@@ -54,6 +55,8 @@ public sealed class FrontendUi : MonoBehaviour
 
     public void ShowPause(bool visible)
     {
+        if (visible && pauseTitle != null)
+            pauseTitle.text = director.CurrentMode == GameDirector.Mode.Battle ? "BATTLE PAUSED" : "PAUSED";
         if (visible && settings != null)
             settings.gameObject.SetActive(false);
         if (pause != null)
@@ -71,7 +74,7 @@ public sealed class FrontendUi : MonoBehaviour
         continueButton.gameObject.SetActive(false);
 
         pause = FullPanel("Pause Screen");
-        MedievalUi.Label(pause, "Title", "BATTLE PAUSED", 62, TextAnchor.MiddleCenter,
+        pauseTitle = MedievalUi.Label(pause, "Title", "PAUSED", 62, TextAnchor.MiddleCenter,
             new Vector2(0.25f, 0.67f), new Vector2(0.75f, 0.85f), Vector2.zero, Vector2.zero, MedievalUi.Gold);
         MedievalUi.Divider(pause, "Pause Divider", new Vector2(0.32f, 0.62f), new Vector2(0.68f, 0.645f),
             Vector2.zero, Vector2.zero);
@@ -159,13 +162,6 @@ public sealed class FrontendUi : MonoBehaviour
             new Vector2(0.28f, 0.265f), new Vector2(0.48f, 0.33f), Vector2.zero, Vector2.zero, () =>
             {
                 value.reduceMotion = !value.reduceMotion;
-                SettingsService.SaveAndApply();
-                RebuildSettings();
-            });
-        MedievalUi.Button(settingsCard, "Damage Numbers", value.showDamageNumbers ? "DAMAGE #: ON" : "DAMAGE #: OFF",
-            new Vector2(0.52f, 0.265f), new Vector2(0.72f, 0.33f), Vector2.zero, Vector2.zero, () =>
-            {
-                value.showDamageNumbers = !value.showDamageNumbers;
                 SettingsService.SaveAndApply();
                 RebuildSettings();
             });

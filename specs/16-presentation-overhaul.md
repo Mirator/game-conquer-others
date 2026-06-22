@@ -39,11 +39,10 @@ and sonify that state but must not alter it.
 
 - All active game UI uses responsive uGUI canvases.
 - The game opens on a title screen with New Campaign, Settings, and Quit.
-- Escape in battle opens a pause screen with Resume, Settings, Return to Title,
-  and Quit.
+- Escape in battle, and Escape or a MENU button on the campaign map, open a
+  pause screen with Resume, Settings, Return to Title, and Quit.
 - Settings persist through `PlayerPrefs` and cover volume, sensitivity, camera
-  shake, fullscreen, resolution, quality, VSync, reduced motion, and combat-readout
-  visibility (`showDamageNumbers`).
+  shake, fullscreen, resolution, quality, VSync, and reduced motion.
 
 ## Assets And Audio
 
@@ -70,11 +69,9 @@ and sonify that state but must not alter it.
 - A guard broken by stamina exhaustion plays a dedicated metallic shatter cue and
   a bright spark burst (`BattleEffects.PlayGuardBreak`), distinct from the soft
   thud of a guard that held.
-- `FloatingCombatText` is a pooled, camera-billboarded world-space readout that
-  rises and fades over a struck fighter (damage numbers and the short cues
-  `PARRY!`, `BLOCK`, `GUARD BROKEN`). It is purely presentational — the
-  simulation never depends on it — and is spawned only for player-involved
-  exchanges to keep a 120-fighter melee legible.
+- Combat reads through animation, impact effects, audio, and camera feedback
+  alone. No floating damage numbers or textual hit cues are drawn over fighters —
+  the battle stays diegetic.
 
 ## Performance Target
 

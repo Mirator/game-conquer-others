@@ -83,4 +83,26 @@ public sealed class FrontendLifecycleTests
         while (!director.IsModeReady(GameDirector.Mode.Title))
             yield return null;
     }
+
+    [UnityTest]
+    public IEnumerator Director_PausesAndResumesOnTheMap()
+    {
+        GameDirector director = Object.FindFirstObjectByType<GameDirector>();
+        Assert.That(director, Is.Not.Null);
+        director.StartNewCampaign();
+        while (!director.IsModeReady(GameDirector.Mode.Map))
+            yield return null;
+
+        director.TogglePause();
+        Assert.That(director.IsPaused, Is.True, "The campaign map can be paused for the menu.");
+        Assert.That(Time.timeScale, Is.Zero, "Pausing the map freezes travel and the day clock.");
+
+        director.Resume();
+        Assert.That(director.IsPaused, Is.False);
+        Assert.That(Time.timeScale, Is.EqualTo(1f));
+
+        director.ReturnToTitle();
+        while (!director.IsModeReady(GameDirector.Mode.Title))
+            yield return null;
+    }
 }

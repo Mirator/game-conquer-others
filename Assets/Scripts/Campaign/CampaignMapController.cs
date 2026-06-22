@@ -434,6 +434,14 @@ public sealed class CampaignMapController : MonoBehaviour
         if (campaign == null || cam == null)
             return;
 
+        // Escape (or the MENU button) opens the pause menu — the way to reach
+        // settings, return to title, or quit from the map. While paused the map
+        // freezes and ignores camera/click input; the menu canvas sits on top.
+        if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
+            director.TogglePause();
+        if (director.IsPaused)
+            return;
+
         CameraControls();
 
         if (campaign.CampaignOver)
@@ -828,6 +836,12 @@ public sealed class CampaignMapController : MonoBehaviour
             new Vector2(0.10f, 0f), new Vector2(0.98f, 1f), Vector2.zero, Vector2.zero);
         reportText = MedievalUi.Label(campaignCanvas.transform, "Report", "", 16, TextAnchor.MiddleCenter,
             new Vector2(0.30f, 0.905f), new Vector2(0.70f, 0.94f), Vector2.zero, Vector2.zero);
+
+        // Top-right MENU button opens the pause menu (settings / return to title / quit).
+        RectTransform menuBar = MedievalUi.Frame(campaignCanvas.transform, "Menu Bar", new Vector2(0.905f, 0.945f),
+            new Vector2(0.99f, 0.992f), Vector2.zero, Vector2.zero);
+        MedievalUi.Button(menuBar, "Menu", "MENU", new Vector2(0.06f, 0.12f), new Vector2(0.94f, 0.88f),
+            Vector2.zero, Vector2.zero, () => director.TogglePause());
 
         RectTransform legend = MedievalUi.Frame(campaignCanvas.transform, "Map Legend", new Vector2(0.012f, 0.81f),
             new Vector2(0.185f, 0.93f), Vector2.zero, Vector2.zero);
