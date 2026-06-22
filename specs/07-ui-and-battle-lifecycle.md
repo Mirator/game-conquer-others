@@ -55,7 +55,8 @@ The ready screen communicates:
   `showDamageNumbers` setting (default on).
 - Red damage, gold block, and cyan perfect-block screen flashes.
 - The `reduceMotion` setting snaps the animated bars and messages to their value
-  instead of easing them.
+  instead of easing them, holds the floating combat readouts still (no rise), and
+  drops the on-hit recoil kick.
 
 ## Result Screens
 

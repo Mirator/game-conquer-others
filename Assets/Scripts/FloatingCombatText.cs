@@ -80,6 +80,8 @@ public sealed class FloatingCombatText : MonoBehaviour
         }
 
         float dt = Time.deltaTime;
+        // Reduced-motion keeps the readout (and its fade) but holds it still.
+        float rise = SettingsService.Current is { reduceMotion: true } ? 0f : RiseSpeed;
         foreach (Entry entry in pool)
         {
             if (entry.timer <= 0f)
@@ -92,7 +94,7 @@ public sealed class FloatingCombatText : MonoBehaviour
             }
 
             float life = entry.timer / Lifetime; // 1 -> 0 over its lifetime
-            entry.transform.position += Vector3.up * RiseSpeed * dt;
+            entry.transform.position += Vector3.up * rise * dt;
             if (view != null)
                 entry.transform.rotation = Quaternion.LookRotation(entry.transform.position - view.position);
             // Hold full opacity for the first third, then fade out.
