@@ -1,8 +1,8 @@
 # Conquer Others
 
-A playable Unity MVP for a small third-person medieval battle. The prototype is
-built entirely from runtime-generated low-poly primitives, so it has no external
-asset dependencies or manual scene setup.
+A third-person medieval battle game built in Unity. It is built entirely from
+runtime-generated low-poly primitives and curated CC0 assets, so it has no manual
+scene setup.
 
 The organized product and technical specification set starts at
 [`specs/00-spec-index.md`](specs/00-spec-index.md).
@@ -25,7 +25,7 @@ the equipment panel, and choose the Training Arena opponent's weapon there too.
 The separate Training Arena node launches consequence-free 1v1 practice. See
 [`specs/13-campaign-economy-units-and-regions.md`](specs/13-campaign-economy-units-and-regions.md).
 
-Create a standalone build with `Conquer Others > Build Windows MVP` in the
+Create a standalone build with `Conquer Others > Build Windows` in the
 Unity menu. The executable is written to `Builds/Windows/ConquerOthers.exe`.
 
 ## Controls

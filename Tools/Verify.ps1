@@ -90,7 +90,7 @@ Invoke-UnityTests -Platform "PlayMode"
 if (-not $SkipBuild) {
     Invoke-Unity -Arguments @(
         "-batchmode", "-nographics", "-quit", "-projectPath", $projectRoot,
-        "-executeMethod", "MvpBuilder.BuildWindows",
+        "-executeMethod", "GameBuilder.BuildWindows",
         "-logFile", (Join-Path $logs "windows-build.log")
     ) -Label "Windows build"
 }

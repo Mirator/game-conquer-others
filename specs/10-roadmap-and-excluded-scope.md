@@ -32,7 +32,7 @@ the game's strategic scope. The ordered remediation plan is defined in
 - Battlefield terrain that shapes tactics — elevation, chokepoints, cover that
   changes engagement — beyond the current decorative biome dressing.
 
-## Delivered Beyond The Original MVP
+## Delivered Beyond The Original Scope
 
 - Free-roam overworld campaign map (click-to-move party, day clock, roaming
   bandit parties, settlement assaults) with a persistent warband roster (see
