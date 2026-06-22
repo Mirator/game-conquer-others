@@ -557,6 +557,24 @@ public abstract class BattleFighter : MonoBehaviour
         return prepared;
     }
 
+    // Drives the fighter straight into AttackRelease this instant, for tests that
+    // need a committed swing. DebugForceAttackTelegraph only *queues* the release
+    // (the fighter stays in AttackWindup until the windup timer elapses a frame later).
+    public bool DebugForceAttackRelease(CombatDirection direction)
+    {
+        DebugClearCombatReaction();
+        Phase = CombatPhase.Idle;
+        IsBlocking = false;
+        counterAttack = false;
+        counterWindowTimer = 0f;
+        attackCooldownTimer = 0f;
+        stamina = MaxStamina;
+        if (!PrepareAttack(direction))
+            return false;
+        EnterRelease();
+        return true;
+    }
+
     public void DebugApplyHitStop(float duration) => ApplyHitStop(duration);
 
     public void ApplyHitStop(float duration)

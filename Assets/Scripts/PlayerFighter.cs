@@ -33,7 +33,10 @@ public sealed class PlayerFighter : BattleFighter
     protected override void Update()
     {
         base.Update();
-        if (!IsAlive || IsInHitStop || battle == null || !battle.IsBattleRunning || Keyboard.current == null)
+        // Player control needs the camera rig for movement/aim framing; without it
+        // (e.g. headless tests, or a frame before SetCamera) there is nothing to do.
+        if (!IsAlive || IsInHitStop || battle == null || !battle.IsBattleRunning
+            || cameraRig == null || Keyboard.current == null)
             return;
 
         if (Mouse.current != null)
