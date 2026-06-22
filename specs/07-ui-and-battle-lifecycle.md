@@ -18,7 +18,9 @@ without applying victory or defeat. It is a testing/exploration tool, especially
 for large commanded battles and formation/hold-fire orders.
 
 A battle can be paused with Escape to a `BATTLE PAUSED` screen offering Resume,
-Settings, Return to Title, and Quit.
+Settings, Return to Title, and Quit. The campaign map opens the same menu
+(titled `PAUSED`) via Escape or a top-right MENU button, freezing travel and the
+day clock while it is open and ignoring map input until resumed.
 
 ## Ready Screen
 
@@ -50,13 +52,12 @@ The ready screen communicates:
 - No directional text or telegraph bars are drawn above enemies.
 - World-space health bars only for recently damaged fighters and the current
   primary threat.
-- World-space floating combat readouts on player-involved hits — a damage number
-  and the short cues `PARRY!`, `BLOCK`, and `GUARD BROKEN` — gated behind the
-  `showDamageNumbers` setting (default on).
+- No floating combat readouts or damage numbers are drawn over fighters; hits
+  read through animation, effects, audio, and camera feedback to keep the battle
+  immersive.
 - Red damage, gold block, and cyan perfect-block screen flashes.
 - The `reduceMotion` setting snaps the animated bars and messages to their value
-  instead of easing them, holds the floating combat readouts still (no rise), and
-  drops the on-hit recoil kick.
+  instead of easing them, and drops the on-hit recoil kick.
 
 ## Result Screens
 

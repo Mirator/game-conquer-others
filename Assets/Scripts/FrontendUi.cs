@@ -165,13 +165,6 @@ public sealed class FrontendUi : MonoBehaviour
                 SettingsService.SaveAndApply();
                 RebuildSettings();
             });
-        MedievalUi.Button(settingsCard, "Damage Numbers", value.showDamageNumbers ? "DAMAGE #: ON" : "DAMAGE #: OFF",
-            new Vector2(0.52f, 0.265f), new Vector2(0.72f, 0.33f), Vector2.zero, Vector2.zero, () =>
-            {
-                value.showDamageNumbers = !value.showDamageNumbers;
-                SettingsService.SaveAndApply();
-                RebuildSettings();
-            });
         string quality = QualitySettings.names.Length > 0
             ? QualitySettings.names[Mathf.Clamp(value.qualityPreset, 0, QualitySettings.names.Length - 1)] : "PC";
         MedievalUi.Button(settingsCard, "Quality", $"QUALITY: {quality.ToUpperInvariant()}",
