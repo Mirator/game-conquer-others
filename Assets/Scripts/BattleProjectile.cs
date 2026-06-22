@@ -1,5 +1,7 @@
 using UnityEngine;
 
+// A loosed arrow: advances along its launch vector, sweeps for a hit against a
+// fighter or the ground, and reports the impact before despawning.
 public sealed class BattleProjectile : MonoBehaviour
 {
     private BattleManager battle;

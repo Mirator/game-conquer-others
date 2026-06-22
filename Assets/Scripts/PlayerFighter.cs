@@ -1,6 +1,8 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 
+// Player-controlled combatant: translates input (move, sprint, dodge, aim
+// gestures, attack, block) into the BattleFighter combat actions.
 public sealed class PlayerFighter : BattleFighter
 {
     private const float ActionBufferDuration = 0.15f;

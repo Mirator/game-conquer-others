@@ -4,9 +4,12 @@ using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
 using UnityEngine;
 
-public static class MvpBuilder
+// Editor-only Windows player builder: ensures the procedural shaders ship, then
+// produces the standalone build under Builds/Windows. Invoked from the menu or
+// via -executeMethod GameBuilder.BuildWindows in batchmode.
+public static class GameBuilder
 {
-    [MenuItem("Conquer Others/Build Windows MVP")]
+    [MenuItem("Conquer Others/Build Windows")]
     public static void BuildWindows()
     {
         EnsureProceduralShaders();
@@ -23,9 +26,9 @@ public static class MvpBuilder
 
         BuildReport report = BuildPipeline.BuildPlayer(options);
         if (report.summary.result != BuildResult.Succeeded)
-            throw new BuildFailedException($"MVP build failed: {report.summary.result}");
+            throw new BuildFailedException($"Build failed: {report.summary.result}");
 
-        Debug.Log($"Conquer Others MVP built at {options.locationPathName}");
+        Debug.Log($"Conquer Others build created at {options.locationPathName}");
     }
 
     private static void EnsureProceduralShaders()

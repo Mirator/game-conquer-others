@@ -72,6 +72,9 @@ function Invoke-UnityTests {
 
     [xml]$xml = Get-Content -LiteralPath $results
     $run = $xml."test-run"
+    if (-not $run -or $null -eq $run.total) {
+        throw "$Platform results file is malformed or missing its test-run summary. See $log."
+    }
     $failed = [int]$run.failed
     Write-Host "$Platform: $($run.passed)/$($run.total) passed, $failed failed (Unity exit $($process.ExitCode))."
     if ($failed -gt 0 -or $run.result -ne "Passed") {
@@ -87,7 +90,7 @@ Invoke-UnityTests -Platform "PlayMode"
 if (-not $SkipBuild) {
     Invoke-Unity -Arguments @(
         "-batchmode", "-nographics", "-quit", "-projectPath", $projectRoot,
-        "-executeMethod", "MvpBuilder.BuildWindows",
+        "-executeMethod", "GameBuilder.BuildWindows",
         "-logFile", (Join-Path $logs "windows-build.log")
     ) -Label "Windows build"
 }

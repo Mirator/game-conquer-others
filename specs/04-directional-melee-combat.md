@@ -105,4 +105,4 @@ Wrong-direction, late, absent, or rear-angle block:
 ## Future Combat Features
 
 Feints, partial blocks, armor, additional weapons, mounted attacks, and friendly
-fire are outside the current MVP.
+fire are outside the current scope.

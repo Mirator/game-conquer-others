@@ -1,5 +1,7 @@
 using UnityEngine;
 
+// AI-controlled combatant: target selection, engagement movement, guard/attack
+// decisions, and retreat, driven by an AIProfile personality.
 public sealed class AIFighter : BattleFighter
 {
     public BattleFighter CurrentTarget => target;
@@ -98,7 +100,7 @@ public sealed class AIFighter : BattleFighter
             committedAttack = false;
         }
 
-        if (target == null || !target.IsAlive || targetLockTimer <= 0f && decisionTimer <= 0f)
+        if (target == null || !target.IsAlive || (targetLockTimer <= 0f && decisionTimer <= 0f))
         {
             BattleFighter next = battle.SelectTacticalTarget(this, target);
             if (next != target)

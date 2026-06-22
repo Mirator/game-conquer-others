@@ -541,8 +541,9 @@ public sealed class BattleBootstrap : MonoBehaviour
         block.transform.SetParent(battleRoot.transform);
         block.transform.position = position;
         block.transform.localScale = scale;
-        block.GetComponent<Renderer>().sharedMaterial = RuntimeAssets.Material(color);
-        block.GetComponent<Renderer>().enabled = visible;
+        Renderer renderer = block.GetComponent<Renderer>();
+        renderer.sharedMaterial = RuntimeAssets.Material(color);
+        renderer.enabled = visible;
         if (!collider)
             Destroy(block.GetComponent<Collider>());
     }

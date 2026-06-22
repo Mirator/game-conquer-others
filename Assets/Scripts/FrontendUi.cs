@@ -3,6 +3,8 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
+// Front-end uGUI: the title screen, settings panel, custom-battle setup, and the
+// in-battle pause menu, all built at runtime through MedievalUi helpers.
 public sealed class FrontendUi : MonoBehaviour
 {
     private GameDirector director;

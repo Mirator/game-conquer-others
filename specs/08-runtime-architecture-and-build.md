@@ -64,7 +64,7 @@ listener. Each mode's camera carries the single active `AudioListener`.
 
 ## Build
 
-- Editor menu: `Conquer Others > Build Windows MVP`.
+- Editor menu: `Conquer Others > Build Windows`.
 - Target: Windows 64-bit standalone.
 - Scene: `Assets/Scenes/SampleScene.unity`.
 - Output: `Builds/Windows/ConquerOthers.exe`.
@@ -80,5 +80,5 @@ Other editor tooling:
 
 ## Design Constraint
 
-New MVP systems should preserve the runtime-bootstrap approach unless a
+New systems should preserve the runtime-bootstrap approach unless a
 deliberate migration to authored scenes and imported assets is approved.

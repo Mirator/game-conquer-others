@@ -125,4 +125,4 @@ casualties and retreat from battle. See
 ## Future AI Features
 
 Difficulty profiles and more advanced coordinated maneuvers are outside the
-current MVP.
+current scope.

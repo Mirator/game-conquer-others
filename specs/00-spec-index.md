@@ -2,13 +2,13 @@
 
 ## Purpose
 
-This folder is the numbered specification set for the current Conquer Others MVP.
+This folder is the numbered specification set for Conquer Others.
 It reorganizes the original GDD, directional combat canvas, README, progress log,
 and implemented behavior by product area.
 
 ## Authority
 
-- Specs describe the intended current MVP unless a section is marked future.
+- Specs describe the intended current game unless a section is marked future.
 - Code is the source of truth for exact numeric values and implementation details.
 - Specs and code are kept in sync; any divergence should be resolved before adding new features.
 

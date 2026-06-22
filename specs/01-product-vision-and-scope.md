@@ -7,7 +7,7 @@ Mount & Blade. The player personally fights while allied and enemy soldiers
 engage in an arena battle that scales from a small skirmish to dozens of soldiers
 per side as the warband grows.
 
-## MVP Goal
+## Core Goals
 
 Validate that:
 

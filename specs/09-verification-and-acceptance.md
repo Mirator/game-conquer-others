@@ -2,7 +2,7 @@
 
 ## Acceptance Gates
 
-The current MVP is accepted when:
+The current build is accepted when:
 
 1. Unity scripts compile without errors.
 2. A Windows standalone build succeeds.

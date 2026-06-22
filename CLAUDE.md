@@ -2,7 +2,7 @@
 
 ## Overview
 
-Conquer Others is a third-person medieval battle MVP built in **Unity 6000.3.16f1**
+Conquer Others is a third-person medieval battle game built in **Unity 6000.3.16f1**
 (Unity 6.3 LTS) with URP and C#.
 There are **no prefabs and no manual scene wiring** — every GameObject, mesh,
 material, and UI element is generated at runtime from primitives.
@@ -49,7 +49,7 @@ verification is manual on a licensed machine.
 
 - [Assets/Scripts/](Assets/Scripts/) — runtime gameplay (battle loop, fighters, AI, HUD, effects).
 - [Assets/Scripts/Campaign/](Assets/Scripts/Campaign/) — campaign meta-loop (map, territories, economy, state).
-- [Assets/Editor/](Assets/Editor/) — [MvpBuilder.cs](Assets/Editor/MvpBuilder.cs) (menu: `Conquer Others > Build Windows MVP`) and [BattleSmokeRunner.cs](Assets/Editor/BattleSmokeRunner.cs) (menu smoke test). Editor-only; never shipped in player builds.
+- [Assets/Editor/](Assets/Editor/) — [GameBuilder.cs](Assets/Editor/GameBuilder.cs) (menu: `Conquer Others > Build Windows`) and [BattleSmokeRunner.cs](Assets/Editor/BattleSmokeRunner.cs) (menu smoke test). Editor-only; never shipped in player builds.
 - [Assets/Tests/EditMode/](Assets/Tests/EditMode/) — fast logic tests (`[Test]`), no MonoBehaviour lifecycle.
 - [Assets/Tests/PlayMode/](Assets/Tests/PlayMode/) — tests needing GameObjects/coroutines (`[UnityTest]`).
 - [Tools/Verify.ps1](Tools/Verify.ps1), [Tools/RunStandaloneSmokes.ps1](Tools/RunStandaloneSmokes.ps1) — local verification gate.

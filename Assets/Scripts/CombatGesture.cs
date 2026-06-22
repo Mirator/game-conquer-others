@@ -1,5 +1,7 @@
 using UnityEngine;
 
+// Resolves an accumulated mouse-delta gesture into a committed combat direction,
+// with a pixel threshold and axis hysteresis so jitter never flips the choice.
 public static class CombatGesture
 {
     public const float Window = 0.08f;
