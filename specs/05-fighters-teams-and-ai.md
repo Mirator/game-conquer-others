@@ -28,8 +28,13 @@ not attacking.
 
 ## AI Targeting
 
-- AI scores living opponents by distance, existing target assignments, and
-  whether the opponent is the player.
+- AI scores living opponents by distance, existing target assignments, whether
+  the opponent is the player, the opponent's wounds, and the opponent's value.
+- Wounded opponents draw converging fighters (finish the hurt), and fragile
+  high-value threats — archers and enemy captains — are prioritised. The
+  wounded weighting is capped just below the sticky-target bonus, and the
+  target-assignment (overkill) pressure still caps how many fighters pile on, so
+  focus-firing never collapses the line onto a single foe.
 - Target locks last 0.85 to 1.45 seconds so fighters do not rapidly switch
   opponents.
 - Target-assignment pressure distributes fighters across available opponents.
