@@ -317,6 +317,87 @@ public sealed class CombatRulesTests
         yield return DestroyRoot(root);
     }
 
+    [UnityTest]
+    public IEnumerator LethalHit_KillsTheFighter()
+    {
+        BattleManager battle = CreateFacingDuel(out GameObject root, out BattleFighter attacker);
+        battle.Player.DebugRestoreHealth(10f);
+        battle.Player.ReceiveHit(25f, attacker, CombatDirection.Right);
+        Assert.That(battle.Player.CurrentHealth, Is.EqualTo(0f), "A lethal blow drops health to zero.");
+        Assert.That(battle.Player.IsAlive, Is.False, "A fighter at zero health is dead.");
+        yield return DestroyRoot(root);
+    }
+
+    [UnityTest]
+    public IEnumerator PerfectBlock_IsFreeEvenAtZeroStamina()
+    {
+        BattleManager battle = CreateFacingDuel(out GameObject root, out BattleFighter attacker);
+        float startingHealth = battle.Player.CurrentHealth;
+        battle.Player.DebugSetStamina(0f);
+        battle.Player.DebugSetBlock(true, CombatDirection.Right); // fresh guard, within the perfect window
+        battle.Player.ReceiveHit(25f, attacker, CombatDirection.Right);
+        Assert.That(battle.Player.CurrentHealth, Is.EqualTo(startingHealth),
+            "A perfect block spends no stamina, so it holds even when exhausted.");
+        Assert.That(battle.Player.IsCounterReady, Is.True, "A perfect block still grants the counter.");
+        yield return DestroyRoot(root);
+    }
+
+    [UnityTest]
+    public IEnumerator ProjectileBlock_OnlyTheShieldStopsArrows()
+    {
+        GameObject root = new("Projectile Block");
+        BattleManager manager = CreateManager(root);
+        BattleFighter archer = CreateFighterWith<AIFighter>(root, manager, Team.Enemies, false, Vector3.forward * 4f, WeaponType.Bow);
+
+        // A shield-bearer facing the shot stops the arrow outright.
+        BattleFighter shield = CreateFighterWith<AIFighter>(root, manager, Team.Allies, false, Vector3.zero, WeaponType.SwordAndShield);
+        FaceToward(shield, archer);
+        float shieldHealth = shield.CurrentHealth;
+        shield.DebugSetBlock(true, CombatDirection.Up);
+        shield.ReceiveProjectileHit(20f, archer);
+        Assert.That(shield.CurrentHealth, Is.EqualTo(shieldHealth), "A raised shield stops the arrow.");
+
+        // A two-handed fighter has no shield, so guarding does not stop the arrow.
+        BattleFighter twoHander = CreateFighterWith<AIFighter>(root, manager, Team.Allies, false, new Vector3(2f, 0f, 0f), WeaponType.TwoHandedSword);
+        FaceToward(twoHander, archer);
+        float twoHandedHealth = twoHander.CurrentHealth;
+        twoHander.DebugSetBlock(true, CombatDirection.Up);
+        twoHander.ReceiveProjectileHit(20f, archer);
+        Assert.That(twoHander.CurrentHealth, Is.LessThan(twoHandedHealth), "Without a shield, the arrow lands despite the guard.");
+        yield return DestroyRoot(root);
+    }
+
+    [UnityTest]
+    public IEnumerator TargetSelection_PrefersTheArcher()
+    {
+        GameObject root = new("Target Selection Archer");
+        BattleManager manager = CreateManager(root);
+        CreateFighter<PlayerFighter>(root, manager, Team.Allies, true, Vector3.zero);
+        AIFighter seeker = CreateFighter<AIFighter>(root, manager, Team.Allies, false, Vector3.zero);
+        CreateFighterWith<AIFighter>(root, manager, Team.Enemies, false, new Vector3(3f, 0f, 0f), WeaponType.SwordAndShield);
+        BattleFighter archer = CreateFighterWith<AIFighter>(root, manager, Team.Enemies, false, new Vector3(-3f, 0f, 0f), WeaponType.Bow);
+
+        Assert.That(manager.SelectTacticalTarget(seeker, null), Is.EqualTo(archer),
+            "An equidistant archer is the higher-value target.");
+        yield return DestroyRoot(root);
+    }
+
+    [UnityTest]
+    public IEnumerator TargetSelection_AvoidsThePlayersCurrentOpponent()
+    {
+        GameObject root = new("Target Selection Duel Guard");
+        BattleManager manager = CreateManager(root);
+        PlayerFighter player = CreateFighter<PlayerFighter>(root, manager, Team.Allies, true, Vector3.zero);
+        AIFighter seeker = CreateFighter<AIFighter>(root, manager, Team.Allies, false, Vector3.zero);
+        AIFighter duellist = CreateFighter<AIFighter>(root, manager, Team.Enemies, false, new Vector3(3f, 0f, 0f));
+        AIFighter other = CreateFighter<AIFighter>(root, manager, Team.Enemies, false, new Vector3(-3f, 0f, 0f));
+        SetTarget(duellist, player); // already locked onto the player
+
+        Assert.That(manager.SelectTacticalTarget(seeker, null), Is.EqualTo((BattleFighter)other),
+            "Allies leave the player's current opponent alone and pick the other enemy.");
+        yield return DestroyRoot(root);
+    }
+
     private static BattleManager CreateFacingDuel(out GameObject root, out BattleFighter attacker)
     {
         BattleManager battle = CreateDuel(out root);
@@ -354,6 +435,25 @@ public sealed class CombatRulesTests
         fighter.Configure(manager, team, player);
         manager.Register(fighter);
         return fighter;
+    }
+
+    private static T CreateFighterWith<T>(GameObject root, BattleManager manager, Team team, bool player,
+        Vector3 position, WeaponType weapon, Archetype archetype = Archetype.Soldier) where T : BattleFighter
+    {
+        GameObject go = new(typeof(T).Name);
+        go.transform.SetParent(root.transform);
+        go.transform.position = position;
+        T fighter = go.AddComponent<T>();
+        fighter.Configure(manager, team, player, 1f, UnitType.Militia, weapon, archetype);
+        manager.Register(fighter);
+        return fighter;
+    }
+
+    private static void FaceToward(BattleFighter fighter, BattleFighter target)
+    {
+        Vector3 toward = target.transform.position - fighter.transform.position;
+        toward.y = 0f;
+        fighter.transform.rotation = Quaternion.LookRotation(toward.normalized);
     }
 
     private static void SetTarget(AIFighter fighter, BattleFighter target)

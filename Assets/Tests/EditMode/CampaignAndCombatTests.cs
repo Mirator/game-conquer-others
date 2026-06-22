@@ -604,6 +604,136 @@ public sealed class CampaignAndCombatTests
         Assert.That(village.Recruits, Is.EqualTo(1), "Pools refill a volunteer per day.");
     }
 
+    [Test]
+    public void AIProfile_ArchetypesHaveDistinctPersonalities()
+    {
+        AIProfile soldier = AIProfile.Soldier();
+        AIProfile berserker = AIProfile.Berserker();
+        AIProfile archer = AIProfile.Archer();
+        AIProfile shieldbearer = AIProfile.Shieldbearer();
+        AIProfile captain = AIProfile.Captain();
+
+        Assert.That(berserker.aggression, Is.GreaterThan(soldier.aggression), "Berserkers press harder.");
+        Assert.That(berserker.blockChance, Is.LessThan(soldier.blockChance), "Berserkers rarely guard.");
+        Assert.That(berserker.recoveryPunishChance, Is.GreaterThan(soldier.recoveryPunishChance), "Berserkers punish recovery harder.");
+        Assert.That(berserker.retreatBravery, Is.GreaterThan(soldier.retreatBravery), "Berserkers fight on far longer.");
+        Assert.That(archer.blockChance, Is.EqualTo(0f), "Archers never melee-guard.");
+        Assert.That(archer.retreatBravery, Is.LessThan(soldier.retreatBravery), "Archers fall back early.");
+        Assert.That(shieldbearer.blockCorrectChanceVsPlayer, Is.GreaterThan(soldier.blockCorrectChanceVsPlayer), "Shieldbearers read guards better.");
+        Assert.That(captain.retreatBravery, Is.GreaterThan(soldier.retreatBravery), "Captains anchor the line.");
+    }
+
+    [Test]
+    public void ArchetypeCatalog_ScalesHealthAndDamageByRole()
+    {
+        Assert.That(ArchetypeCatalog.HealthScale(Archetype.Captain), Is.GreaterThan(ArchetypeCatalog.HealthScale(Archetype.Soldier)), "Captains are toughest.");
+        Assert.That(ArchetypeCatalog.HealthScale(Archetype.Shieldbearer), Is.GreaterThan(ArchetypeCatalog.HealthScale(Archetype.Soldier)), "Shieldbearers are sturdy.");
+        Assert.That(ArchetypeCatalog.HealthScale(Archetype.Berserker), Is.LessThan(ArchetypeCatalog.HealthScale(Archetype.Soldier)), "Berserkers trade health for offence.");
+        Assert.That(ArchetypeCatalog.DamageScale(Archetype.Berserker), Is.GreaterThan(ArchetypeCatalog.DamageScale(Archetype.Soldier)), "Berserkers hit harder.");
+        Assert.That(ArchetypeCatalog.DamageScale(Archetype.Captain), Is.GreaterThan(ArchetypeCatalog.DamageScale(Archetype.Soldier)), "Captains hit harder.");
+        Assert.That(ArchetypeCatalog.DamageScale(Archetype.Shieldbearer), Is.LessThan(ArchetypeCatalog.DamageScale(Archetype.Soldier)), "Shieldbearers trade offence for defence.");
+    }
+
+    [Test]
+    public void UnitRoster_TracksCountsXpAndTotals()
+    {
+        UnitRoster roster = new UnitRoster();
+        roster.Add(UnitType.Militia, Archetype.Soldier, 2);
+        roster.Add(UnitType.Militia, Archetype.Berserker, 1);
+        roster.Add(UnitType.Veteran, Archetype.Soldier, 3);
+
+        Assert.That(roster.Count(UnitType.Militia, Archetype.Soldier), Is.EqualTo(2));
+        Assert.That(roster.Count(UnitType.Militia, Archetype.Berserker), Is.EqualTo(1));
+        Assert.That(roster.Militia, Is.EqualTo(3), "Tier view sums archetypes of that tier.");
+        Assert.That(roster.Veterans, Is.EqualTo(3));
+        Assert.That(roster.Total, Is.EqualTo(6));
+
+        roster.AddXp(UnitType.Militia, Archetype.Soldier, 50);
+        roster.AddXp(UnitType.Militia, Archetype.Soldier, 25);
+        Assert.That(roster.Xp(UnitType.Militia, Archetype.Soldier), Is.EqualTo(75), "XP accumulates per stack.");
+
+        roster.Clear();
+        Assert.That(roster.Total, Is.EqualTo(0), "Clear empties the roster.");
+    }
+
+    [Test]
+    public void ApplyVictory_RaisesMoraleAndClampsAtHundred()
+    {
+        CampaignState campaign = CampaignState.CreateDefault(11);
+        campaign.Morale = 95;
+        campaign.ApplyVictory(FirstEnemyTerritory(campaign), new BattleResult { PlayerWon = true });
+        Assert.That(campaign.Morale, Is.EqualTo(100), "A conquest lifts morale but never past 100.");
+    }
+
+    [Test]
+    public void ResolveFieldBattle_RaisesMoraleByFieldWinBonus()
+    {
+        CampaignState campaign = CampaignState.CreateDefault(7);
+        campaign.Morale = 50;
+        campaign.ResolveFieldBattle(campaign.Parties[0], new BattleResult { PlayerWon = true });
+        Assert.That(campaign.Morale, Is.EqualTo(50 + CampaignState.MoraleFieldWinBonus), "A field win steadies the host.");
+    }
+
+    [Test]
+    public void DayTick_OvercapRosterErodesMorale()
+    {
+        CampaignState campaign = CampaignState.CreateDefault(11);
+        campaign.Gold = 100000; // wages paid, so the over-cap roster is the only morale pressure
+        campaign.Renown = 0;    // leadership cap at its base
+        campaign.Morale = 60;
+        campaign.Units.Clear();
+        campaign.Units.Add(UnitType.Militia, Archetype.Soldier, 30); // far above the leadership cap
+
+        campaign.ApplyDayTick();
+        Assert.That(campaign.Morale, Is.EqualTo(60 - CampaignState.MoraleDriftPerDay),
+            "An over-leadership warband drifts toward a lower morale each day.");
+    }
+
+    [Test]
+    public void DayTick_AccruesRenownFromHeldLand()
+    {
+        CampaignState campaign = CampaignState.CreateDefault(11);
+        campaign.ApplyVictory(FirstEnemyTerritory(campaign), new BattleResult { PlayerWon = true });
+        campaign.Gold = 100000;
+        int renownBefore = campaign.Renown;
+        campaign.ApplyDayTick();
+        Assert.That(campaign.Renown, Is.EqualTo(renownBefore + CampaignState.RenownPerHoldPerDay * campaign.PlayerTerritoryCount()),
+            "Held land earns renown each day.");
+    }
+
+    [Test]
+    public void DayTick_UnpaidWagesEmptyThePurse()
+    {
+        CampaignState campaign = CampaignState.CreateDefault(11);
+        campaign.Units.Clear();
+        campaign.Units.Add(UnitType.Militia, Archetype.Soldier, 5); // a wage bill it cannot cover
+        campaign.Gold = 3;
+        int moraleBefore = campaign.Morale;
+
+        campaign.ApplyDayTick();
+        Assert.That(campaign.Gold, Is.EqualTo(0), "An unaffordable day empties the purse.");
+        Assert.That(campaign.Morale, Is.LessThan(moraleBefore), "Unpaid troops lose morale.");
+    }
+
+    [Test]
+    public void CombatBalance_CoordinationDefaultsArePresent()
+    {
+        CombatBalance.Override(ScriptableObject.CreateInstance<CombatBalanceData>());
+        try
+        {
+            Assert.That(CombatBalance.MaxPlayerAttackers, Is.EqualTo(1), "At most one AI presses the player at once.");
+            Assert.That(CombatBalance.MaxTargetAttackers, Is.EqualTo(2), "At most two press any other target.");
+            Assert.That(CombatBalance.SupportAngles, Is.Not.Empty, "Supporters fan out across the support arc.");
+            Assert.That(CombatBalance.SupportEngagementFar, Is.GreaterThan(CombatBalance.SupportEngagementNear), "Support ring has depth.");
+            Assert.That(CombatBalance.MeleeAttackCooldown, Is.GreaterThan(0f), "Melee has a post-swing cooldown.");
+            Assert.That(CombatBalance.SeparationMaxForce, Is.GreaterThan(0f), "Separation steering is active.");
+        }
+        finally
+        {
+            CombatBalance.Override(null);
+        }
+    }
+
     private static Territory FirstEnemyTerritory(CampaignState campaign)
     {
         foreach (Territory territory in campaign.Territories)
