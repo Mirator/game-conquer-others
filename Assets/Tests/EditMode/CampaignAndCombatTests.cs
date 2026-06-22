@@ -133,6 +133,33 @@ public sealed class CampaignAndCombatTests
     }
 
     [Test]
+    public void ApplyDayTick_ReportsDailyLedgerAndMorale()
+    {
+        CampaignState campaign = CampaignState.CreateDefault(7);
+        campaign.ApplyDayTick();
+        Assert.That(campaign.LastReport, Does.Contain("income"), "A day tick should report income.");
+        Assert.That(campaign.LastReport, Does.Contain("Morale"), "A day tick should report morale.");
+    }
+
+    [Test]
+    public void ApplyDayTick_WarnsWhenWagesGoUnpaid()
+    {
+        CampaignState campaign = CampaignState.CreateDefault(11);
+        campaign.Gold = 100000;
+        campaign.Renown = 1000; // lift the cap so recruiting is not what blocks us
+        Territory castle = SettlementOfType(campaign, SettlementType.Castle);
+        castle.Recruits = SettlementCatalog.MaxRecruits(castle.Settlement);
+        Assert.That(campaign.Recruit(UnitType.Militia, Archetype.Soldier, castle), Is.True);
+
+        campaign.Gold = 0; // cannot cover the day's wages
+        int moraleBefore = campaign.Morale;
+        campaign.ApplyDayTick();
+
+        Assert.That(campaign.LastReport.ToLower(), Does.Contain("unpaid"), "An unpaid day must be reported.");
+        Assert.That(campaign.Morale, Is.LessThan(moraleBefore), "Unpaid wages should cost morale.");
+    }
+
+    [Test]
     public void CampaignSave_RoundTripsProgress()
     {
         CampaignSaveService.Delete();
