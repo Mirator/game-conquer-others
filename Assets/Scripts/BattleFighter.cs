@@ -67,6 +67,7 @@ public abstract class BattleFighter : MonoBehaviour
     private float counterWindowTimer;
     private float damageDisplayTimer;
     private float bowDrawTimer;
+    private float attackCooldownTimer;
     private bool releaseQueued;
     private bool dealtAttackDamage;
     private bool whiffRecovery;
@@ -128,6 +129,7 @@ public abstract class BattleFighter : MonoBehaviour
                 blockAge += Time.deltaTime;
             stamina = Mathf.Min(MaxStamina, stamina + (IsBlocking ? CombatBalance.StaminaRegenBlocking : CombatBalance.StaminaRegenIdle) * Time.deltaTime);
             staggerTimer = Mathf.Max(0f, staggerTimer - Time.deltaTime);
+            attackCooldownTimer = Mathf.Max(0f, attackCooldownTimer - Time.deltaTime);
             if (IsRanged && IsChargingAttack)
                 bowDrawTimer = Mathf.Min(BowFullPrecisionTime, bowDrawTimer + Time.deltaTime);
             UpdateAttack();
@@ -169,7 +171,10 @@ public abstract class BattleFighter : MonoBehaviour
         float staminaCost = IsRanged ? CombatBalance.AttackCostRanged
             : useCounter ? CombatBalance.AttackCostCounter
             : Weapon == WeaponType.TwoHandedSword ? CombatBalance.AttackCostTwoHanded : CombatBalance.AttackCostOneHanded;
-        if (!CanAct || IsAttacking || IsBlocking || stamina < staminaCost)
+        // A brief post-swing cooldown gives melee a readable rhythm; counters and
+        // ranged shots (already paced by their own timing) bypass it.
+        if (!CanAct || IsAttacking || IsBlocking || stamina < staminaCost
+            || (!IsRanged && !useCounter && attackCooldownTimer > 0f))
             return false;
 
         stamina -= staminaCost;
@@ -265,8 +270,12 @@ public abstract class BattleFighter : MonoBehaviour
 
         // A non-perfect block drains stamina to absorb the blow; if the guard is too
         // exhausted to pay, it breaks and the hit lands. Perfect blocks are free.
+        bool guardBroken = false;
         if (guarded && !perfectBlock && !TrySpendStamina(damage * CombatBalance.BlockStaminaDamageFactor))
+        {
             guarded = false;
+            guardBroken = true;
+        }
 
         float appliedDamage = 0f;
         if (guarded)
@@ -292,7 +301,7 @@ public abstract class BattleFighter : MonoBehaviour
 
         damageDisplayTimer = 4f;
         hitFlashTimer = perfectBlock ? 0.18f : guarded ? 0.1f : 0.2f;
-        battle.ReportImpact(this, attacker, guarded, perfectBlock, attacker != null && attacker.IsCounterAttack, appliedDamage);
+        battle.ReportImpact(this, attacker, guarded, perfectBlock, attacker != null && attacker.IsCounterAttack, appliedDamage, guardBroken);
         if (!guarded)
             battle.RecordDamage(attacker, this, appliedDamage, health <= 0f);
 
@@ -355,6 +364,8 @@ public abstract class BattleFighter : MonoBehaviour
             Phase = CombatPhase.Idle;
             whiffRecovery = false;
             counterAttack = false;
+            if (!IsRanged)
+                attackCooldownTimer = CombatBalance.MeleeAttackCooldown;
         }
     }
 
@@ -522,6 +533,7 @@ public abstract class BattleFighter : MonoBehaviour
         IsBlocking = false;
         counterAttack = false;
         counterWindowTimer = 0f;
+        attackCooldownTimer = 0f;
         stamina = MaxStamina;
         bool prepared = PrepareAttack(direction);
         if (prepared)
@@ -565,6 +577,8 @@ public abstract class BattleFighter : MonoBehaviour
     public void DebugRestoreStamina() => stamina = MaxStamina;
 
     public void DebugSetStamina(float value) => stamina = Mathf.Clamp(value, 0f, MaxStamina);
+
+    public void DebugSetAttackCooldown(float value) => attackCooldownTimer = Mathf.Max(0f, value);
 
     public void DebugTeleport(Vector3 position)
     {

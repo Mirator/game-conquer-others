@@ -87,6 +87,7 @@ public sealed class BattleManager : MonoBehaviour
     private BattleTactics tactics;
     private BattleEffects effects;
     private ThirdPersonCamera cameraRig;
+    private FloatingCombatText floatingText;
     private float battleTime;
     private float telemetryTimer;
     private float impactFlash;
@@ -114,6 +115,7 @@ public sealed class BattleManager : MonoBehaviour
     {
         effects = battleEffects;
         cameraRig = rig;
+        floatingText = gameObject.AddComponent<FloatingCombatText>();
         IsTraining = training;
         tactics = new BattleTactics(fighters, () => Player);
         gameObject.AddComponent<BattleHud>().Configure(this);
@@ -454,12 +456,21 @@ public sealed class BattleManager : MonoBehaviour
         effects?.PlayArrowImpact(position, fighterHit);
     }
 
-    public void ReportImpact(BattleFighter target, BattleFighter attacker, bool blocked, bool perfectBlock, bool counterStrike, float appliedDamage = 0f)
+    public void ReportImpact(BattleFighter target, BattleFighter attacker, bool blocked, bool perfectBlock, bool counterStrike, float appliedDamage = 0f, bool guardBroken = false)
     {
         effects?.PlayImpact(target.transform.position, blocked, perfectBlock, counterStrike);
         bool playerInvolved = target.IsPlayer || attacker != null && attacker.IsPlayer;
         if (playerInvolved)
             cameraRig?.AddShake(perfectBlock ? 0.13f : counterStrike ? 0.095f : target.IsPlayer ? 0.11f : blocked ? 0.065f : 0.045f);
+        // A shattered guard reads as its own beat: a heavier shatter cue on top of
+        // the landed-hit impact, plus an amber jolt if it was the player's guard.
+        if (guardBroken)
+        {
+            effects?.PlayGuardBreak(target.transform.position);
+            if (playerInvolved)
+                cameraRig?.AddShake(0.08f);
+        }
+        SpawnCombatText(target, attacker, blocked, perfectBlock, counterStrike, appliedDamage, guardBroken);
         if (perfectBlock)
         {
             target.ApplyHitStop(0.075f);
@@ -493,6 +504,32 @@ public sealed class BattleManager : MonoBehaviour
             message = "COUNTER STRIKE";
             messageTimer = 0.7f;
             playerCounterHits++;
+        }
+    }
+
+    // Floating readouts are kept to player-involved exchanges so a 120-fighter
+    // melee stays legible, and only when the setting is on.
+    private void SpawnCombatText(BattleFighter target, BattleFighter attacker, bool blocked,
+        bool perfectBlock, bool counterStrike, float appliedDamage, bool guardBroken)
+    {
+        if (floatingText == null || SettingsService.Current is { showDamageNumbers: false })
+            return;
+        if (!target.IsPlayer && (attacker == null || !attacker.IsPlayer))
+            return;
+
+        Vector3 at = target.transform.position;
+        if (guardBroken)
+            floatingText.Spawn(at, "GUARD BROKEN", new Color(1f, 0.5f, 0.12f), 1.05f);
+        else if (perfectBlock)
+            floatingText.Spawn(at, "PARRY!", new Color(0.45f, 0.86f, 1f), 1.1f);
+        else if (blocked)
+            floatingText.Spawn(at, "BLOCK", new Color(0.95f, 0.78f, 0.28f), 0.85f);
+        else if (appliedDamage > 0f)
+        {
+            Color color = counterStrike ? new Color(1f, 0.84f, 0.2f)
+                : target.IsAlive ? new Color(0.96f, 0.27f, 0.2f) : new Color(1f, 0.36f, 0.3f);
+            float scale = counterStrike || !target.IsAlive ? 1.15f : 0.95f;
+            floatingText.Spawn(at, $"{appliedDamage:0}", color, scale);
         }
     }
 

@@ -11,8 +11,10 @@ public sealed class AIProfile
     public float blockCorrectChanceVsPlayer = 0.62f;
     public float blockCorrectChanceVsAi = 0.52f;
     public float feintChance = 0.72f;         // strike a blocking target's open side
-    public float recoveryPunishChance = 0.55f; // overhead a recovering target
+    public float recoveryPunishChance = 0.55f; // punish a recovering target
     public float retreatBravery = 1f;         // >1 holds longer; very high never retreats
+    public float lateReadChance = 0f;         // re-snap the guard to the swing's true line at release; 0 = guess once and commit
+    public float staminaCaution = 0f;         // normalized stamina below which the fighter regroups to recover instead of swinging; 0 = never
 
     // Baseline behavior, identical to the pre-archetype AI.
     public static AIProfile Default() => new AIProfile();
@@ -31,7 +33,9 @@ public sealed class AIProfile
         blockCorrectChanceVsAi = 0.74f,
         feintChance = 0.5f,
         recoveryPunishChance = 0.45f,
-        retreatBravery = 1.5f
+        retreatBravery = 1.5f,
+        lateReadChance = 0.5f,
+        staminaCaution = 0.3f
     };
 
     // Relentless aggressor: rarely guards, attacks fast, closes in, punishes
@@ -68,6 +72,8 @@ public sealed class AIProfile
         blockCorrectChanceVsAi = 0.78f,
         feintChance = 0.8f,
         recoveryPunishChance = 0.7f,
-        retreatBravery = 8f
+        retreatBravery = 8f,
+        lateReadChance = 0.62f,
+        staminaCaution = 0.28f
     };
 }

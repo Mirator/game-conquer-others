@@ -39,6 +39,13 @@ public sealed class BattleFighterPresentation
     private float walkCycle;
     private float previousWalkCycle;
     private bool flashActive;
+    // Smoothed feel state so combat poses ease instead of snapping between frames.
+    private float guardWeight;
+    private float attackWeightSmoothed;
+    private float hitImpulse;
+    private float hitPitchTarget;
+    private float hitRollTarget;
+    private float previousStaggerTimer;
 
     public BattleFighterPresentation(Transform fighterTransform, Team team, UnitType unitType, WeaponType fighterWeapon,
         Archetype archetype = Archetype.Soldier)
@@ -240,28 +247,49 @@ public sealed class BattleFighterPresentation
         ApplyWeaponPose(isBlocking, attackDirection, blockDirection, phase, phaseTimer, phaseDuration, whiffRecovery);
         if (swordTrail != null)
             swordTrail.emitting = weapon != WeaponType.Bow && phase == CombatPhase.AttackRelease;
+
+        float dt = Mathf.Max(Time.deltaTime, 0.0001f);
+        // The guard eases up quickly and lowers a touch slower, so raising a block
+        // reads as a deliberate motion rather than an instant snap.
+        guardWeight = Mathf.MoveTowards(guardWeight, isBlocking ? 1f : 0f, dt * (isBlocking ? 13f : 9f));
+        // A fresh stagger (the timer jumps up) fires a sharp directional recoil scaled
+        // by the hit's severity, which then eases out — no constant lean that pops back
+        // to idle. Perfect blocks barely flinch; a full unblocked hit snaps hard.
+        if (staggerTimer > previousStaggerTimer + 0.0001f)
+        {
+            hitImpulse = Mathf.Clamp01(staggerTimer / 0.24f);
+            hitPitchTarget = reactionDirection == CombatDirection.Up ? 16f : -10f;
+            float sign = reactionDirection == CombatDirection.Left ? 1f
+                : reactionDirection == CombatDirection.Right ? -1f : 0f;
+            hitRollTarget = sign * 16f;
+        }
+        previousStaggerTimer = staggerTimer;
+        hitImpulse = Mathf.MoveTowards(hitImpulse, 0f, dt * 4.5f);
+
         float legSwing = Mathf.Sin(walkCycle) * 28f * movement;
         float phaseProgress = phaseDuration > 0f ? Mathf.Clamp01(1f - phaseTimer / phaseDuration) : 0f;
         float attackWeight = phase == CombatPhase.AttackWindup ? phaseProgress
             : phase == CombatPhase.AttackHold ? 1f
             : phase == CombatPhase.AttackRelease ? Mathf.Sin(phaseProgress * Mathf.PI)
             : phase == CombatPhase.AttackRecovery ? 1f - phaseProgress : 0f;
+        // Easing the weight removes the brief dip at the hold-to-release hand-off and
+        // softens the settle back to idle when a swing ends.
+        attackWeightSmoothed = Mathf.MoveTowards(attackWeightSmoothed, attackWeight, dt * 9f);
         float heavy = weapon == WeaponType.TwoHandedSword ? 1.35f : 1f;
         float directionSign = attackDirection == CombatDirection.Left ? -1f
             : attackDirection == CombatDirection.Right ? 1f : 0f;
-        float brace = IsAttacking(phase) ? attackWeight * heavy : isBlocking ? 0.45f : 0f;
+        float brace = IsAttacking(phase) ? attackWeightSmoothed * heavy : guardWeight * 0.45f;
         leftLeg.localRotation = Quaternion.Euler(legSwing - brace * 12f, 0f, brace * -6f);
         rightLeg.localRotation = Quaternion.Euler(-legSwing + brace * 9f, 0f, brace * 6f);
 
-        float hitSign = reactionDirection == CombatDirection.Left ? 1f
-            : reactionDirection == CombatDirection.Right ? -1f : 0f;
-        float hitPitch = staggerTimer > 0f ? reactionDirection == CombatDirection.Up ? 13f : -9f : 0f;
-        float hitRoll = staggerTimer > 0f ? hitSign * 14f : 0f;
+        float hitPitch = hitPitchTarget * hitImpulse;
+        float hitRoll = hitRollTarget * hitImpulse;
         float releaseLean = phase == CombatPhase.AttackRelease ? -Mathf.Sin(phaseProgress * Mathf.PI) * 11f * heavy : 0f;
         float recoveryLean = whiffRecovery && phase == CombatPhase.AttackRecovery ? 11f * (1f - phaseProgress) : 0f;
-        float blockRoll = isBlocking ? blockDirection == CombatDirection.Left ? -7f
-            : blockDirection == CombatDirection.Right ? 7f : 0f : 0f;
-        float torsoYaw = directionSign * attackWeight * 20f * heavy;
+        float blockRollDir = blockDirection == CombatDirection.Left ? -7f
+            : blockDirection == CombatDirection.Right ? 7f : 0f;
+        float blockRoll = blockRollDir * guardWeight;
+        float torsoYaw = directionSign * attackWeightSmoothed * 20f * heavy;
         modelRoot.localPosition = Vector3.up * (Mathf.Abs(Mathf.Sin(walkCycle)) * 0.035f * movement)
             + Vector3.forward * (-releaseLean * 0.008f);
         modelRoot.localRotation = Quaternion.Euler(hitPitch + releaseLean + recoveryLean,
@@ -340,7 +368,8 @@ public sealed class BattleFighterPresentation
             // fixed blade grip and orient the shield on the hand.
             swordPivot.localPosition = swordBasePosition;
             swordPivot.localRotation = Quaternion.Euler(-90f, 0f, 0f);
-            shieldPivot.localRotation = Quaternion.Euler(isBlocking ? GetBlockPose(blockDirection) : new Vector3(-12f, 0f, -8f));
+            shieldPivot.localRotation = Damp(shieldPivot.localRotation,
+                Quaternion.Euler(isBlocking ? GetBlockPose(blockDirection) : new Vector3(-12f, 0f, -8f)), 18f);
         }
         else
         {
@@ -379,7 +408,8 @@ public sealed class BattleFighterPresentation
                 swordEuler = Vector3.Lerp(recoveryStart, new Vector3(72f, 0f, 8f), progress);
             }
             swordPivot.localRotation = Quaternion.Euler(swordEuler);
-            shieldPivot.localRotation = Quaternion.Euler(isBlocking ? GetBlockPose(blockDirection) : new Vector3(-12f, 0f, -8f));
+            shieldPivot.localRotation = Damp(shieldPivot.localRotation,
+                Quaternion.Euler(isBlocking ? GetBlockPose(blockDirection) : new Vector3(-12f, 0f, -8f)), 18f);
             if (weapon == WeaponType.TwoHandedSword)
             {
                 bool activeGrip = isBlocking || IsAttacking(phase);
@@ -404,6 +434,10 @@ public sealed class BattleFighterPresentation
 
     private static bool IsAttacking(CombatPhase phase) => phase == CombatPhase.AttackWindup
         || phase == CombatPhase.AttackHold || phase == CombatPhase.AttackRelease || phase == CombatPhase.AttackRecovery;
+
+    // Frame-rate-independent exponential smoothing toward a target rotation.
+    private static Quaternion Damp(Quaternion current, Quaternion target, float rate)
+        => Quaternion.Slerp(current, target, 1f - Mathf.Exp(-rate * Time.deltaTime));
 
     private static Vector3 GetBlockPose(CombatDirection direction) => direction switch
     {

@@ -26,6 +26,7 @@ public sealed class BattleEffects : MonoBehaviour
     private AudioClip whiffClip;
     private AudioClip footstepClip;
     private AudioClip victoryClip;
+    private AudioClip guardBreakClip;
 
     private void Awake()
     {
@@ -61,6 +62,7 @@ public sealed class BattleEffects : MonoBehaviour
         whiffClip = LoadClip("Audio/cloth1") ?? Tone("Whiff", 150f, 0.16f, true);
         footstepClip = RandomClip(catalog != null ? catalog.footsteps : null) ?? Tone("Footstep", 72f, 0.09f, true);
         victoryClip = RuntimeAssets.Audio("Victory Fanfare", CreateVictoryFanfare);
+        guardBreakClip = RuntimeAssets.Audio("Guard Break", CreateGuardBreak);
         for (int i = 0; i < 8; i++)
             particlePool.Add(CreateParticleEmitter(i));
         for (int i = 0; i < SpatialVoices; i++)
@@ -145,6 +147,15 @@ public sealed class BattleEffects : MonoBehaviour
     public void PlayKill(Vector3 position)
     {
         SpawnSparks(position + Vector3.up * 1.1f, new Color(0.5f, 0.02f, 0.01f), 20);
+    }
+
+    // A shattered guard: a heavy metallic crack and a bright burst of sparks,
+    // distinct from the soft thud of a guard that held. Plays on top of the
+    // landed-hit impact that follows.
+    public void PlayGuardBreak(Vector3 position)
+    {
+        PlaySpatial(guardBreakClip, position + Vector3.up * 1.2f, 0.95f, Random.Range(0.86f, 0.96f), 20f);
+        SpawnSparks(position + Vector3.up * 1.2f, new Color(1f, 0.62f, 0.2f), 14);
     }
 
     private static AudioClip LoadClip(string resourcePath) => Resources.Load<AudioClip>(resourcePath);
@@ -273,6 +284,28 @@ public sealed class BattleEffects : MonoBehaviour
         for (int i = 0; i < length; i++)
             samples[i] = Mathf.Clamp(samples[i], -1f, 1f);
         AudioClip clip = AudioClip.Create("Victory Fanfare", length, 1, sampleRate, false);
+        clip.SetData(samples, 0);
+        return clip;
+    }
+
+    // A metallic crack: a low fundamental with a clangy overtone and a noisy
+    // attack, decaying fast — the sound of a guard buckling under a blow.
+    private static AudioClip CreateGuardBreak()
+    {
+        const int sampleRate = 22050;
+        const float duration = 0.26f;
+        int length = Mathf.RoundToInt(sampleRate * duration);
+        float[] samples = new float[length];
+        for (int i = 0; i < length; i++)
+        {
+            float t = i / (float)sampleRate;
+            float envelope = Mathf.Exp(-t * 16f);
+            float fundamental = Mathf.Sin(t * 196f * Mathf.PI * 2f);
+            float clang = Mathf.Sin(t * 523f * Mathf.PI * 2f) * 0.5f;
+            float crack = Random.Range(-1f, 1f) * Mathf.Exp(-t * 60f);
+            samples[i] = (fundamental + clang) * envelope * 0.32f + crack * 0.45f;
+        }
+        AudioClip clip = AudioClip.Create("Guard Break", length, 1, sampleRate, false);
         clip.SetData(samples, 0);
         return clip;
     }

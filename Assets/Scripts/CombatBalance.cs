@@ -25,6 +25,9 @@ public static class CombatBalance
     public static float AttackCostOneHanded => Active.attackCostOneHanded;
     public static float BlockStaminaDamageFactor => Active.blockStaminaDamageFactor;
 
+    // Rhythm
+    public static float MeleeAttackCooldown => Active.meleeAttackCooldown;
+
     // Counter
     public static float CounterDamageMultiplier => Active.counterDamageMultiplier;
 

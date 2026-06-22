@@ -224,6 +224,29 @@ public sealed class CampaignAndCombatTests
     }
 
     [Test]
+    public void AIProfile_ReactiveExtrasAreOptInAndPreserveBaseline()
+    {
+        // The new reactivity is opt-in: the baseline and line-soldier AI must stay
+        // identical to the pre-feature behaviour — no late guard read, no caution.
+        Assert.That(AIProfile.Default().lateReadChance, Is.EqualTo(0f), "Default AI never re-reads a swing.");
+        Assert.That(AIProfile.Default().staminaCaution, Is.EqualTo(0f), "Default AI never holds back on stamina.");
+        Assert.That(ArchetypeCatalog.Profile(Archetype.Soldier).lateReadChance, Is.EqualTo(0f));
+        Assert.That(ArchetypeCatalog.Profile(Archetype.Soldier).staminaCaution, Is.EqualTo(0f));
+
+        // Skilled defenders read the swing's true line and pace their stamina.
+        Assert.That(ArchetypeCatalog.Profile(Archetype.Shieldbearer).lateReadChance, Is.GreaterThan(0f),
+            "Shieldbearers read the swing.");
+        Assert.That(ArchetypeCatalog.Profile(Archetype.Captain).lateReadChance, Is.GreaterThan(0f),
+            "Captains read the swing.");
+        Assert.That(ArchetypeCatalog.Profile(Archetype.Shieldbearer).staminaCaution, Is.GreaterThan(0f),
+            "Shieldbearers pace their stamina.");
+
+        // The reckless berserker fights on regardless of wind.
+        Assert.That(ArchetypeCatalog.Profile(Archetype.Berserker).staminaCaution, Is.EqualTo(0f),
+            "Berserkers never hold back.");
+    }
+
+    [Test]
     public void EnemyComposition_FillsGarrisonAndScalesWithThreat()
     {
         CampaignState campaign = CampaignState.CreateDefault(5);
