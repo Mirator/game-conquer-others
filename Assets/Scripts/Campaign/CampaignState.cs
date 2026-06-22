@@ -277,9 +277,13 @@ public sealed class CampaignState
     // by OverworldSimulation.
     public void ApplyDayTick()
     {
-        Gold += DailyIncome();
+        int moraleStart = Morale;
+        int income = DailyIncome();
+        int wages = DailyWage();
+        int upkeep = DailyGarrisonUpkeep();
+        Gold += income;
 
-        int expenses = DailyWage() + DailyGarrisonUpkeep();
+        int expenses = wages + upkeep;
         bool paid = Gold >= expenses;
         if (paid)
             Gold -= expenses;
@@ -293,8 +297,29 @@ public sealed class CampaignState
         Morale = Mathf.Clamp(StepToward(Morale, MoraleTarget(paid), MoraleDriftPerDay), 0, 100);
         RegenerateRecruits();
 
+        UnitType? deserted = null;
         if (Morale < DesertionMoraleFloor)
-            Desert();
+            deserted = Desert();
+
+        // Surface the day's economy and morale so passing days are legible instead
+        // of silent. The map renders LastReport; on a multi-day march the latest
+        // day's line is shown.
+        LastReport = BuildDayReport(income, expenses, paid, moraleStart, deserted);
+    }
+
+    private string BuildDayReport(int income, int expenses, bool paid, int moraleStart, UnitType? deserted)
+    {
+        int net = income - expenses;
+        string netStr = (net >= 0 ? "+" : "") + net;
+        string report = $"Day {Day}: +{income}g income, -{expenses}g wages & upkeep (net {netStr}g).";
+        if (!paid)
+            report += " Coffers ran dry - troops went unpaid!";
+        report += moraleStart == Morale ? $" Morale {Morale}." : $" Morale {moraleStart}->{Morale}.";
+        if (deserted.HasValue)
+            report += $" A {UnitCatalog.Label(deserted.Value)} deserted in the night.";
+        else if (Morale < DesertionMoraleFloor + MoraleDriftPerDay)
+            report += " Morale is fraying - desertions loom.";
+        return report;
     }
 
     private int MoraleTarget(bool wagesPaid)
@@ -328,18 +353,20 @@ public sealed class CampaignState
     }
 
     // Morale has cratered: the least-committed fighter (lowest tier) slips away in
-    // the night. Being rid of the malcontent steadies the rest a little.
-    private void Desert()
+    // the night. Being rid of the malcontent steadies the rest a little. Returns the
+    // deserter's tier (or null if the warband was empty) so the day report can name it.
+    private UnitType? Desert()
     {
         RosterEntry victim = null;
         foreach (RosterEntry entry in Units.Entries)
             if (entry.Count > 0 && (victim == null || entry.Tier < victim.Tier))
                 victim = entry;
         if (victim == null)
-            return;
+            return null;
+        UnitType tier = victim.Tier;
         victim.Count--;
         Morale = Mathf.Clamp(Morale + DesertionMoraleRebound, 0, 100);
-        LastReport = $"Morale is low. A {UnitCatalog.Label(victim.Tier)} deserted in the night.";
+        return tier;
     }
 
     // Maps a campaign day to a 0..1 time of day. The golden-ratio step spreads

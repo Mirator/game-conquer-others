@@ -28,6 +28,11 @@
   genuine alternative to grabbing every weak one.
 - If the purse cannot cover a day's expenses it empties and morale takes a hit.
 - Gold persists across the campaign and is spent on recruitment and promotions.
+- Each day tick writes a player-facing ledger line (shown on the map as the last
+  report): the day's income, wages + upkeep, net cashflow, and the morale change,
+  plus a warning when wages go unpaid, when morale is fraying toward the desertion
+  floor, or when a soldier deserts. Passing days are legible rather than silent; on
+  a multi-day march the most recent day's line is shown.
 
 ## Morale, Renown, and Leadership
 
