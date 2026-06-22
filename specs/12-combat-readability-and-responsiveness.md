@@ -137,6 +137,11 @@ recovery, and a timed perfect-block/counter system.
    slides to its block pose. Getting hit fires a sharp directional recoil scaled by
    the blow's severity that then eases out, instead of a constant lean that pops
    back to idle (a perfect block barely flinches; a full unblocked hit snaps hard).
+   The unblocked-hit knockback distance also scales with the blow's raw damage
+   (~0.22–0.46 m), so a two-handed overhead shoves harder than a thrust.
+   `reduceMotion` drops the discretionary motion — the floating-text rise and the
+   on-hit recoil kick — while the eased transitions stay (they remove jarring snaps
+   rather than add motion).
 5. A short post-swing cooldown (`CombatBalance.MeleeAttackCooldown`, default 0.16s)
    gives melee a readable rhythm rather than letting high-stamina fighters
    machine-gun swings; counters and ranged shots are exempt. See spec 04.

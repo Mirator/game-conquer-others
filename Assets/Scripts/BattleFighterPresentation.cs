@@ -282,8 +282,11 @@ public sealed class BattleFighterPresentation
         leftLeg.localRotation = Quaternion.Euler(legSwing - brace * 12f, 0f, brace * -6f);
         rightLeg.localRotation = Quaternion.Euler(-legSwing + brace * 9f, 0f, brace * 6f);
 
-        float hitPitch = hitPitchTarget * hitImpulse;
-        float hitRoll = hitRollTarget * hitImpulse;
+        // The on-hit recoil kick is discretionary motion, so reduced-motion drops it
+        // (the eased transitions stay — they remove jarring snaps rather than add motion).
+        float hitMotion = SettingsService.Current is { reduceMotion: true } ? 0f : hitImpulse;
+        float hitPitch = hitPitchTarget * hitMotion;
+        float hitRoll = hitRollTarget * hitMotion;
         float releaseLean = phase == CombatPhase.AttackRelease ? -Mathf.Sin(phaseProgress * Mathf.PI) * 11f * heavy : 0f;
         float recoveryLean = whiffRecovery && phase == CombatPhase.AttackRecovery ? 11f * (1f - phaseProgress) : 0f;
         float blockRollDir = blockDirection == CombatDirection.Left ? -7f

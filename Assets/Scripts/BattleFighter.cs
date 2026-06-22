@@ -296,7 +296,13 @@ public abstract class BattleFighter : MonoBehaviour
             IsBlocking = false;
             counterWindowTimer = 0f;
             if (controller != null && controller.enabled && toAttacker.sqrMagnitude > 0.01f)
-                controller.Move(-toAttacker.normalized * 0.32f);
+            {
+                // Heavier blows shove harder, so a two-handed overhead reads weightier
+                // than a quick thrust. Scaled by the swing's raw damage (not the clamped
+                // applied amount), matching the damage-scaled hit-stop in ReportImpact.
+                float knockback = Mathf.Lerp(0.22f, 0.46f, Mathf.Clamp01(damage / 45f));
+                controller.Move(-toAttacker.normalized * knockback);
+            }
         }
 
         damageDisplayTimer = 4f;
