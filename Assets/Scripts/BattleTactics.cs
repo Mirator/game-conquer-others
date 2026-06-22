@@ -222,6 +222,17 @@ public sealed class BattleTactics
             score -= 2.4f;
         if (target.IsAttackThreatening)
             score += 0.35f;
+        // Finish the wounded: a hurt target draws converging fighters. Capped just
+        // below the sticky-target bonus so a freshly-nicked foe does not yank the
+        // whole line off its current target — only meaningfully hurt targets pull
+        // focus, and the assigned-count term still caps how many pile on.
+        score -= (1f - target.HealthNormalized) * 2.2f;
+        // Prioritise high-value, fragile threats: archers (soft and lethal at range)
+        // and enemy captains (elite morale anchors) are worth ganging up on.
+        if (target.IsRanged)
+            score -= 1.1f;
+        if (target.Archetype == Archetype.Captain)
+            score -= 0.8f;
         return score;
     }
 

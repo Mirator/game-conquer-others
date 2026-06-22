@@ -83,6 +83,23 @@ public sealed class CombatRulesTests
     }
 
     [UnityTest]
+    public IEnumerator TargetSelection_PrefersTheWoundedEnemy()
+    {
+        GameObject root = new("Target Selection Wounded");
+        BattleManager manager = CreateManager(root);
+        CreateFighter<PlayerFighter>(root, manager, Team.Allies, true, Vector3.zero);
+        // An ally seeker has no captain-shortcut, so it scores enemy targets directly.
+        AIFighter seeker = CreateFighter<AIFighter>(root, manager, Team.Allies, false, Vector3.zero);
+        AIFighter healthy = CreateFighter<AIFighter>(root, manager, Team.Enemies, false, new Vector3(3f, 0f, 0f));
+        AIFighter wounded = CreateFighter<AIFighter>(root, manager, Team.Enemies, false, new Vector3(-3f, 0f, 0f));
+        wounded.DebugRestoreHealth(1f);
+
+        Assert.That(manager.SelectTacticalTarget(seeker, null), Is.EqualTo((BattleFighter)wounded),
+            "An ally should converge on a badly wounded enemy over an equidistant healthy one.");
+        yield return DestroyRoot(root);
+    }
+
+    [UnityTest]
     public IEnumerator CorrectDirectionBlock_StopsAllDamage()
     {
         BattleManager battle = CreateFacingDuel(out GameObject root, out BattleFighter attacker);
