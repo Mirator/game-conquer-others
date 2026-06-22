@@ -323,6 +323,14 @@ public sealed class BattleFighterPresentation
         authoredView?.UpdateState(0f, false, CombatPhase.Idle, 0f, false);
         if (swordTrail != null)
             swordTrail.emitting = false;
+        // Authored humanoids collapse through the Death animation clip, which lays
+        // the body out on the ground in local space. The manual tilt/sink and limb
+        // posing below exist only for the primitive fallback rig, which has no death
+        // clip. Stacking that 76-degree root tilt on top of the humanoid clip threw
+        // the corpse to a broken, half-submerged angle (it read as "drowning"), so it
+        // is gated to the primitive path like the rest of the procedural posing here.
+        if (hasAuthoredModel)
+            return;
         float side = direction == CombatDirection.Left ? 1f : direction == CombatDirection.Right ? -1f : Random.Range(-1f, 1f);
         fighter.rotation = Quaternion.Euler(direction == CombatDirection.Up ? -74f : 76f,
             fighter.eulerAngles.y, side * 22f);
