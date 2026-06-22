@@ -307,8 +307,8 @@ public sealed class CombatRulesTests
         SetPrivate(ai, "lateReadArmed", true);
         SetPrivate(ai, "plannedBlockDirection", CombatDirection.Left);
 
-        // The player commits a Right swing — now in the release that the AI reads.
-        Assert.That(battle.Player.DebugForceAttackTelegraph(CombatDirection.Right), Is.True);
+        // The player commits a Right swing, now in the release that the AI reads.
+        Assert.That(battle.Player.DebugForceAttackRelease(CombatDirection.Right), Is.True);
         Assert.That(battle.Player.Phase, Is.EqualTo(CombatPhase.AttackRelease));
 
         Invoke(ai, "TryLateGuardRead");
