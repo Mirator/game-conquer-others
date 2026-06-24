@@ -76,7 +76,7 @@ function Invoke-UnityTests {
         throw "$Platform results file is malformed or missing its test-run summary. See $log."
     }
     $failed = [int]$run.failed
-    Write-Host "$Platform: $($run.passed)/$($run.total) passed, $failed failed (Unity exit $($process.ExitCode))."
+    Write-Host "${Platform}: $($run.passed)/$($run.total) passed, $failed failed (Unity exit $($process.ExitCode))."
     if ($failed -gt 0 -or $run.result -ne "Passed") {
         Select-String -LiteralPath $results -Pattern 'result="Failed"' |
             Select-Object -First 20 | ForEach-Object { Write-Host ("  " + $_.Line.Trim()) }
