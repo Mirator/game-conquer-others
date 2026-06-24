@@ -26,6 +26,7 @@ public static class MedievalUi
     private static Sprite panelSprite;
     private static Sprite frameSprite;
     private static Sprite dividerSprite;
+    private static Sprite horizontalShadeSprite;
 
     public static Sprite PanelSprite => panelSprite != null ? panelSprite : panelSprite = LoadSliced(PanelResource, SourceBorder);
     public static Sprite FrameSprite => frameSprite != null ? frameSprite : frameSprite = LoadSliced(FrameResource, SourceBorder);
@@ -68,6 +69,38 @@ public static class MedievalUi
                 whiteSprite.name = "MedievalUi White";
             }
             return whiteSprite;
+        }
+    }
+
+    // A white sprite whose alpha ramps from fully opaque at the left edge to zero
+    // at the right, eased so the tail-off is gentle. Used for directional shades
+    // (e.g. the title backdrop wash behind the menu) that must fade out instead of
+    // cutting off at a hard panel edge. The consuming Image's colour tints it; the
+    // per-pixel alpha shapes the fade. Bilinear + clamp so the 64-wide ramp is smooth.
+    public static Sprite HorizontalShadeSprite
+    {
+        get
+        {
+            if (horizontalShadeSprite == null)
+            {
+                const int width = 64;
+                Texture2D tex = new(width, 1, TextureFormat.RGBA32, false)
+                {
+                    filterMode = FilterMode.Bilinear,
+                    wrapMode = TextureWrapMode.Clamp,
+                    name = "MedievalUi HorizontalShade"
+                };
+                for (int x = 0; x < width; x++)
+                {
+                    float alpha = Mathf.SmoothStep(1f, 0f, x / (width - 1f));
+                    tex.SetPixel(x, 0, new Color(1f, 1f, 1f, alpha));
+                }
+                tex.Apply();
+                horizontalShadeSprite = Sprite.Create(tex, new Rect(0f, 0f, width, 1f),
+                    new Vector2(0.5f, 0.5f), 100f);
+                horizontalShadeSprite.name = "MedievalUi HorizontalShade";
+            }
+            return horizontalShadeSprite;
         }
     }
 

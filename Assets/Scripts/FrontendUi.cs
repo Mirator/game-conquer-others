@@ -114,9 +114,15 @@ public sealed class FrontendUi : MonoBehaviour
         RectTransform wash = MedievalUi.Panel(title, "Dawn Vignette", Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero,
             new Color(0.012f, 0.012f, 0.018f, 0.20f));
         wash.GetComponent<Image>().raycastTarget = false;
-        RectTransform leftShade = MedievalUi.Panel(title, "Menu Shadow", Vector2.zero, new Vector2(0.56f, 1f), Vector2.zero, Vector2.zero,
-            new Color(0.012f, 0.01f, 0.012f, 0.48f));
-        leftShade.GetComponent<Image>().raycastTarget = false;
+        RectTransform leftShade = MedievalUi.Panel(title, "Menu Shadow", Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero,
+            new Color(0.012f, 0.01f, 0.012f, 0.62f));
+        Image leftShadeImage = leftShade.GetComponent<Image>();
+        // A horizontal-gradient sprite fades the wash from dark at the left edge
+        // (behind the menu) to transparent before mid-screen, so there is no hard
+        // brightness seam where a flat half-width panel would have cut off.
+        leftShadeImage.sprite = MedievalUi.HorizontalShadeSprite;
+        leftShadeImage.type = Image.Type.Simple;
+        leftShadeImage.raycastTarget = false;
         titleMenu = MedievalUi.Frame(title, "Title Menu", new Vector2(0.055f, 0.13f), new Vector2(0.39f, 0.87f),
             Vector2.zero, Vector2.zero, new Color(0.035f, 0.028f, 0.022f, 0.82f), MedievalUi.Gold);
         MedievalUi.Label(titleMenu, "Title", "CONQUER OTHERS", 64, TextAnchor.MiddleCenter,
