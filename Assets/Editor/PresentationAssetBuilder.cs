@@ -94,11 +94,24 @@ public static class PresentationAssetBuilder
         catalog.barrel = LoadModel("Assets/ThirdParty/Quaternius/FantasyProps/Barrel.fbx");
         catalog.propCrate = LoadModel("Assets/ThirdParty/Quaternius/FantasyProps/Crate_Wooden.fbx");
         catalog.weaponStand = LoadModel("Assets/ThirdParty/Quaternius/FantasyProps/WeaponStand.fbx");
-        catalog.commonTree = LoadModel("Assets/ThirdParty/Quaternius/Nature/CommonTree_1.fbx");
-        catalog.pineTree = LoadModel("Assets/ThirdParty/Quaternius/Nature/Pine_2.fbx");
-        catalog.deadTree = LoadModel("Assets/ThirdParty/Quaternius/Nature/DeadTree_2.fbx");
-        catalog.rock = LoadModel("Assets/ThirdParty/Quaternius/Nature/Rock_Medium_1.fbx");
-        catalog.bush = LoadModel("Assets/ThirdParty/Quaternius/Nature/Bush_Common.fbx");
+        const string nature = "Assets/ThirdParty/Quaternius/Nature/";
+        EnsureNatureTextures(nature);
+        catalog.commonTree = LoadModel(nature + "CommonTree_1.fbx");
+        catalog.pineTree = LoadModel(nature + "Pine_2.fbx");
+        catalog.deadTree = LoadModel(nature + "DeadTree_2.fbx");
+        catalog.rock = LoadModel(nature + "Rock_Medium_1.fbx");
+        catalog.bush = LoadModel(nature + "Bush_Common.fbx");
+        catalog.treeVariants = LoadModels(nature, "CommonTree_1", "CommonTree_2", "CommonTree_3", "CommonTree_4", "CommonTree_5");
+        catalog.pineVariants = LoadModels(nature, "Pine_1", "Pine_2", "Pine_3");
+        catalog.deadTreeVariants = LoadModels(nature, "DeadTree_1", "DeadTree_2", "DeadTree_4");
+        catalog.rockVariants = LoadModels(nature, "Rock_Medium_1", "Rock_Medium_2", "Rock_Medium_3");
+        // Solid-ish detail only — the flat plane-based grass/fern models read as
+        // cardboard if their alpha texture doesn't bind, so they are kept out of the
+        // general carpet (open ground uses the procedural instanced grass instead).
+        catalog.groundClutter = LoadModels(nature, "Flower_3_Group", "Flower_4_Group", "Mushroom_Common",
+            "Pebble_Round_1", "Pebble_Round_3", "Bush_Common_Flowers");
+        catalog.barrenClutter = LoadModels(nature, "Pebble_Round_1", "Pebble_Round_3", "Mushroom_Common");
+        catalog.tallGrass = LoadModels(nature, "Grass_Common_Tall", "Grass_Wispy_Tall", "Fern_1");
 
         EditorUtility.SetDirty(catalog);
         AssetDatabase.SaveAssets();
@@ -161,6 +174,57 @@ public static class PresentationAssetBuilder
     }
 
     private static GameObject LoadModel(string path) => AssetDatabase.LoadAssetAtPath<GameObject>(path);
+
+    private static GameObject[] LoadModels(string folder, params string[] names)
+    {
+        List<GameObject> models = new();
+        foreach (string name in names)
+        {
+            GameObject model = LoadModel(folder + name + ".fbx");
+            if (model != null)
+                models.Add(model);
+        }
+        return models.ToArray();
+    }
+
+    // Quaternius nature ships base/normal textures in the kit's Textures folder.
+    // We extract them beside the FBX and let the importer (material-description +
+    // embedded materials, recursive texture search) bind them. Normal maps must be
+    // flagged so they read as normals rather than colour. This is what makes trees
+    // and rocks render textured instead of flat-shaded.
+    private static void EnsureNatureTextures(string folder)
+    {
+        foreach (string guid in AssetDatabase.FindAssets("t:Texture2D", new[] { folder.TrimEnd('/') }))
+        {
+            string path = AssetDatabase.GUIDToAssetPath(guid);
+            if (!path.Contains("_Normal"))
+                continue;
+            if (AssetImporter.GetAtPath(path) is TextureImporter ti && ti.textureType != TextureImporterType.NormalMap)
+            {
+                ti.textureType = TextureImporterType.NormalMap;
+                ti.SaveAndReimport();
+            }
+        }
+        foreach (string guid in AssetDatabase.FindAssets("t:Model", new[] { folder.TrimEnd('/') }))
+        {
+            string path = AssetDatabase.GUIDToAssetPath(guid);
+            if (AssetImporter.GetAtPath(path) is not ModelImporter mi)
+                continue;
+            bool changed = false;
+            if (mi.materialImportMode != ModelImporterMaterialImportMode.ImportViaMaterialDescription)
+            {
+                mi.materialImportMode = ModelImporterMaterialImportMode.ImportViaMaterialDescription;
+                changed = true;
+            }
+            if (mi.materialLocation != ModelImporterMaterialLocation.InPrefab)
+            {
+                mi.materialLocation = ModelImporterMaterialLocation.InPrefab;
+                changed = true;
+            }
+            if (changed)
+                mi.SaveAndReimport();
+        }
+    }
 
     private static GameObject EnsureFighterPrefab(string name, string modelPath, FighterVariant variant,
         RuntimeAnimatorController controller)

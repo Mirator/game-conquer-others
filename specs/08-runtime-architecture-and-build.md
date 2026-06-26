@@ -50,6 +50,14 @@ listener. Each mode's camera carries the single active `AudioListener`.
 | `ThirdPersonCamera` | Orbit, collision, framing, FOV, and shake. |
 | `BattleEffects` | Procedural audio and impact sparks. |
 | `RuntimeAssets` | Caches and shares generated materials and procedural audio clips. |
+| `ArenaMetrics` | Single source of battlefield dimensions (footprint, ground, walls, spawn lanes, retreat edges). |
+| `GraphicsQuality` | Maps the active quality level to coarse tiers for scaling presentation. |
+| `BattlePostProcessing` | Builds the runtime post-processing Volume and enables it per camera. |
+| `WindSway` | Per-instance wind lean for scatter (trees/grass), gated by quality and reduced-motion. |
+| `GrassField` | Draws a dense grass carpet via batched `Graphics.DrawMeshInstanced`. |
+| `WaterAnimator` | Scrolls the water material's normal-map offset for animated ripples. |
+| `BattleDecals` | Pooled, capped ground decals — blood splats, trample scuffs, dropped-gear debris. |
+| `PerformanceHud` | On-screen FPS / frame-time / fighter-count overlay for perf runs (toggle F3). |
 | `BattleRuntimeSmoke` | Standalone automated campaign-step verification. |
 
 ## Rendering and Assets
@@ -61,6 +69,13 @@ listener. Each mode's camera carries the single active `AudioListener`.
 - Four shaders are always included for standalone procedural material
   reliability: Standard, Legacy Shaders/Diffuse, Sprites/Default, and
   Skybox/Procedural (the last for the procedural skybox).
+- The runtime assembly references the URP runtime assemblies
+  (`Unity.RenderPipelines.Core.Runtime`, `Unity.RenderPipelines.Universal.Runtime`)
+  so it can build the post-processing Volume stack at runtime.
+- `PresentationAssetBuilder` wires biome scatter model pools and imports the curated
+  MegaKit nature FBXs + textures (normal-mapped, material-description) so scatter is
+  textured; re-run via `Conquer Others > Presentation > Rebuild Catalog` after asset
+  changes.
 
 ## Build
 

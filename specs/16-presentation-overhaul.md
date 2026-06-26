@@ -17,6 +17,15 @@ and sonify that state but must not alter it.
 - Curated Quaternius fighter, weapon, village, and nature assets populate the
   catalog. Procedural geometry remains only as gameplay collision and as a
   fallback when a catalog reference is unavailable.
+- Biome scatter draws from variant pools (`treeVariants`, `pineVariants`,
+  `deadTreeVariants`, `rockVariants`, `groundClutter`) so stands read as natural
+  rather than cloned; `RandomTree/RandomPine/RandomDeadTree/RandomRock/RandomClutter`
+  fall back to the single-model fields when a pool is empty. The editor builder
+  extracts a curated subset of MegaKit FBXs plus the nature `Textures/` folder and
+  imports them with material-description + normal-mapped textures so trees and rocks
+  render textured (`PresentationAssetBuilder.EnsureNatureTextures`).
+- `BattleBootstrap.AuthoredVisual` keeps each model's imported (textured) materials;
+  it only tints when a heraldry/team colour is explicitly supplied (defender banners).
 - Captain, militia, veteran, guard, and enemy entries resolve to distinct
   generated fighter prefabs, even when they share an underlying Quaternius
   outfit mesh. Captains read as elite through a 1.18x silhouette and a bright
@@ -35,6 +44,20 @@ and sonify that state but must not alter it.
   head is generated at runtime and bound to the Head bone. The procedural
   primitive rig remains only as a fallback when a catalog reference is missing.
 
+## Post-Processing And Lighting
+
+- A runtime global Volume (`BattlePostProcessing.Apply`) is built from a generated
+  `VolumeProfile` — ACES tonemapping, bloom, a light colour grade, and a vignette —
+  and `renderPostProcessing` is enabled on the battle, title, and campaign-map
+  cameras. SSAO is a URP renderer feature (already on `PC_Renderer`) and activates
+  once post-processing is enabled.
+- Battle ambient uses `AmbientMode.Trilight` (sky/equator/ground bands) plus a cool
+  shadowless fill light opposite the sun. Shadow distance is set from the quality
+  tier to cover the larger field.
+- `RuntimeAssets.Material(color, smoothness, metallic, emissive)` provides tunable
+  PBR surfaces (e.g. glossy marsh water, metal) while the default matte overload is
+  unchanged; results are cached on quantized smoothness/metallic so instancing holds.
+
 ## Frontend
 
 - All active game UI uses responsive uGUI canvases.
@@ -52,6 +75,10 @@ and sonify that state but must not alter it.
   sources. The editor builder may temporarily extract them from
   `AssetDownloads` to regenerate curated `.anim` clips, then must remove the
   source FBXs from `Assets/ThirdParty`.
+- A curated subset of MegaKit model FBXs (nature variants, clutter) and the nature
+  kit textures are committed under `Assets/ThirdParty/Quaternius/Nature`; unlike the
+  animation FBXs these are permanent so they ship in the build. Only CC0/standard-
+  licensed files listed in `THIRD_PARTY_NOTICES.md` may ship.
 - Recorded clip sets are preferred; synthesized audio remains a fallback for
   events without an approved recorded clip.
 - Battlefields are dressed by encounter kind (assault hold, bandit camp, or
@@ -91,4 +118,11 @@ scale with the runtime-generated, no-prefab approach relies on:
   caches.
 
 Realtime shadow-casting lights are limited, materials are reused, and effects are
-pooled.
+pooled. The larger field and richer presentation (post-processing, scatter density,
+shadow distance, fill light, anti-aliasing) scale with `GraphicsQuality` so the low
+tier preserves the framerate; collider-free scatter keeps the simulation unchanged.
+Dense and distant scatter (ground clutter, border/distant trees, reeds, boulders) is
+**excluded from the shadow pass** — only fighters, hero trees, and structures cast
+shadows — so hundreds of instances don't multiply shadow-map cost. Grass is GPU-
+instanced and shadowless. The `PerformanceHud` overlay (F3) reports FPS / frame time /
+fighter count for confirming the budget holds at scale.

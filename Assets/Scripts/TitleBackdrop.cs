@@ -142,6 +142,7 @@ public sealed class TitleBackdrop : MonoBehaviour
         titleCamera.farClipPlane = 120f;
         titleCamera.clearFlags = CameraClearFlags.Skybox;
         cameraObject.AddComponent<AudioListener>();
+        BattlePostProcessing.Apply(titleCamera, cameraObject.transform);
     }
 
     private void BuildCamp(PresentationCatalog catalog)

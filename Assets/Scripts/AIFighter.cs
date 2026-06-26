@@ -348,8 +348,10 @@ public sealed class AIFighter : BattleFighter
     private void UpdateRetreat()
     {
         retreatTimer -= Time.deltaTime;
-        float edge = Team == Team.Allies ? -16f : 16f;
-        Vector3 destination = new Vector3(Mathf.Clamp(transform.position.x, -14f, 14f), transform.position.y, edge);
+        float edge = Team == Team.Allies ? -ArenaMetrics.RetreatEdge : ArenaMetrics.RetreatEdge;
+        Vector3 destination = new Vector3(
+            Mathf.Clamp(transform.position.x, -ArenaMetrics.RetreatHalfWidth, ArenaMetrics.RetreatHalfWidth),
+            transform.position.y, edge);
         Vector3 direction = destination - transform.position;
         direction.y = 0f;
         if (direction.sqrMagnitude <= 0.45f || retreatTimer <= 0f)

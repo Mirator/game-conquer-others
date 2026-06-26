@@ -35,6 +35,17 @@ public sealed class PresentationCatalog : ScriptableObject
     public GameObject rock;
     public GameObject bush;
 
+    [Header("Scatter")]
+    // Variant pools so biomes read as natural stands rather than cloned props; the
+    // Random* accessors fall back to the single-model fields when a pool is empty.
+    public GameObject[] treeVariants;
+    public GameObject[] pineVariants;
+    public GameObject[] deadTreeVariants;
+    public GameObject[] rockVariants;
+    public GameObject[] groundClutter; // lush detail: flowers, mushrooms, pebbles, bushes
+    public GameObject[] barrenClutter; // rocky/highland detail: pebbles, mushrooms (no flowers)
+    public GameObject[] tallGrass;      // plane-based grass/fern, used sparsely for marsh reeds only
+
     [Header("Camp")]
     public GameObject campfire;
     public GameObject tent;
@@ -58,6 +69,17 @@ public sealed class PresentationCatalog : ScriptableObject
     public AudioClip[] ui;
 
     public static PresentationCatalog Load() => Resources.Load<PresentationCatalog>(ResourceName);
+
+    public GameObject RandomTree() => Pick(treeVariants) ?? commonTree;
+    public GameObject RandomPine() => Pick(pineVariants) ?? pineTree;
+    public GameObject RandomDeadTree() => Pick(deadTreeVariants) ?? deadTree;
+    public GameObject RandomRock() => Pick(rockVariants) ?? rock;
+    public GameObject RandomClutter() => Pick(groundClutter);
+    public GameObject RandomBarrenClutter() => Pick(barrenClutter);
+    public GameObject RandomTallGrass() => Pick(tallGrass);
+
+    private static GameObject Pick(GameObject[] pool)
+        => pool != null && pool.Length > 0 ? pool[Random.Range(0, pool.Length)] : null;
 
     public ArenaThemeDefinition Theme(ArenaType arena) => arena switch
     {

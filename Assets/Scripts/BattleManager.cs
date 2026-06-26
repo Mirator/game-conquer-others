@@ -89,6 +89,9 @@ public sealed class BattleManager : MonoBehaviour
     private BattleTactics tactics;
     private BattleEffects effects;
     private ThirdPersonCamera cameraRig;
+    private BattleDecals decals;
+    private readonly Queue<GameObject> embeddedArrows = new();
+    private const int MaxEmbeddedArrows = 50;
     private float battleTime;
     private float telemetryTimer;
     private float impactFlash;
@@ -119,6 +122,23 @@ public sealed class BattleManager : MonoBehaviour
         IsTraining = training;
         tactics = new BattleTactics(fighters, () => Player);
         gameObject.AddComponent<BattleHud>().Configure(this);
+    }
+
+    public void SetDecals(BattleDecals battleDecals) => decals = battleDecals;
+
+    // Keeps embedded arrows on the field but capped — the oldest are removed once the
+    // count exceeds the cap, so accumulation stays bounded over a long fight.
+    public void RegisterEmbeddedArrow(GameObject arrow)
+    {
+        if (arrow == null)
+            return;
+        embeddedArrows.Enqueue(arrow);
+        while (embeddedArrows.Count > MaxEmbeddedArrows)
+        {
+            GameObject oldest = embeddedArrows.Dequeue();
+            if (oldest != null)
+                Destroy(oldest);
+        }
     }
 
     public void Register(BattleFighter fighter)
@@ -167,7 +187,12 @@ public sealed class BattleManager : MonoBehaviour
         // Mouse input starts the battle. Result screens are dismissed only via
         // their on-screen button so campaign outcomes cannot be bypassed.
         if (State == BattleState.Ready && Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame)
-            BeginBattle();
+        {
+            if (cameraRig != null && cameraRig.IsSweeping)
+                cameraRig.SkipSweep(); // first click skips the intro flyover
+            else
+                BeginBattle();
+        }
         if (Keyboard.current.escapeKey.wasPressedThisFrame)
         {
             GameDirector.Instance?.TogglePause();
@@ -361,12 +386,7 @@ public sealed class BattleManager : MonoBehaviour
         return forward.sqrMagnitude > 0.0001f ? forward.normalized : Vector3.forward;
     }
 
-    private static Vector3 ClampToArena(Vector3 position)
-    {
-        position.x = Mathf.Clamp(position.x, -13f, 13f);
-        position.z = Mathf.Clamp(position.z, -15f, 15f);
-        return position;
-    }
+    private static Vector3 ClampToArena(Vector3 position) => ArenaMetrics.Clamp(position);
 
     // The captain-relative slot for an ally, in the current formation shape. Follow
     // and Hold orient on the captain; Advance orients on the marching anchor.
@@ -439,10 +459,13 @@ public sealed class BattleManager : MonoBehaviour
         if (victim == null)
             return;
         effects?.PlayKill(victim.transform.position);
+        decals?.AddBlood(victim.transform.position, Random.Range(1.6f, 2.6f));
+        if (Random.value < 0.4f)
+            decals?.AddDebris(victim.transform.position + Random.insideUnitSphere * 0.7f);
         if (attacker != null && attacker.IsPlayer)
-            attacker.ApplyHitStop(0.13f);
+            attacker.ApplyHitStop(0.16f);
         if (victim.IsPlayer || (attacker != null && attacker.IsPlayer))
-            cameraRig?.AddShake(victim.IsPlayer ? 0.22f : 0.16f);
+            cameraRig?.AddShake(victim.IsPlayer ? 0.24f : 0.17f);
     }
 
     public BattleFighter FindProjectileTarget(BattleFighter attacker, Vector3 start, Vector3 end, float radius)
@@ -642,6 +665,7 @@ public sealed class BattleManager : MonoBehaviour
         message = IsTraining ? "SPAR WITH YOUR OPPONENT" : "BREAK THE RED LINE";
         messageTimer = 2.2f;
         LockCursor();
+        decals?.SeedClashZone();
     }
 
     // Attributes applied (unguarded) damage to its source and victim for the

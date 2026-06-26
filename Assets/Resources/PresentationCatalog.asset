@@ -38,6 +38,39 @@ MonoBehaviour:
   deadTree: {fileID: 919132149155446097, guid: 14c1a083f37d263479332e553c52c07f, type: 3}
   rock: {fileID: 919132149155446097, guid: 7e252a58cbc37a6408d705fbbdfba0c9, type: 3}
   bush: {fileID: 919132149155446097, guid: b86c9e5aaa5bec746bfdccf31def4031, type: 3}
+  treeVariants:
+  - {fileID: 919132149155446097, guid: 0719dc8349ebb624fa149655662ab0dc, type: 3}
+  - {fileID: 919132149155446097, guid: ba720030bba9f0046bada68ae0067c46, type: 3}
+  - {fileID: 919132149155446097, guid: 620cb6d1476be8e4fab879b3ffbd13b4, type: 3}
+  - {fileID: 919132149155446097, guid: 6a881c6fdc94c63479fa26bc9a7f67be, type: 3}
+  - {fileID: 919132149155446097, guid: 3b4848dcddbce9a4a84ff46ed501a5be, type: 3}
+  pineVariants:
+  - {fileID: 919132149155446097, guid: 173b946d7b8570f4294a13e6bf599740, type: 3}
+  - {fileID: 919132149155446097, guid: 1f8224735d057904a8ab2787d6e2b247, type: 3}
+  - {fileID: 919132149155446097, guid: 32e868a80f9f73840babb8c7555eea63, type: 3}
+  deadTreeVariants:
+  - {fileID: 919132149155446097, guid: ecbfed5ccb05f9a4892433ad7ca247de, type: 3}
+  - {fileID: 919132149155446097, guid: 14c1a083f37d263479332e553c52c07f, type: 3}
+  - {fileID: 919132149155446097, guid: 7168c52d35b05fc43a51d4237eb82013, type: 3}
+  rockVariants:
+  - {fileID: 919132149155446097, guid: 7e252a58cbc37a6408d705fbbdfba0c9, type: 3}
+  - {fileID: 919132149155446097, guid: 4eaaef7373101c54ba8911e8b58dc566, type: 3}
+  - {fileID: 919132149155446097, guid: a830db27a4474ca45b10083a2ea10d82, type: 3}
+  groundClutter:
+  - {fileID: 919132149155446097, guid: 4cd26da7c80541741a7a01b26639ba3a, type: 3}
+  - {fileID: 919132149155446097, guid: 16a4f1cd200405148b6512ac89268887, type: 3}
+  - {fileID: 919132149155446097, guid: e265730b4451b2f46a38c7b6873bce08, type: 3}
+  - {fileID: 919132149155446097, guid: 33de10690148c984cb6e6caf792b7a08, type: 3}
+  - {fileID: 919132149155446097, guid: 56e3816328a75b0468c7a812d8df3a5c, type: 3}
+  - {fileID: 919132149155446097, guid: dd5a8f6a1291b16468e034c589657642, type: 3}
+  barrenClutter:
+  - {fileID: 919132149155446097, guid: 33de10690148c984cb6e6caf792b7a08, type: 3}
+  - {fileID: 919132149155446097, guid: 56e3816328a75b0468c7a812d8df3a5c, type: 3}
+  - {fileID: 919132149155446097, guid: e265730b4451b2f46a38c7b6873bce08, type: 3}
+  tallGrass:
+  - {fileID: 919132149155446097, guid: 39232d0cef2bc5244bb8ed732f169fb8, type: 3}
+  - {fileID: 919132149155446097, guid: 4ba43870f11e73e4dab5810d4db4960e, type: 3}
+  - {fileID: 919132149155446097, guid: 2207662474fd6ae4599d38b27c7e44ae, type: 3}
   campfire: {fileID: 919132149155446097, guid: ba2944e11ab18de44b5c6a313ae58853, type: 3}
   tent: {fileID: 919132149155446097, guid: 2f18ba69479232e4faebbc354421e93e, type: 3}
   bedroll: {fileID: 919132149155446097, guid: 2bbe056075a8c3444ac8ffd51b4d6aee, type: 3}
