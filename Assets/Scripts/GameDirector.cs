@@ -158,7 +158,7 @@ public sealed class GameDirector : MonoBehaviour
         Time.timeScale = 1f;
         frontend?.ShowPause(false);
         BattleManager manager = FindFirstObjectByType<BattleManager>();
-        if (manager != null && manager.State == BattleManager.BattleState.Fighting)
+        if (manager != null && manager.IsBattleRunning)
         {
             Cursor.lockState = CursorLockMode.Locked;
             Cursor.visible = false;

@@ -8,6 +8,7 @@ public sealed class BattleHud : MonoBehaviour
     private Canvas canvas;
     private RectTransform fighting;
     private RectTransform stateScreen;
+    private RectTransform victoryPrompt;
     private Text healthLabel;
     private Image healthFill;
     private Image healthChip;
@@ -82,6 +83,15 @@ public sealed class BattleHud : MonoBehaviour
         stateButton = MedievalUi.Button(card, "Confirm", "CONTINUE", new Vector2(0.28f, 0.07f),
             new Vector2(0.72f, 0.19f), Vector2.zero, Vector2.zero, () => battle.ConfirmResult());
         stateButtonLabel = stateButton.GetComponentInChildren<Text>();
+
+        // Shown in the bottom-left over the live battlefield the moment a battle is
+        // won, holding the result screen back until the player presses E.
+        victoryPrompt = MedievalUi.Frame(canvas.transform, "Victory Prompt",
+            new Vector2(0.015f, 0.04f), new Vector2(0.34f, 0.12f), Vector2.zero, Vector2.zero);
+        MedievalUi.Label(victoryPrompt, "Victory Prompt Label", "BATTLE WON!   PRESS E TO CONTINUE",
+            22, TextAnchor.MiddleCenter, Vector2.zero, Vector2.one, new Vector2(8f, 4f),
+            new Vector2(-8f, -4f), MedievalUi.Gold);
+        victoryPrompt.gameObject.SetActive(false);
     }
 
     private static Image BuildBar(Transform parent, string name, Vector2 min, Vector2 max, Color color)
@@ -121,11 +131,15 @@ public sealed class BattleHud : MonoBehaviour
         if (battle == null || canvas == null)
             return;
         bool isFighting = battle.State == BattleManager.BattleState.Fighting;
+        // While a win awaits acknowledgement, hide both the combat HUD and the
+        // result overlay so only the corner prompt sits over the won battlefield.
+        bool awaitingAck = battle.AwaitingVictoryAck;
         fighting.gameObject.SetActive(isFighting);
-        stateScreen.gameObject.SetActive(!isFighting);
+        victoryPrompt.gameObject.SetActive(awaitingAck);
+        stateScreen.gameObject.SetActive(!isFighting && !awaitingAck);
         if (isFighting)
             RefreshFight();
-        else
+        else if (!awaitingAck)
             RefreshState();
     }
 
