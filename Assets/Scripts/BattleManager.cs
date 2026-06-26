@@ -26,7 +26,7 @@ public sealed class BattleManager : MonoBehaviour
     public PlayerFighter Player { get; private set; }
     public int AlliesAlive => CountAlive(Team.Allies);
     public int EnemiesAlive => CountAlive(Team.Enemies);
-    public string DebugAISummary => tactics.DebugSummary;
+    public string DebugAISummary => tactics?.DebugSummary ?? "";
     public bool IsTraining { get; private set; }
 
     // Surviving allied soldiers excluding the player, including withdrawals.
@@ -83,6 +83,7 @@ public sealed class BattleManager : MonoBehaviour
     public string DebugSummary => $"State={State}, Blue={CountAlive(Team.Allies)}, Red={CountAlive(Team.Enemies)}, Time={battleTime:0.0}";
 
     private readonly List<BattleFighter> fighters = new();
+    private readonly List<BattleFighter> strikeScratch = new(); // reused by FindSweptStrikeTarget's grid query
     private readonly Dictionary<AIFighter, Vector3> holdPositions = new();
     private readonly Dictionary<AIFighter, int> allyFormationIndex = new();
     private readonly List<AIFighter> allyOrderScratch = new();
@@ -233,7 +234,7 @@ public sealed class BattleManager : MonoBehaviour
     }
 
     public BattleFighter SelectTacticalTarget(AIFighter seeker, BattleFighter current)
-        => tactics.SelectTarget(seeker, current);
+        => tactics?.SelectTarget(seeker, current);
 
     public BattleFighter FindIncomingThreat(BattleFighter defender)
     {
@@ -255,20 +256,33 @@ public sealed class BattleManager : MonoBehaviour
     }
 
     public bool TryClaimAttackPermission(AIFighter attacker, BattleFighter target)
-        => tactics.TryClaimAttackPermission(attacker, target);
+        => tactics != null && tactics.TryClaimAttackPermission(attacker, target);
 
+    // tactics is null only outside a configured/running battle (e.g. teardown), where a
+    // release is a harmless no-op — guarding here fixes a teardown NullReferenceException.
     public void ReleaseAttackPermission(AIFighter attacker)
-        => tactics.ReleaseAttackPermission(attacker);
+        => tactics?.ReleaseAttackPermission(attacker);
 
     public Vector3 GetEngagementPosition(AIFighter seeker, BattleFighter target, bool activeAttacker, float preferredRange)
-        => tactics.GetEngagementPosition(seeker, target, activeAttacker, preferredRange);
+        => tactics != null
+            ? tactics.GetEngagementPosition(seeker, target, activeAttacker, preferredRange)
+            : seeker.transform.position;
 
+    // Only fighters near the strike segment can be hit, so query the spatial grid around
+    // the segment midpoint instead of scanning the whole roster (O(k) vs O(n) per swing).
     public BattleFighter FindSweptStrikeTarget(BattleFighter attacker, Vector3 start, Vector3 end, float radius)
     {
         BattleFighter best = null;
         float bestDistance = radius * radius;
-        foreach (BattleFighter fighter in fighters)
+        List<BattleFighter> candidates = fighters;
+        if (tactics != null)
         {
+            tactics.QueryNeighbors((start + end) * 0.5f, strikeScratch);
+            candidates = strikeScratch;
+        }
+        for (int i = 0; i < candidates.Count; i++)
+        {
+            BattleFighter fighter = candidates[i];
             if (!fighter.IsAlive || fighter.Team == attacker.Team)
                 continue;
             Vector3 center = fighter.transform.position + Vector3.up * 1.05f;
@@ -283,7 +297,7 @@ public sealed class BattleManager : MonoBehaviour
     }
 
     public Vector3 GetSeparation(BattleFighter seeker)
-        => tactics.GetSeparation(seeker);
+        => tactics != null ? tactics.GetSeparation(seeker) : Vector3.zero;
 
     public bool TryGetCommandPosition(AIFighter ally, BattleFighter target, out Vector3 position)
     {
@@ -541,7 +555,7 @@ public sealed class BattleManager : MonoBehaviour
 
     public void NotifyDeath(BattleFighter dead)
     {
-        tactics.OnFighterRemoved(dead);
+        tactics?.OnFighterRemoved(dead);
         if (dead is AIFighter deadAi)
             holdPositions.Remove(deadAi);
         // The outcome latches on the first death that resolves it, and a dead player
@@ -585,7 +599,7 @@ public sealed class BattleManager : MonoBehaviour
     {
         if (fighter == null || !fighter.IsAlive)
             return;
-        tactics.OnFighterRemoved(fighter);
+        tactics?.OnFighterRemoved(fighter);
         holdPositions.Remove(fighter);
         Team team = fighter.Team;
         fighter.WithdrawFromBattle();
