@@ -146,9 +146,11 @@ spreads hours across days for variety rather than a smooth cycle.
 - Direction-specific shield blocks.
 - White hit flash.
 - Stagger lean and knockback.
-- Fallen-body death pose, with the corpse's facing (yaw) randomized per death so a
-  field of fallen fighters doesn't all lie the same way. (Pitch/roll are never stacked
-  on the humanoid death clip — that re-submerges the body.)
+- Fallen-body death from the humanoid Death clip, dropped to rest on the ground (the
+  root-motion-free clip otherwise leaves the corpse floating at hip height), and varied
+  so a field of fallen fighters doesn't look cloned: a mirrored clip variant, randomized
+  playback speed, and randomized facing (yaw). (Pitch/roll are never stacked on the
+  humanoid death clip — that re-submerges the body.)
 - A pre-battle establishing camera flyover over the lines (`ThirdPersonCamera.PlaySweep`)
   that eases into the follow camera; the first click skips it, and it is skipped under
   reduced motion.

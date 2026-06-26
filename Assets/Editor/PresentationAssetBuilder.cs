@@ -286,8 +286,18 @@ public static class PresentationAssetBuilder
             AssetDatabase.DeleteAsset(path);
             AnimatorController controller = AnimatorController.CreateAnimatorControllerAtPath(path);
             AnimatorStateMachine machine = controller.layers[0].stateMachine;
+            AnimationClip deathClip = null;
             foreach (AnimationClipSpec spec in FighterAnimationSpecs)
-                AddState(machine, spec.StateName, EnsureAnimationClip(spec));
+            {
+                AnimationClip clip = EnsureAnimationClip(spec);
+                AddState(machine, spec.StateName, clip);
+                if (spec.StateName == "Death")
+                    deathClip = clip;
+            }
+            // A mirrored copy of the single death clip so deaths don't all look cloned —
+            // Mecanim humanoid mirroring flips left/right into a believably different fall.
+            if (deathClip != null)
+                AddState(machine, "DeathMirror", deathClip).mirror = true;
             machine.defaultState = machine.states[0].state;
             return controller;
         }
