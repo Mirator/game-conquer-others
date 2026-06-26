@@ -157,6 +157,7 @@ public sealed class CampaignMapController : MonoBehaviour
         cam.clearFlags = CameraClearFlags.SolidColor;
         cam.backgroundColor = new Color(0.05f, 0.06f, 0.08f);
         camObject.AddComponent<AudioListener>();
+        BattlePostProcessing.Apply(cam, camObject.transform);
         FocusCameraOn(campaign.PartyPosition, StartCameraHeight);
 
         new MapDioramaBuilder(transform).Build(campaign);

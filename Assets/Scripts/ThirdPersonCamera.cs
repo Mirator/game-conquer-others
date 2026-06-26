@@ -23,6 +23,26 @@ public sealed class ThirdPersonCamera : MonoBehaviour
     private float movementAmount;
     private float stride;
     private int cameraCollisionMask = ~0;
+    private bool sweeping;
+    private float sweepTime;
+    private float sweepDuration;
+    private Vector3 sweepStart;
+    private Vector3 sweepLook;
+
+    public bool IsSweeping => sweeping;
+    public void SkipSweep() => sweeping = false;
+
+    // Plays a one-off establishing flyover from startPosition (looking at lookPoint)
+    // that eases into the normal over-the-shoulder follow. Runs on unscaled time.
+    public void PlaySweep(Vector3 startPosition, Vector3 lookPoint, float duration)
+    {
+        sweepStart = startPosition;
+        sweepLook = lookPoint;
+        sweepDuration = Mathf.Max(0.1f, duration);
+        sweepTime = 0f;
+        sweeping = true;
+        transform.position = startPosition;
+    }
 
     public void SetTarget(Transform followTarget)
     {
@@ -40,10 +60,32 @@ public sealed class ThirdPersonCamera : MonoBehaviour
         shake = Mathf.Max(shake, amount);
     }
 
+    private void UpdateSweep()
+    {
+        sweepTime += Time.unscaledDeltaTime;
+        float e = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(sweepTime / sweepDuration));
+        Vector3 settle = target.position - target.forward * 7f + Vector3.up * 3f;
+        Vector3 position = Vector3.Lerp(sweepStart, settle, e);
+        Vector3 look = Vector3.Lerp(sweepLook, target.position + Vector3.up * 1.5f, e);
+        transform.position = position;
+        transform.rotation = Quaternion.LookRotation((look - position).normalized);
+        if (sweepTime >= sweepDuration)
+        {
+            sweeping = false;
+            smoothPosition = position; // hand off smoothly to the follow camera
+        }
+    }
+
     private void LateUpdate()
     {
         if (target == null)
             return;
+
+        if (sweeping)
+        {
+            UpdateSweep();
+            return;
+        }
 
         if (Mouse.current != null && Cursor.lockState == CursorLockMode.Locked)
         {

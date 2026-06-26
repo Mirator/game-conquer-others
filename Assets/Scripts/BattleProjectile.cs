@@ -60,14 +60,14 @@ public sealed class BattleProjectile : MonoBehaviour
             battle.ReportProjectileHit();
             battle.ReportArrowImpact(next, true);
             target.ReceiveProjectileHit(damage, attacker);
-            Embed(next, target.transform, 2.4f);
+            Embed(next, target.transform);
             return;
         }
 
         if (hitWorld)
         {
             battle.ReportArrowImpact(hit.point, false);
-            Embed(hit.point + velocity.normalized * 0.08f, hit.collider.transform, 4f);
+            Embed(hit.point + velocity.normalized * 0.08f, hit.collider.transform);
             return;
         }
 
@@ -76,13 +76,14 @@ public sealed class BattleProjectile : MonoBehaviour
         previousPosition = next;
     }
 
-    private void Embed(Vector3 position, Transform parent, float duration)
+    private void Embed(Vector3 position, Transform parent)
     {
         transform.position = position;
         transform.rotation = Quaternion.LookRotation(velocity.normalized);
         transform.SetParent(parent, true);
         enabled = false;
-        Destroy(gameObject, duration);
+        // Stays stuck where it landed; the manager caps how many persist at once.
+        battle.RegisterEmbeddedArrow(gameObject);
     }
 
     private void BuildArrow()

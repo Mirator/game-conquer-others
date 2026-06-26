@@ -9,6 +9,10 @@ public sealed class BattleFighterPresentation
     // as a fallback when a catalog reference is unavailable.
     private const bool UseAuthoredFighterBodies = true;
 
+    // How far to lower an authored corpse so the (root-motion-disabled) Death clip,
+    // which lays the body out around hip height, rests on the ground instead of floating.
+    private const float AuthoredDeathDrop = 0.85f;
+
     private readonly Transform fighter;
     private readonly Transform modelRoot;
     private readonly Transform swordPivot;
@@ -330,7 +334,18 @@ public sealed class BattleFighterPresentation
         // the corpse to a broken, half-submerged angle (it read as "drowning"), so it
         // is gated to the primitive path like the rest of the procedural posing here.
         if (hasAuthoredModel)
+        {
+            // Vary only the facing (yaw) of the laid-out corpse so deaths don't all face
+            // the same way — never pitch/roll, which re-submerges the humanoid death
+            // clip (the "drowning" failure described above).
+            fighter.rotation = Quaternion.Euler(0f, fighter.eulerAngles.y + Random.Range(-60f, 60f), 0f);
+            // The Death clip plays with root motion disabled, so it lays the body out
+            // around the hips (~standing height) without lowering the root — leaving the
+            // corpse floating. Drop the root to rest the body on the ground. Vertical
+            // only: any tilt re-submerges the clip (the "drowning" failure above).
+            fighter.position += Vector3.down * AuthoredDeathDrop;
             return;
+        }
         float side = direction == CombatDirection.Left ? 1f : direction == CombatDirection.Right ? -1f : Random.Range(-1f, 1f);
         fighter.rotation = Quaternion.Euler(direction == CombatDirection.Up ? -74f : 76f,
             fighter.eulerAngles.y, side * 22f);

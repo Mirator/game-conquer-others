@@ -8,13 +8,18 @@ public sealed class BattleEffects : MonoBehaviour
     private const float DrumBaseVolume = 0.12f;
 
     private readonly List<ParticleSystem> particlePool = new();
+    private readonly List<ParticleSystem> dustPool = new();
     private readonly List<AudioSource> spatialPool = new();
+    private readonly List<(AudioSource source, float baseVolume)> ambientEmitters = new();
     private PresentationCatalog catalog;
     private int particleCursor;
+    private int dustCursor;
     private int spatialCursor;
     private AudioSource uiSource;
     private AudioSource ambienceSource;
     private AudioSource drumSource;
+    private AudioSource weatherSource;
+    private float weatherBaseVolume;
     private AudioClip hitClip;
     private AudioClip blockClip;
     private AudioClip perfectBlockClip;
@@ -65,6 +70,8 @@ public sealed class BattleEffects : MonoBehaviour
         guardBreakClip = RuntimeAssets.Audio("Guard Break", CreateGuardBreak);
         for (int i = 0; i < 8; i++)
             particlePool.Add(CreateParticleEmitter(i));
+        for (int i = 0; i < 4; i++)
+            dustPool.Add(CreateDustEmitter(i));
         for (int i = 0; i < SpatialVoices; i++)
             spatialPool.Add(CreateSpatialVoice(i));
     }
@@ -78,6 +85,11 @@ public sealed class BattleEffects : MonoBehaviour
             ambienceSource.volume = AmbienceBaseVolume * music;
         if (drumSource != null)
             drumSource.volume = DrumBaseVolume * music;
+        foreach ((AudioSource source, float baseVolume) in ambientEmitters)
+            if (source != null)
+                source.volume = baseVolume * music;
+        if (weatherSource != null)
+            weatherSource.volume = weatherBaseVolume * music;
     }
 
     private static float MusicVolume => SettingsService.Current != null ? SettingsService.Current.musicVolume : 1f;
@@ -95,6 +107,44 @@ public sealed class BattleEffects : MonoBehaviour
         }
     }
 
+    // A 2D rain hiss bed, played when the arena weather is rainy. Tracks music volume.
+    public void PlayRainAmbience()
+    {
+        if (weatherSource == null)
+            weatherSource = gameObject.AddComponent<AudioSource>();
+        weatherSource.clip = RuntimeAssets.Audio("Rain Loop", CreateRainLoop);
+        weatherSource.loop = true;
+        weatherSource.spatialBlend = 0f;
+        weatherBaseVolume = 0.16f;
+        weatherSource.volume = weatherBaseVolume * MusicVolume;
+        weatherSource.Play();
+    }
+
+    // Positional, looping environmental sound — placed by the bootstrap to give the
+    // field spatial life. Volume tracks the music slider alongside the ambient bed.
+    public void AddBirdsong(Vector3 position) => AddAmbientEmitter(position, "Birdsong", CreateBirdsong, 0.5f, 40f);
+    public void AddMarshChorus(Vector3 position) => AddAmbientEmitter(position, "Marsh Chorus", CreateMarshChorus, 0.55f, 34f);
+    public void AddWindGust(Vector3 position) => AddAmbientEmitter(position, "Wind Gust", CreateWindGust, 0.6f, 48f);
+
+    private void AddAmbientEmitter(Vector3 position, string key, System.Func<AudioClip> factory, float baseVolume, float maxDistance)
+    {
+        GameObject go = new("Ambient Emitter");
+        go.transform.SetParent(transform);
+        go.transform.position = position;
+        AudioSource source = go.AddComponent<AudioSource>();
+        source.clip = RuntimeAssets.Audio(key, factory);
+        source.loop = true;
+        source.spatialBlend = 1f;
+        source.rolloffMode = AudioRolloffMode.Linear;
+        source.minDistance = 4f;
+        source.maxDistance = maxDistance;
+        source.volume = baseVolume * MusicVolume;
+        if (source.clip != null)
+            source.time = Random.Range(0f, source.clip.length); // desync identical emitters
+        source.Play();
+        ambientEmitters.Add((source, baseVolume));
+    }
+
     public void PlayAttack(Vector3 position, bool player, WeaponType weapon)
     {
         AudioClip clip = weapon == WeaponType.Bow ? bowReleaseClip
@@ -110,6 +160,8 @@ public sealed class BattleEffects : MonoBehaviour
     public void PlayFootstep(Vector3 position, bool player)
     {
         PlaySpatial(footstepClip, position, player ? 0.18f : 0.07f, Random.Range(0.82f, 1.12f), player ? 7f : 4f);
+        if (player)
+            PlayDust(position, 2);
     }
 
     public void PlayWhiff(Vector3 position, bool player)
@@ -125,7 +177,7 @@ public sealed class BattleEffects : MonoBehaviour
         Color color = perfectBlock ? new Color(0.7f, 0.95f, 1f)
             : counterStrike ? new Color(1f, 0.82f, 0.18f)
             : blocked ? new Color(1f, 0.78f, 0.25f) : new Color(0.85f, 0.12f, 0.05f);
-        SpawnSparks(position + Vector3.up * 1.2f, color, perfectBlock ? 16 : counterStrike ? 12 : blocked ? 9 : 7);
+        SpawnSparks(position + Vector3.up * 1.2f, color, perfectBlock ? 18 : counterStrike ? 14 : blocked ? 10 : 10);
     }
 
     public void PlayArrowImpact(Vector3 position, bool fighterHit)
@@ -146,7 +198,9 @@ public sealed class BattleEffects : MonoBehaviour
     // impact sound already plays through PlayImpact.
     public void PlayKill(Vector3 position)
     {
-        SpawnSparks(position + Vector3.up * 1.1f, new Color(0.5f, 0.02f, 0.01f), 20);
+        SpawnSparks(position + Vector3.up * 1.1f, new Color(0.5f, 0.02f, 0.01f), 22);
+        SpawnSparks(position + Vector3.up * 0.7f, new Color(0.4f, 0.03f, 0.02f), 12);
+        PlayDust(position, 7);
     }
 
     // A shattered guard: a heavy metallic crack and a bright burst of sparks,
@@ -197,6 +251,17 @@ public sealed class BattleEffects : MonoBehaviour
         particles.Emit(count);
     }
 
+    // A soft kicked-up dust puff (footsteps, killing blows). Skipped on the low tier.
+    public void PlayDust(Vector3 position, int count)
+    {
+        if (dustPool.Count == 0 || GraphicsQuality.IsLow)
+            return;
+        ParticleSystem particles = dustPool[dustCursor];
+        dustCursor = (dustCursor + 1) % dustPool.Count;
+        particles.transform.position = position;
+        particles.Emit(count);
+    }
+
     private ParticleSystem CreateParticleEmitter(int index)
     {
         GameObject go = new($"Impact Particles {index}");
@@ -218,7 +283,32 @@ public sealed class BattleEffects : MonoBehaviour
         shape.shapeType = ParticleSystemShapeType.Sphere;
         shape.radius = 0.16f;
         ParticleSystemRenderer renderer = particles.GetComponent<ParticleSystemRenderer>();
-        renderer.sharedMaterial = RuntimeAssets.Material(Color.white, true);
+        renderer.sharedMaterial = RuntimeAssets.SoftParticleMaterial(); // soft round sparks, not hard squares
+        return particles;
+    }
+
+    private ParticleSystem CreateDustEmitter(int index)
+    {
+        GameObject go = new($"Dust {index}");
+        go.transform.SetParent(transform);
+        ParticleSystem particles = go.AddComponent<ParticleSystem>();
+        particles.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+        ParticleSystem.MainModule main = particles.main;
+        main.loop = false;
+        main.playOnAwake = false;
+        main.duration = 0.8f;
+        main.startLifetime = new ParticleSystem.MinMaxCurve(0.4f, 0.8f);
+        main.startSpeed = new ParticleSystem.MinMaxCurve(0.4f, 1.4f);
+        main.startSize = new ParticleSystem.MinMaxCurve(0.18f, 0.45f);
+        main.gravityModifier = -0.05f; // drifts up briefly then settles
+        main.maxParticles = 32;
+        main.startColor = new Color(0.55f, 0.5f, 0.42f, 0.5f);
+        ParticleSystem.EmissionModule emission = particles.emission;
+        emission.enabled = false;
+        ParticleSystem.ShapeModule shape = particles.shape;
+        shape.shapeType = ParticleSystemShapeType.Hemisphere;
+        shape.radius = 0.2f;
+        particles.GetComponent<ParticleSystemRenderer>().sharedMaterial = RuntimeAssets.SoftParticleMaterial();
         return particles;
     }
 
@@ -238,6 +328,103 @@ public sealed class BattleEffects : MonoBehaviour
             samples[i] = filtered * gust * 0.16f;
         }
         AudioClip clip = AudioClip.Create("Courtyard Wind", length, 1, sampleRate, false);
+        clip.SetData(samples, 0);
+        return clip;
+    }
+
+    // Sparse, frequency-swept chirps over quiet — a synthesized songbird bed for the
+    // wooded arenas (no curated nature clips ship yet).
+    private static AudioClip CreateBirdsong()
+    {
+        const int sampleRate = 22050;
+        const float duration = 7f;
+        int length = Mathf.RoundToInt(sampleRate * duration);
+        float[] samples = new float[length];
+        for (int c = 0; c < 14; c++)
+        {
+            int start = Mathf.RoundToInt(Random.Range(0f, duration - 0.4f) * sampleRate);
+            float f0 = Random.Range(2200f, 3200f);
+            float f1 = f0 + Random.Range(-600f, 900f);
+            int chirp = Mathf.RoundToInt(Random.Range(0.08f, 0.18f) * sampleRate);
+            float amp = Random.Range(0.06f, 0.13f);
+            for (int i = 0; i < chirp && start + i < length; i++)
+            {
+                float u = i / (float)chirp;
+                float freq = Mathf.Lerp(f0, f1, u);
+                float env = Mathf.Sin(u * Mathf.PI);
+                samples[start + i] += Mathf.Sin((start + i) / (float)sampleRate * freq * Mathf.PI * 2f) * env * amp;
+            }
+        }
+        AudioClip clip = AudioClip.Create("Birdsong", length, 1, sampleRate, false);
+        clip.SetData(samples, 0);
+        return clip;
+    }
+
+    // A faint high insect trill under periodic low frog croaks, for the marsh.
+    private static AudioClip CreateMarshChorus()
+    {
+        const int sampleRate = 22050;
+        const float duration = 6f;
+        int length = Mathf.RoundToInt(sampleRate * duration);
+        float[] samples = new float[length];
+        for (int i = 0; i < length; i++)
+        {
+            float t = i / (float)sampleRate;
+            samples[i] += Mathf.Sin(t * 4200f * Mathf.PI * 2f) * (0.5f + 0.5f * Mathf.Sin(t * 40f * Mathf.PI * 2f)) * 0.015f;
+        }
+        for (int c = 0; c < 10; c++)
+        {
+            int start = Mathf.RoundToInt(Random.Range(0f, duration - 0.5f) * sampleRate);
+            float freq = Random.Range(90f, 150f);
+            int croak = Mathf.RoundToInt(Random.Range(0.18f, 0.32f) * sampleRate);
+            float amp = Random.Range(0.08f, 0.16f);
+            for (int i = 0; i < croak && start + i < length; i++)
+            {
+                float u = i / (float)croak;
+                float env = Mathf.Sin(u * Mathf.PI);
+                float am = 0.6f + 0.4f * Mathf.Sin(u * 30f * Mathf.PI * 2f);
+                samples[start + i] += Mathf.Sin((start + i) / (float)sampleRate * freq * Mathf.PI * 2f) * env * am * amp;
+            }
+        }
+        AudioClip clip = AudioClip.Create("Marsh Chorus", length, 1, sampleRate, false);
+        clip.SetData(samples, 0);
+        return clip;
+    }
+
+    // Steady, lightly-filtered noise — a rain hiss bed.
+    private static AudioClip CreateRainLoop()
+    {
+        const int sampleRate = 22050;
+        const float duration = 4f;
+        int length = Mathf.RoundToInt(sampleRate * duration);
+        float[] samples = new float[length];
+        float filtered = 0f;
+        for (int i = 0; i < length; i++)
+        {
+            filtered = Mathf.Lerp(filtered, Random.Range(-1f, 1f), 0.5f);
+            samples[i] = filtered * 0.18f;
+        }
+        AudioClip clip = AudioClip.Create("Rain Loop", length, 1, sampleRate, false);
+        clip.SetData(samples, 0);
+        return clip;
+    }
+
+    // Gustier filtered noise than the base ambient bed, for exposed highland wind.
+    private static AudioClip CreateWindGust()
+    {
+        const int sampleRate = 22050;
+        const float duration = 6f;
+        int length = Mathf.RoundToInt(sampleRate * duration);
+        float[] samples = new float[length];
+        float filtered = 0f;
+        for (int i = 0; i < length; i++)
+        {
+            filtered = Mathf.Lerp(filtered, Random.Range(-1f, 1f), 0.04f);
+            float t = i / (float)sampleRate;
+            float gust = 0.4f + 0.45f * Mathf.Sin(t * Mathf.PI * 0.5f) * Mathf.Sin(t * Mathf.PI * 0.17f + 1f);
+            samples[i] = filtered * Mathf.Max(0f, gust) * 0.22f;
+        }
+        AudioClip clip = AudioClip.Create("Wind Gust", length, 1, sampleRate, false);
         clip.SetData(samples, 0);
         return clip;
     }

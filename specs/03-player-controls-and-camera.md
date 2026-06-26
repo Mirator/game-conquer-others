@@ -49,6 +49,11 @@
 - The complete player silhouette should remain visible during ordinary combat.
 - Mouse orbit pitch is clamped between -12 and 36 degrees.
 - Camera collision uses a sphere cast to avoid clipping through arena geometry.
+- The battle camera's far clip plane covers the enlarged field and its framing
+  tree-line (≈260 units).
+- At battle start, the camera plays a short establishing flyover over the lines
+  (`PlaySweep`) before easing into the follow camera; the first click skips it, and it
+  is skipped entirely under reduced motion.
 - Movement adds subtle bob and sway.
 - Impacts and dodges may add short camera shake.
 - Mouse look pauses while either combat mouse button is held, so direction
