@@ -76,6 +76,10 @@ hour the player arrived lights the fight, and a retried battle looks identical.
   floor, cool-blue thinner fog, and a higher skybox night-exposure + thicker atmosphere
   so the horizon is a scattered dark-blue rather than a black void — keeping combat
   readable after dark.
+- Sky dressing (`BattleBootstrap.BuildSky` on a camera-following `SkyDome`): a starfield
+  + glowing moon at night, and a faint drifting cloud band. Quality-gated.
+- Ambient air particles (`BuildAmbientParticles`): slow dust motes by day, glowing
+  fireflies near the ground at night. Collider-free and quality-gated.
 - A cool, shadowless fill light opposite the sun keeps silhouettes readable across
   the larger field (dropped on the low quality tier).
 - Torch and campfire lights dim toward midday and brighten at night.
