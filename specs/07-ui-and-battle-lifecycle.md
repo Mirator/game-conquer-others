@@ -61,6 +61,14 @@ The ready screen communicates:
 
 ## Result Screens
 
+When a battle is **won**, the result screen does not appear immediately. The
+battlefield stays live and in view — the player and surviving fighters can still
+move and act, and the cursor stays locked — with the combat HUD and the result
+overlay both hidden; only a small bottom-left prompt — `BATTLE WON!   PRESS E TO
+CONTINUE` — is shown. Pressing **E** acknowledges the win, releases the cursor,
+and reveals the full victory screen. A **defeat** skips this step and shows its
+result screen (and releases the cursor) at once.
+
 Victory and defeat screens show:
 
 - Outcome title.

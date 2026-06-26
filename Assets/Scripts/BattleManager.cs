@@ -9,8 +9,13 @@ public sealed class BattleManager : MonoBehaviour
     public enum BattleState { Ready, Fighting, Victory, Defeat }
     public enum AllyCommand { Follow, Hold, Charge, Advance }
 
-    public bool IsBattleRunning => State == BattleState.Fighting;
+    // The field stays live (fighters move, act, simulate) both during the fight
+    // and while a win awaits its prompt, so the player can roam the won battlefield.
+    public bool IsBattleRunning => State == BattleState.Fighting || AwaitingVictoryAck;
     public BattleState State { get; private set; } = BattleState.Ready;
+    // A won battle first shows a corner "press to continue" prompt over the live
+    // field; the full result screen waits until the player acknowledges it.
+    public bool AwaitingVictoryAck => State == BattleState.Victory && !victoryAcknowledged;
     public AllyCommand CurrentAllyCommand { get; private set; } = AllyCommand.Follow;
     // Orthogonal to the order: the shape allies hold while not in melee.
     public FormationShape CurrentFormation { get; private set; } = FormationShape.Line;
@@ -99,6 +104,7 @@ public sealed class BattleManager : MonoBehaviour
     private float messageTimer;
     private string message;
     private bool concluded;
+    private bool victoryAcknowledged;
     private float playerDamageDealt;
     private float alliesDamageDealt;
     private float enemiesDamageDealt;
@@ -197,6 +203,10 @@ public sealed class BattleManager : MonoBehaviour
         {
             GameDirector.Instance?.TogglePause();
         }
+        // A win pauses on the battlefield behind a corner prompt; E reveals the
+        // full result screen (defeat skips this and shows its screen at once).
+        if (AwaitingVictoryAck && Keyboard.current.eKey.wasPressedThisFrame)
+            AcknowledgeVictory();
         if (State == BattleState.Fighting && (GameDirector.Instance == null || !GameDirector.Instance.IsPaused)
             && Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame && Cursor.lockState != CursorLockMode.Locked)
             LockCursor();
@@ -549,7 +559,8 @@ public sealed class BattleManager : MonoBehaviour
         {
             State = BattleState.Victory;
             effects?.PlayVictory();
-            UnlockCursor();
+            // Cursor stays locked through the "press E" prompt so the player can
+            // keep moving and looking; it unlocks in AcknowledgeVictory.
         }
     }
 
@@ -585,7 +596,7 @@ public sealed class BattleManager : MonoBehaviour
         {
             State = BattleState.Victory;
             effects?.PlayVictory();
-            UnlockCursor();
+            // Cursor stays locked through the "press E" prompt (see NotifyDeath).
         }
     }
 
@@ -593,6 +604,16 @@ public sealed class BattleManager : MonoBehaviour
     {
         message = team == Team.Allies ? "ALLIED MORALE IS BREAKING" : "THE RED LINE IS BREAKING";
         messageTimer = 1.5f;
+    }
+
+    // Reveals the full victory result screen after the player dismisses the
+    // bottom-corner "battle won" prompt. No-op outside of victory.
+    public void AcknowledgeVictory()
+    {
+        if (State != BattleState.Victory)
+            return;
+        victoryAcknowledged = true;
+        UnlockCursor(); // hand the cursor to the result screen's button
     }
 
     // Dismisses the result screen and reports the outcome to the GameDirector.
