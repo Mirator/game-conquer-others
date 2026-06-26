@@ -681,7 +681,7 @@ public sealed class BattleBootstrap : MonoBehaviour
         main.startSpeed = 0f;
         main.startSize = size;
         main.startColor = color;
-        main.maxParticles = 5000;
+        main.maxParticles = 3000; // hard ceiling; ~1960 alive at full rain, so this only bounds spikes
         main.simulationSpace = ParticleSystemSimulationSpace.World;
         main.gravityModifier = 0f;
         ParticleSystem.EmissionModule emission = ps.emission;

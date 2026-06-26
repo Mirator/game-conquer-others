@@ -120,6 +120,15 @@ public sealed class BattleTactics
         return separationByFighter.TryGetValue(seeker, out Vector3 result) ? result : Vector3.zero;
     }
 
+    // Fills `results` with the fighters in the spatial-grid cell block around `position`
+    // (the once-per-frame grid is shared with separation/telemetry). Lets callers do
+    // bounded proximity tests (e.g. melee swept-strike) without scanning the roster.
+    public void QueryNeighbors(Vector3 position, List<BattleFighter> results)
+    {
+        EnsureGrid();
+        grid.QueryNeighbors(position, results);
+    }
+
     // Each fighter accumulates a push away from neighbours within 2.5m. Querying
     // the spatial grid per fighter is O(n*k); the symmetric +/-force split the old
     // pairwise loop used is unnecessary here because every fighter computes its own
