@@ -19,6 +19,7 @@ public sealed class FighterView : MonoBehaviour
 
     private MaterialPropertyBlock properties;
     private string currentState;
+    private bool hasDeathMirror;
     private Transform rightUpperArm;
     private Transform rightLowerArm;
     private Transform rightHand;
@@ -80,6 +81,7 @@ public sealed class FighterView : MonoBehaviour
         // Gameplay owns the fighter's position; root motion in the locomotion clips
         // would slide the model away from its logical transform during movement.
         animator.applyRootMotion = false;
+        hasDeathMirror = animator.HasState(0, Animator.StringToHash("DeathMirror"));
     }
 
     public void ApplyTeam(Team team)
@@ -104,10 +106,22 @@ public sealed class FighterView : MonoBehaviour
     {
         if (animator == null || animator.runtimeAnimatorController == null)
             return;
+        if (!alive)
+        {
+            // Choose a death variant ONCE (normal or mirrored) and vary playback speed so
+            // deaths desync; later frames must not re-trigger it.
+            if (currentState == "Death" || currentState == "DeathMirror")
+                return;
+            currentState = hasDeathMirror && UnityEngine.Random.value < 0.5f ? "DeathMirror" : "Death";
+            animator.speed = UnityEngine.Random.Range(0.85f, 1.15f);
+            animator.CrossFade(currentState, 0.12f);
+            return;
+        }
+        if (animator.speed != 1f)
+            animator.speed = 1f; // restore normal speed if a corpse was revived (tests)
         // Attacks are driven procedurally in LateUpdate, so the body stays in
         // locomotion/idle here and the arm swing is layered on top.
-        string state = !alive ? "Death"
-            : staggerTimer > 0f ? "Hit"
+        string state = staggerTimer > 0f ? "Hit"
             : movement > 0.65f ? "Jog"
             : movement > 0.05f ? formation ? "FormationWalk" : "Walk" : "Idle";
         if (state == currentState)
