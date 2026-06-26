@@ -56,6 +56,7 @@ listener. Each mode's camera carries the single active `AudioListener`.
 | `WindSway` | Per-instance wind lean for scatter (trees/grass), gated by quality and reduced-motion. |
 | `GrassField` | Draws a dense grass carpet via batched `Graphics.DrawMeshInstanced`. |
 | `WaterAnimator` | Scrolls the water material's normal-map offset for animated ripples. |
+| `SkyDome` | Keeps sky dressing (stars/moon/clouds) centred on the camera position. |
 | `BattleDecals` | Pooled, capped ground decals — blood splats, trample scuffs, dropped-gear debris. |
 | `PerformanceHud` | On-screen FPS / frame-time / fighter-count overlay for perf runs (toggle F3). |
 | `BattleRuntimeSmoke` | Standalone automated campaign-step verification. |
