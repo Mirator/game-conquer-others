@@ -44,6 +44,7 @@ listener. Each mode's camera carries the single active `AudioListener`.
 | `BattleManager` | Public battle facade; owns lifecycle, combat queries, statistics, and feedback state. |
 | `BattleHud` | Renders ready, fighting, and result battle UI from the manager facade. |
 | `BattleTactics` | Owns AI target distribution, attack permissions, engagement slots, and telemetry. |
+| `BattleCommands` | Ally orders (Follow/Hold/Charge/Advance), formations, hold-fire, and the advance march; `BattleManager` keeps the public API as facades. |
 | `BattleDiagnostics` | Owns deterministic combat checks used by smoke tooling. |
 | `BattleFighter` | Shared fighter state, combat, health, and movement. |
 | `BattleFighterPresentation` | Builds and animates the procedural fighter model. |
