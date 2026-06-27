@@ -68,6 +68,11 @@ gives the battle a reason to repeat.
   roster, ownership, or defeat state.
 - The player clicks the result button to apply the outcome and return to the map.
 
+The campaign is persisted as a versioned full snapshot (`CampaignSaveService`). Each
+write first promotes the current save to a last-known-good backup slot, so a corrupt or
+partial primary write recovers from the backup on load instead of losing the campaign;
+both slots are cleared only when neither parses (or on defeat).
+
 ## Loss (no victory condition)
 
 - Free-roam survival: there is no win state. The campaign continues open-ended as
