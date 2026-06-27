@@ -28,6 +28,7 @@ listener. Each mode's camera carries the single active `AudioListener`.
 |---|---|
 | `GameDirector` | Entry point; owns campaign state and title/map/battle mode switching, including a consequence-free custom battle launched from the title screen. |
 | `CampaignState` | Persistent territory graph, economy, mixed-unit warband, and progression rules (`Territory.cs` also defines `EnemyParty` and the `Settlement` size class). |
+| `CampaignMapGenerator` | Seed-deterministic procedural map generation (graph, threat scaling, settlements, parties); `CampaignState.CreateDefault` delegates to it. |
 | `CampaignTypes` | Unit catalog, unit roster, weapon catalog, and arena-type definitions; also defines `Archetype` + `ArchetypeCatalog`, the `BattleKind` enum, the `SettlementType` enum + `SettlementCatalog`, and the per-(tier x archetype) `RosterEntry` (which banks battle experience). |
 | `OverworldSimulation` | Pure deterministic overworld travel and enemy-party simulation. |
 | `CampaignSaveService` | PlayerPrefs campaign save/load/delete (save v5). |
