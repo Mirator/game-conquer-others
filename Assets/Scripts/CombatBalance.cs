@@ -30,6 +30,25 @@ public static class CombatBalance
 
     // Counter
     public static float CounterDamageMultiplier => Active.counterDamageMultiplier;
+    public static float PerfectBlockWindow => Active.perfectBlockWindow;
+    public static float CounterWindow => Active.counterWindow;
+
+    // Reach
+    public static float SweptStrikeReach => Active.sweptStrikeReach;
+    public static float RangeRanged => Active.rangeRanged;
+    public static float RangeTwoHanded => Active.rangeTwoHanded;
+    public static float RangeOneHanded => Active.rangeOneHanded;
+
+    // Bow precision
+    public static float BowPrecisionThreshold => Active.bowPrecisionThreshold;
+    public static float BowFullPrecisionTime => Active.bowFullPrecisionTime;
+    public static float BowLooseSpreadDegrees => Active.bowLooseSpreadDegrees;
+    public static float BowPreciseSpreadDegrees => Active.bowPreciseSpreadDegrees;
+
+    // Movement penalties
+    public static float MoveScaleAttackRelease => Active.moveScaleAttackRelease;
+    public static float MoveScaleAttacking => Active.moveScaleAttacking;
+    public static float MoveScaleBlocking => Active.moveScaleBlocking;
 
     // Windup (seconds)
     public static float WindupRanged => Active.windupRanged;
