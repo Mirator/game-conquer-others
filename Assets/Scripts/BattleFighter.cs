@@ -26,14 +26,15 @@ public abstract class BattleFighter : MonoBehaviour
     public bool IsCounterAttack => counterAttack;
     public bool IsRanged => Weapon == WeaponType.Bow;
     public bool CanBlock => Weapon != WeaponType.Bow;
-    public float PreferredCombatRange => IsRanged ? 10f : Weapon == WeaponType.TwoHandedSword ? 2.35f : 1.8f;
-    public float BowDrawNormalized => IsRanged ? Mathf.Clamp01(bowDrawTimer / BowFullPrecisionTime) : 0f;
+    public float PreferredCombatRange => IsRanged ? CombatBalance.RangeRanged
+        : Weapon == WeaponType.TwoHandedSword ? CombatBalance.RangeTwoHanded : CombatBalance.RangeOneHanded;
+    public float BowDrawNormalized => IsRanged ? Mathf.Clamp01(bowDrawTimer / CombatBalance.BowFullPrecisionTime) : 0f;
     public float BowPrecisionNormalized => IsRanged
-        ? Mathf.InverseLerp(BowPrecisionThreshold, BowFullPrecisionTime, bowDrawTimer) : 0f;
-    public bool BowPrecisionReady => IsRanged && bowDrawTimer >= BowPrecisionThreshold;
-    public float BowPrecisionThresholdNormalized => BowPrecisionThreshold / BowFullPrecisionTime;
+        ? Mathf.InverseLerp(CombatBalance.BowPrecisionThreshold, CombatBalance.BowFullPrecisionTime, bowDrawTimer) : 0f;
+    public bool BowPrecisionReady => IsRanged && bowDrawTimer >= CombatBalance.BowPrecisionThreshold;
+    public float BowPrecisionThresholdNormalized => CombatBalance.BowPrecisionThreshold / CombatBalance.BowFullPrecisionTime;
     public float BowCurrentSpreadDegrees => IsRanged
-        ? Mathf.Lerp(BowLooseSpreadDegrees, BowPreciseSpreadDegrees,
+        ? Mathf.Lerp(CombatBalance.BowLooseSpreadDegrees, CombatBalance.BowPreciseSpreadDegrees,
             Mathf.SmoothStep(0f, 1f, BowPrecisionNormalized)) : 0f;
     public float CurrentAttackDamageMultiplier => counterAttack ? CombatBalance.CounterDamageMultiplier : 1f;
     public bool ShouldShowHealthBar => damageDisplayTimer > 0f;
@@ -47,14 +48,9 @@ public abstract class BattleFighter : MonoBehaviour
     protected CharacterController controller;
     protected BattleManager battle;
 
-    private const float AttackRange = 2.2f;
+    // Stamina is a fixed 0..100 normalization scale; all other tuning lives in
+    // CombatBalance(Data) so it can be tuned live from a Resources asset.
     private const float MaxStamina = 100f;
-    private const float PerfectBlockWindow = 0.2f;
-    private const float CounterWindow = 0.65f;
-    private const float BowPrecisionThreshold = 0.7f;
-    private const float BowFullPrecisionTime = 1.4f;
-    private const float BowLooseSpreadDegrees = 7.5f;
-    private const float BowPreciseSpreadDegrees = 0.25f;
 
     private float maxHealth;
     private float damageScale = 1f;
@@ -133,7 +129,7 @@ public abstract class BattleFighter : MonoBehaviour
             staggerTimer = Mathf.Max(0f, staggerTimer - Time.deltaTime);
             attackCooldownTimer = Mathf.Max(0f, attackCooldownTimer - Time.deltaTime);
             if (IsRanged && IsChargingAttack)
-                bowDrawTimer = Mathf.Min(BowFullPrecisionTime, bowDrawTimer + Time.deltaTime);
+                bowDrawTimer = Mathf.Min(CombatBalance.BowFullPrecisionTime, bowDrawTimer + Time.deltaTime);
             UpdateAttack();
             if (Phase == CombatPhase.HitReaction && staggerTimer <= 0f)
                 Phase = CombatPhase.Idle;
@@ -150,9 +146,9 @@ public abstract class BattleFighter : MonoBehaviour
             return;
 
         if (IsAttacking)
-            velocity *= Phase == CombatPhase.AttackRelease ? 0.45f : 0.62f;
+            velocity *= Phase == CombatPhase.AttackRelease ? CombatBalance.MoveScaleAttackRelease : CombatBalance.MoveScaleAttacking;
         if (IsBlocking)
-            velocity *= 0.58f;
+            velocity *= CombatBalance.MoveScaleBlocking;
         velocity.y = controller.isGrounded ? -1f : velocity.y;
         controller.Move(velocity * Time.deltaTime);
     }
@@ -268,7 +264,7 @@ public abstract class BattleFighter : MonoBehaviour
         bool facingAttack = toAttacker.sqrMagnitude < 0.01f || Vector3.Dot(transform.forward, toAttacker.normalized) >= 0.707f;
         bool guarded = IsBlocking && facingAttack
             && (projectile ? Weapon == WeaponType.SwordAndShield : BlockDirection == incomingDirection);
-        bool perfectBlock = guarded && blockAge <= PerfectBlockWindow;
+        bool perfectBlock = guarded && blockAge <= CombatBalance.PerfectBlockWindow;
 
         // A non-perfect block drains stamina to absorb the blow; if the guard is too
         // exhausted to pay, it breaks and the hit lands. Perfect blocks are free.
@@ -284,7 +280,7 @@ public abstract class BattleFighter : MonoBehaviour
         {
             staggerTimer = perfectBlock ? 0.025f : 0.08f;
             if (perfectBlock)
-                counterWindowTimer = CounterWindow;
+                counterWindowTimer = CombatBalance.CounterWindow;
             attacker?.OnAttackBlocked(perfectBlock);
         }
         else
@@ -479,7 +475,7 @@ public abstract class BattleFighter : MonoBehaviour
             CombatDirection.Left => new Vector3(1.35f, 1.2f, 1.2f),
             CombatDirection.Right => new Vector3(-1.35f, 1.2f, 1.2f),
             CombatDirection.Up => new Vector3(0f, 0.8f, 1.45f),
-            _ => new Vector3(0.35f, 1.2f, AttackRange)
+            _ => new Vector3(0.35f, 1.2f, CombatBalance.SweptStrikeReach)
         };
         float eased = Mathf.SmoothStep(0f, 1f, progress);
         float reach = Weapon == WeaponType.TwoHandedSword ? 1.25f : 1f;
@@ -538,7 +534,7 @@ public abstract class BattleFighter : MonoBehaviour
 
     public void DebugSetBlock(bool active, CombatDirection direction) => SetBlock(active, direction);
 
-    public void DebugExpirePerfectBlock() => blockAge = PerfectBlockWindow + 0.1f;
+    public void DebugExpirePerfectBlock() => blockAge = CombatBalance.PerfectBlockWindow + 0.1f;
 
     public bool DebugPrepareAttack(CombatDirection direction) => PrepareAttack(direction);
 
@@ -645,7 +641,7 @@ public abstract class BattleFighter : MonoBehaviour
     public void DebugReleasePreparedAttack()
     {
         if (IsRanged)
-            bowDrawTimer = BowFullPrecisionTime;
+            bowDrawTimer = CombatBalance.BowFullPrecisionTime;
         ReleasePreparedAttack(true);
     }
 

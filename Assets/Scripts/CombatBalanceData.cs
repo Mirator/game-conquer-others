@@ -27,6 +27,33 @@ public sealed class CombatBalanceData : ScriptableObject
 
     [Header("Counter")]
     public float counterDamageMultiplier = 1.45f;
+    // A guard lands a perfect block only within this window after raising/redirecting
+    // it; a perfect block then opens the counter window for this long.
+    public float perfectBlockWindow = 0.2f;
+    public float counterWindow = 0.65f;
+
+    [Header("Reach (metres)")]
+    // Swept-strike sample reach (the thrust strike-path endpoint) and per-weapon
+    // preferred standoff used by movement/AI.
+    public float sweptStrikeReach = 2.2f;
+    public float rangeRanged = 10f;
+    public float rangeTwoHanded = 2.35f;
+    public float rangeOneHanded = 1.8f;
+
+    [Header("Bow precision")]
+    // Draw seconds to reach the precision threshold (spread starts tightening) and to
+    // reach full precision, plus the loose/precise aim cone in degrees.
+    public float bowPrecisionThreshold = 0.7f;
+    public float bowFullPrecisionTime = 1.4f;
+    public float bowLooseSpreadDegrees = 7.5f;
+    public float bowPreciseSpreadDegrees = 0.25f;
+
+    [Header("Movement penalties")]
+    // Movement speed multipliers while attacking (release vs the rest of the swing)
+    // and while blocking, so committing to a strike or a guard slows the fighter.
+    public float moveScaleAttackRelease = 0.45f;
+    public float moveScaleAttacking = 0.62f;
+    public float moveScaleBlocking = 0.58f;
 
     [Header("Windup (seconds)")]
     public float windupRanged = 0.62f;
