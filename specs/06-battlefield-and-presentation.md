@@ -76,18 +76,18 @@ hour the player arrived lights the fight, and a retried battle looks identical.
   floor, cool-blue thinner fog, and a higher skybox night-exposure + thicker atmosphere
   so the horizon is a scattered dark-blue rather than a black void — keeping combat
   readable after dark.
-- Sky dressing (`BattleBootstrap.BuildSky` on a camera-following `SkyDome`): a starfield
+- Sky dressing (`ArenaAtmosphere.BuildSky` on a camera-following `SkyDome`): a starfield
   + glowing moon at night, and a faint drifting cloud band. Quality-gated.
-- Ambient air particles (`BuildAmbientParticles`): slow dust motes by day, glowing
-  fireflies near the ground at night. Collider-free and quality-gated.
+- Ambient air particles (`ArenaAtmosphere`): slow dust motes by day, glowing fireflies
+  near the ground at night. Collider-free and quality-gated.
 - A cool, shadowless fill light opposite the sun keeps silhouettes readable across
   the larger field (dropped on the low quality tier).
 - Torch and campfire lights dim toward midday and brighten at night.
 - **Weather** is chosen deterministically from the day clock (so a retried battle
   looks identical): the marsh is always misty, the highlands sometimes snow, and open
-  arenas sometimes rain. Each drives a particle layer (`BattleBootstrap.ApplyWeather`,
-  quality-gated), thicker/greyer fog and a dimmer sun, a wet/glossy ground in rain, and
-  a rain ambience bed. Clear weather adds nothing.
+  arenas sometimes rain. Each drives a particle layer (`ArenaAtmosphere`, quality-gated),
+  thicker/greyer fog and a dimmer sun, a wet/glossy ground in rain, and a rain ambience
+  bed. Clear weather adds nothing.
 - Each region uses a procedural skybox (`RuntimeAssets.Skybox`, `Skybox/Procedural`)
   tinted by time of day; the camera clears to that skybox.
 
