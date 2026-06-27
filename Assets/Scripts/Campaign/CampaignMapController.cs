@@ -169,8 +169,14 @@ public sealed class CampaignMapController : MonoBehaviour
         BuildMapTooltip();
     }
 
-    private static Vector3 WorldOf(Territory t) => WorldOf(t.MapPosition);
-    private static Vector3 WorldOf(Vector2 mapPosition) => new Vector3(mapPosition.x * 1.4f, 0.2f, mapPosition.y * 1.4f);
+    // Map placement, display strings, and the recruit-gate reason live in the pure,
+    // unit-tested CampaignMapView; these aliases keep the call sites terse.
+    private static Vector3 WorldOf(Territory t) => CampaignMapView.WorldOf(t);
+    private static Vector3 WorldOf(Vector2 mapPosition) => CampaignMapView.WorldOf(mapPosition);
+    private static string Stars(int threat) => CampaignMapView.Stars(threat);
+    private static string TravelTimeLabel(int days) => CampaignMapView.TravelTimeLabel(days);
+    private string RecruitBlockReason(UnitType tier, Territory settlement)
+        => CampaignMapView.RecruitBlockReason(sim.Travelling, settlement, tier, campaign);
 
     private void BuildPartyMarkers()
     {
@@ -818,12 +824,6 @@ public sealed class CampaignMapController : MonoBehaviour
         }
     }
 
-    private static string Stars(int threat)
-    {
-        int filled = Mathf.Clamp(threat, 0, 5);
-        return new string('★', filled) + new string('☆', 5 - filled);
-    }
-
     private void BuildUi()
     {
         campaignCanvas = MedievalUi.CreateCanvas(transform, "Campaign HUD Canvas", 20);
@@ -1040,23 +1040,6 @@ public sealed class CampaignMapController : MonoBehaviour
 
     // The first reason recruiting the given tier here is blocked, or null if it is
     // allowed. Surfaced under the recruit panel so a greyed button explains itself.
-    private string RecruitBlockReason(UnitType tier, Territory settlement)
-    {
-        if (sim.Travelling)
-            return "On the march - halt to recruit.";
-        if (settlement == null)
-            return "No settlement in range.";
-        if (!SettlementCatalog.Allows(settlement.Settlement, tier))
-            return $"{SettlementCatalog.Label(settlement.Settlement)} offers up to {UnitCatalog.Label(SettlementCatalog.MaxTier(settlement.Settlement))}.";
-        if (settlement.Recruits <= 0)
-            return "No volunteers left here.";
-        if (campaign.Roster >= campaign.LeadershipCap)
-            return $"Warband full ({campaign.LeadershipCap}) - raise renown.";
-        if (campaign.Gold < UnitCatalog.Cost(tier))
-            return $"Need {UnitCatalog.Cost(tier)} gold.";
-        return null;
-    }
-
     private void CycleRecruitTier() => selectedTier = (UnitType)(((int)selectedTier + 1) % 3);
 
     private void RefreshUi()
@@ -1202,7 +1185,6 @@ public sealed class CampaignMapController : MonoBehaviour
         }
     }
 
-    private static string TravelTimeLabel(int days) => days == 0 ? "SAME DAY" : $"{days}d";
 
     // The action button passes a day in place: roaming bands advance toward the
     // warband while it holds position.
