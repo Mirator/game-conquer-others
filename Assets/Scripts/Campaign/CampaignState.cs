@@ -107,104 +107,10 @@ public sealed class CampaignState
     // upside. Net daily cashflow is income minus wages minus this.
     public int DailyGarrisonUpkeep() => GarrisonUpkeepPerHold * PlayerTerritoryCount();
 
-    // Advances the warband economy by one campaign day: collect owned-land income,
-    // pay troop wages (morale suffers and the purse empties if the coffers run dry),
-    // earn renown from held land, drift morale toward its target, refill settlement
-    // recruit pools, and let an unhappy soldier desert. Called once per day elapsed
-    // by OverworldSimulation.
-    public void ApplyDayTick()
-    {
-        int moraleStart = Morale;
-        int income = DailyIncome();
-        int wages = DailyWage();
-        int upkeep = DailyGarrisonUpkeep();
-        Gold += income;
-
-        int expenses = wages + upkeep;
-        bool paid = Gold >= expenses;
-        if (paid)
-            Gold -= expenses;
-        else
-        {
-            Gold = 0;
-            Morale = Mathf.Clamp(Morale - MoraleUnpaidPenalty, 0, 100);
-        }
-
-        Renown += RenownPerHoldPerDay * PlayerTerritoryCount();
-        Morale = Mathf.Clamp(StepToward(Morale, MoraleTarget(paid), MoraleDriftPerDay), 0, 100);
-        RegenerateRecruits();
-
-        UnitType? deserted = null;
-        if (Morale < DesertionMoraleFloor)
-            deserted = Desert();
-
-        // Surface the day's economy and morale so passing days are legible instead
-        // of silent. The map renders LastReport; on a multi-day march the latest
-        // day's line is shown.
-        LastReport = BuildDayReport(income, expenses, paid, moraleStart, deserted);
-    }
-
-    private string BuildDayReport(int income, int expenses, bool paid, int moraleStart, UnitType? deserted)
-    {
-        int net = income - expenses;
-        string netStr = (net >= 0 ? "+" : "") + net;
-        string report = $"Day {Day}: +{income}g income, -{expenses}g wages & upkeep (net {netStr}g).";
-        if (!paid)
-            report += " Coffers ran dry - troops went unpaid!";
-        report += moraleStart == Morale ? $" Morale {Morale}." : $" Morale {moraleStart}->{Morale}.";
-        if (deserted.HasValue)
-            report += $" A {UnitCatalog.Label(deserted.Value)} deserted in the night.";
-        else if (Morale < DesertionMoraleFloor + MoraleDriftPerDay)
-            report += " Morale is fraying - desertions loom.";
-        return report;
-    }
-
-    private int MoraleTarget(bool wagesPaid)
-    {
-        int target = MoraleTargetBase;
-        if (!wagesPaid)
-            target -= MoraleUnpaidTargetDrop;
-        int over = Roster - LeadershipCap;
-        if (over > 0)
-            target -= over * MoraleOvercapPenalty;
-        return Mathf.Clamp(target, 0, 100);
-    }
-
-    private static int StepToward(int current, int target, int step)
-    {
-        if (current < target)
-            return Mathf.Min(current + step, target);
-        if (current > target)
-            return Mathf.Max(current - step, target);
-        return current;
-    }
-
-    private void RegenerateRecruits()
-    {
-        foreach (Territory t in Territories)
-        {
-            int max = SettlementCatalog.MaxRecruits(t.Settlement);
-            if (t.Recruits < max)
-                t.Recruits++;
-        }
-    }
-
-    // Morale has cratered: the least-committed fighter (lowest tier) slips away in
-    // the night. Being rid of the malcontent steadies the rest a little. Returns the
-    // deserter's tier (or null if the warband was empty) so the day report can name it.
-    private UnitType? Desert()
-    {
-        RosterEntry victim = null;
-        foreach (RosterEntry entry in Units.Entries)
-            if (entry.Count > 0 && (victim == null || entry.Tier < victim.Tier))
-                victim = entry;
-        if (victim == null)
-            return null;
-        UnitType tier = victim.Tier;
-        victim.Count--;
-        Morale = Mathf.Clamp(Morale + DesertionMoraleRebound, 0, 100);
-        return tier;
-    }
+    // Advances the warband economy by one campaign day (income, wages, garrison upkeep,
+    // morale drift, recruit regen, desertion). Implemented in CampaignEconomy; called
+    // once per day elapsed by OverworldSimulation.
+    public void ApplyDayTick() => CampaignEconomy.ApplyDayTick(this);
 
     // Maps a campaign day to a 0..1 time of day. The golden-ratio step spreads
     // successive days across the cycle while staying deterministic (a given day
