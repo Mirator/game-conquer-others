@@ -56,14 +56,65 @@ public sealed class TerritorySaveData
 
 public static class CampaignSaveService
 {
-    private const string Key = "ConquerOthers.Campaign";
+    // Public so white-box tests can simulate a corrupt slot. BackupKey holds the
+    // last-known-good save promoted before each overwrite.
+    public const string Key = "ConquerOthers.Campaign";
+    public const string BackupKey = Key + ".bak";
 
-    public static bool HasSave => !string.IsNullOrEmpty(PlayerPrefs.GetString(Key, ""));
+    public static bool HasSave =>
+        !string.IsNullOrEmpty(PlayerPrefs.GetString(Key, "")) || !string.IsNullOrEmpty(PlayerPrefs.GetString(BackupKey, ""));
 
     public static void Save(CampaignState state)
     {
         if (state == null)
             return;
+        string json;
+        try
+        {
+            json = JsonUtility.ToJson(BuildData(state));
+        }
+        catch (Exception e)
+        {
+            // Never clobber a good save with a failed serialization.
+            Debug.LogWarning($"Campaign save failed to serialize: {e.Message}");
+            return;
+        }
+        // Promote the current primary to the backup slot before overwriting, so a bad or
+        // partial write can't lose the last good save.
+        string existing = PlayerPrefs.GetString(Key, "");
+        if (!string.IsNullOrEmpty(existing))
+            PlayerPrefs.SetString(BackupKey, existing);
+        PlayerPrefs.SetString(Key, json);
+        PlayerPrefs.Save();
+    }
+
+    public static CampaignState Load()
+    {
+        if (TryDeserialize(PlayerPrefs.GetString(Key, ""), out CampaignState state))
+            return state;
+        // Primary missing/corrupt — recover the last-known-good backup and restore it as
+        // the primary so subsequent loads are stable instead of losing the campaign.
+        string backup = PlayerPrefs.GetString(BackupKey, "");
+        if (TryDeserialize(backup, out state))
+        {
+            PlayerPrefs.SetString(Key, backup);
+            PlayerPrefs.Save();
+            return state;
+        }
+        // Nothing recoverable; clear both so the title doesn't offer a broken continue.
+        Delete();
+        return null;
+    }
+
+    public static void Delete()
+    {
+        PlayerPrefs.DeleteKey(Key);
+        PlayerPrefs.DeleteKey(BackupKey);
+        PlayerPrefs.Save();
+    }
+
+    private static CampaignSaveData BuildData(CampaignState state)
+    {
         CampaignSaveData data = new CampaignSaveData
         {
             seed = state.Seed,
@@ -112,26 +163,32 @@ public static class CampaignSaveService
                 adjacentIds = t.AdjacentIds.ToArray()
             };
         }
-        PlayerPrefs.SetString(Key, JsonUtility.ToJson(data));
-        PlayerPrefs.Save();
+        return data;
     }
 
-    public static CampaignState Load()
+    // Parses one save slot. Returns false (rather than throwing or deleting) on empty,
+    // malformed, or unsupported-version data so the caller can fall back to the backup.
+    private static bool TryDeserialize(string json, out CampaignState state)
     {
-        string json = PlayerPrefs.GetString(Key, "");
+        state = null;
         if (string.IsNullOrEmpty(json))
-            return null;
-        CampaignSaveData data = JsonUtility.FromJson<CampaignSaveData>(json);
-        // Version 5 adds only a travel-day fraction, so version 4 campaigns can
-        // safely resume at the start of their current day instead of being deleted.
+            return false;
+        CampaignSaveData data;
+        try
+        {
+            data = JsonUtility.FromJson<CampaignSaveData>(json);
+        }
+        catch
+        {
+            return false;
+        }
+        // Version 5 adds only a travel-day fraction, so version 4 campaigns can safely
+        // resume at the start of their current day instead of being discarded.
         bool supportedVersion = data != null && (data.version == CampaignSaveData.CurrentVersion || data.version == 4);
         if (!supportedVersion || data.territories == null)
-        {
-            Delete();
-            return null;
-        }
+            return false;
 
-        CampaignState state = new CampaignState
+        CampaignState loaded = new CampaignState
         {
             Seed = data.seed,
             Gold = data.gold,
@@ -148,12 +205,12 @@ public static class CampaignSaveService
         if (data.units != null)
             foreach (RosterEntry entry in data.units)
             {
-                state.Units.Add(entry.Tier, entry.Archetype, entry.Count);
-                state.Units.AddXp(entry.Tier, entry.Archetype, entry.Xp);
+                loaded.Units.Add(entry.Tier, entry.Archetype, entry.Count);
+                loaded.Units.AddXp(entry.Tier, entry.Archetype, entry.Xp);
             }
         if (data.parties != null)
             foreach (PartySaveData p in data.parties)
-                state.Parties.Add(new EnemyParty
+                loaded.Parties.Add(new EnemyParty
                 {
                     Position = p.position,
                     Strength = p.strength,
@@ -179,14 +236,9 @@ public static class CampaignSaveService
             };
             if (t.adjacentIds != null)
                 territory.AdjacentIds.AddRange(t.adjacentIds);
-            state.Territories.Add(territory);
+            loaded.Territories.Add(territory);
         }
-        return state;
-    }
-
-    public static void Delete()
-    {
-        PlayerPrefs.DeleteKey(Key);
-        PlayerPrefs.Save();
+        state = loaded;
+        return true;
     }
 }
