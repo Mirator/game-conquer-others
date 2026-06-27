@@ -40,7 +40,8 @@ listener. Each mode's camera carries the single active `AudioListener`.
 | `Formation` | Pure, allocation-free formation slot geometry (`FormationShape` → captain-relative offset). |
 | `SpatialHashGrid` | Uniform XZ grid for near-O(1) neighbour queries (separation, proximity telemetry). |
 | `FrontendUi` | Persistent title, pause, and settings UI. |
-| `BattleBootstrap` | Builds a battle (arena, fighters) under a supplied root. |
+| `BattleBootstrap` | Builds a battle (lighting, camera, fighters, ambience) under a supplied root; delegates the battlefield construction to `ArenaBuilder`. |
+| `ArenaBuilder` | Builds the battlefield itself — biome terrain mesh, ground, scatter, grass, water, boundary, and the kind-specific dressing (hold / bandit camp / training yard, torches, banners, distant ring); a component on the battle root. |
 | `BattleManager` | Public battle facade; owns lifecycle, combat queries, statistics, and feedback state. |
 | `BattleHud` | Renders ready, fighting, and result battle UI from the manager facade. |
 | `BattleTactics` | Owns AI target distribution, attack permissions, engagement slots, and telemetry. |
