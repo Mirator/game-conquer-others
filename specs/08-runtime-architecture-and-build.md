@@ -36,6 +36,8 @@ listener. Each mode's camera carries the single active `AudioListener`.
 | `CampaignMapController` | Builds and runs the campaign map view, camera, and UI. |
 | `CampaignMapView` | Pure, unit-tested map-HUD helpers (map→table placement, threat/eta display strings, recruit-gate reasons) used by `CampaignMapController`. |
 | `AIProfile` | Archetype behavior presets layered on a fighter's unit stats and weapon. |
+| `AIDecisions` | Pure, unit-tested AI offense choices (feint/recovery-punish/random attack line) driven by a seeded RNG; `AIFighter` delegates to it. |
+| `DeterministicRng` | Seedable xorshift PRNG so AI decisions are reproducible (tests, replays) instead of using the global `UnityEngine.Random`. |
 | `CombatBalance` / `CombatBalanceData` | Static tuning facade over an optional Resources `ScriptableObject` with baked defaults. |
 | `FormationBalance` / `FormationBalanceData` | Same facade pattern for formation spacing, speeds, and advance tuning. |
 | `Formation` | Pure, allocation-free formation slot geometry (`FormationShape` → captain-relative offset). |

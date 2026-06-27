@@ -15,7 +15,14 @@ public sealed class AIFighter : BattleFighter
             profile = value;
     }
 
+    // Seeds this fighter's decision RNG for reproducible behaviour (tests, replays).
+    // If never called, the RNG lazily seeds from the instance id for per-fighter
+    // variety on first use (so decisions are safe even before Start runs).
+    public void SeedRandom(int seed) => rng = new DeterministicRng(seed);
+
     private AIProfile profile = AIProfile.Default();
+    private DeterministicRng rng;
+    private DeterministicRng Rng => rng ??= new DeterministicRng(GetInstanceID());
     private BattleFighter target;
     private float decisionTimer;
     private float targetLockTimer;
@@ -55,13 +62,13 @@ public sealed class AIFighter : BattleFighter
 
     private void Start()
     {
-        float baseRange = IsRanged ? Random.Range(8.5f, 11f)
-            : Weapon == WeaponType.TwoHandedSword ? Random.Range(2.15f, 2.55f) : Random.Range(1.65f, 1.95f);
+        float baseRange = IsRanged ? Rng.Range(8.5f, 11f)
+            : Weapon == WeaponType.TwoHandedSword ? Rng.Range(2.15f, 2.55f) : Rng.Range(1.65f, 1.95f);
         preferredRange = baseRange * profile.rangeScale;
-        aggression = Mathf.Max(0.1f, profile.aggression + Random.Range(-profile.aggressionJitter, profile.aggressionJitter));
-        orbitDirection = Random.value < 0.5f ? -1f : 1f;
-        attackDelay = Random.Range(0.65f, 1.8f);
-        targetLockTimer = Random.Range(0.8f, 1.35f);
+        aggression = Mathf.Max(0.1f, profile.aggression + Rng.Range(-profile.aggressionJitter, profile.aggressionJitter));
+        orbitDirection = Rng.Value < 0.5f ? -1f : 1f;
+        attackDelay = Rng.Range(0.65f, 1.8f);
+        targetLockTimer = Rng.Range(0.8f, 1.35f);
     }
 
     protected override void Update()
@@ -109,13 +116,13 @@ public sealed class AIFighter : BattleFighter
                 hasAttackPermission = false;
                 target = next;
             }
-            targetLockTimer = Random.Range(0.85f, 1.45f);
+            targetLockTimer = Rng.Range(0.85f, 1.45f);
         }
 
         if (decisionTimer <= 0f)
         {
-            decisionTimer = Random.Range(0.12f, 0.22f);
-            if (Random.value < 0.18f)
+            decisionTimer = Rng.Range(0.12f, 0.22f);
+            if (Rng.Value < 0.18f)
                 orbitDirection *= -1f;
             EvaluateDefense();
         }
@@ -199,11 +206,12 @@ public sealed class AIFighter : BattleFighter
         TacticalMove((circle * 0.55f + separation).normalized * 1.15f);
         if (attackDelay <= 0f && blockTimer <= 0f && !IsBlocking && !IsAttacking)
         {
-            CombatDirection direction = ChooseAttackDirection();
+            CombatDirection direction = AIDecisions.ChooseAttackDirection(profile, target.IsBlocking,
+                target.BlockDirection, target.Phase == CombatPhase.AttackRecovery, Rng);
             if (PrepareAttack(direction))
             {
                 ReleasePreparedAttack();
-                attackDelay = Random.Range(1.45f, 2.2f) / aggression;
+                attackDelay = Rng.Range(1.45f, 2.2f) / aggression;
                 committedAttack = true;
             }
         }
@@ -229,7 +237,7 @@ public sealed class AIFighter : BattleFighter
             hasAttackPermission = true;
             permissionTimer = 2.5f;
             committedAttack = false;
-            attackDelay = Random.Range(0.18f, 0.42f);
+            attackDelay = Rng.Range(0.18f, 0.42f);
         }
     }
 
@@ -247,14 +255,14 @@ public sealed class AIFighter : BattleFighter
         float distance = DistanceTo(threat);
         if (distance > 2.7f)
             return;
-        if (Random.value > profile.blockChance) // aggressive archetypes rarely guard
+        if (Rng.Value > profile.blockChance) // aggressive archetypes rarely guard
             return;
 
         float correctChance = threat.IsPlayer ? profile.blockCorrectChanceVsPlayer : profile.blockCorrectChanceVsAi;
-        plannedBlockDirection = Random.value < correctChance
+        plannedBlockDirection = Rng.Value < correctChance
             ? threat.AttackDirection
-            : RandomWrongDirection(threat.AttackDirection);
-        blockTimer = Random.Range(0.42f, 0.72f);
+            : AIDecisions.RandomWrongDirection(threat.AttackDirection, Rng);
+        blockTimer = Rng.Range(0.42f, 0.72f);
     }
 
     private void TacticalMove(Vector3 velocity)
@@ -271,15 +279,6 @@ public sealed class AIFighter : BattleFighter
             }
         }
         Move(planar);
-    }
-
-    private CombatDirection ChooseAttackDirection()
-    {
-        if (target.IsBlocking && Random.value < profile.feintChance)
-            return RandomWrongDirection(target.BlockDirection);
-        if (target.Phase == CombatPhase.AttackRecovery && Random.value < profile.recoveryPunishChance)
-            return RandomPunishDirection();
-        return RandomDirection();
     }
 
     // Skilled fighters don't just commit to a guess at wind-up: they watch the
@@ -301,7 +300,7 @@ public sealed class AIFighter : BattleFighter
             lateReadArmed = true; // still winding up: re-arm for the committed swing
             return;
         }
-        if (lateReadArmed && blockTimer > 0f && Random.value < profile.lateReadChance)
+        if (lateReadArmed && blockTimer > 0f && Rng.Value < profile.lateReadChance)
             plannedBlockDirection = threat.AttackDirection;
         lateReadArmed = false; // one read per swing, hit or miss
     }
@@ -339,7 +338,7 @@ public sealed class AIFighter : BattleFighter
         bool holdFire = Team == Team.Allies && battle.AllyHoldFire;
         if (!holdFire && attackDelay <= 0f && distance <= 24f && !IsAttacking && PrepareAttack(CombatDirection.Thrust))
         {
-            attackDelay = Random.Range(1.65f, 2.45f) / aggression;
+            attackDelay = Rng.Range(1.65f, 2.45f) / aggression;
         }
         else if (!holdFire && Phase == CombatPhase.AttackHold && BowPrecisionNormalized >= 0.72f)
             ReleasePreparedAttack();
@@ -361,28 +360,6 @@ public sealed class AIFighter : BattleFighter
         }
         FaceDirection(direction, 15f);
         Move(direction.normalized * 5.2f);
-    }
-
-    private static CombatDirection RandomDirection() => (CombatDirection)Random.Range(0, 4);
-
-    // Punishing a recovering target still favours the heavy overhead, but mixes in
-    // other lines so a sharp opponent can't pre-guard a single predictable answer.
-    private static CombatDirection RandomPunishDirection()
-    {
-        float roll = Random.value;
-        if (roll < 0.5f)
-            return CombatDirection.Up;
-        if (roll < 0.75f)
-            return CombatDirection.Thrust;
-        return Random.value < 0.5f ? CombatDirection.Left : CombatDirection.Right;
-    }
-
-    private static CombatDirection RandomWrongDirection(CombatDirection incoming)
-    {
-        CombatDirection result;
-        do result = RandomDirection();
-        while (result == incoming);
-        return result;
     }
 
     private void OnDestroy()
