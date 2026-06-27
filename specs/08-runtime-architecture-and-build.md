@@ -34,6 +34,7 @@ listener. Each mode's camera carries the single active `AudioListener`.
 | `OverworldSimulation` | Pure deterministic overworld travel and enemy-party simulation. |
 | `CampaignSaveService` | PlayerPrefs campaign save/load/delete (save v5). |
 | `CampaignMapController` | Builds and runs the campaign map view, camera, and UI. |
+| `CampaignMapView` | Pure, unit-tested map-HUD helpers (map→table placement, threat/eta display strings, recruit-gate reasons) used by `CampaignMapController`. |
 | `AIProfile` | Archetype behavior presets layered on a fighter's unit stats and weapon. |
 | `CombatBalance` / `CombatBalanceData` | Static tuning facade over an optional Resources `ScriptableObject` with baked defaults. |
 | `FormationBalance` / `FormationBalanceData` | Same facade pattern for formation spacing, speeds, and advance tuning. |
