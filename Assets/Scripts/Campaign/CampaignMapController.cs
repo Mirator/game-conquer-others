@@ -9,19 +9,11 @@ using UnityEngine.UI;
 // Click to move; time advances while travelling; collisions trigger battles.
 public sealed class CampaignMapController : MonoBehaviour
 {
-    private const float MinCameraHeight = 14f;
-    private const float MaxCameraHeight = 78f;
-    private const float ZoomStep = 6f;
-    private const float PanSpeed = 0.05f;
-    private const float StartCameraHeight = 22f; // zoomed in on the warband at campaign start, not the whole map
-    private const float MapCameraLimitX = 40f;
-    private const float MapCameraLimitZMin = -31f;
-    private const float MapCameraLimitZMax = 35f;
-
     private GameDirector director;
     private CampaignState campaign;
     private OverworldSimulation sim;
     private Camera cam;
+    private CampaignMapCamera cameraRig;
     private Light mapSun;
     private GameObject trainingNode;
     private Renderer trainingRenderer;
@@ -158,7 +150,8 @@ public sealed class CampaignMapController : MonoBehaviour
         cam.backgroundColor = new Color(0.05f, 0.06f, 0.08f);
         camObject.AddComponent<AudioListener>();
         BattlePostProcessing.Apply(cam, camObject.transform);
-        FocusCameraOn(campaign.PartyPosition, StartCameraHeight);
+        cameraRig = new CampaignMapCamera(cam);
+        cameraRig.Focus(campaign.PartyPosition, CampaignMapCamera.StartCameraHeight);
 
         new MapDioramaBuilder(transform).Build(campaign);
 
@@ -449,7 +442,7 @@ public sealed class CampaignMapController : MonoBehaviour
         if (director.IsPaused)
             return;
 
-        CameraControls();
+        cameraRig.HandleControls(campaign.PartyPosition);
 
         if (campaign.CampaignOver)
         {
@@ -496,57 +489,6 @@ public sealed class CampaignMapController : MonoBehaviour
         }
     }
 
-    // Mouse wheel zooms along the view; right-button drag pans across the map.
-    // Centres the fixed-pitch camera over a map position at a given height by
-    // sliding back along its view axis, so the point sits under the screen centre.
-    private void FocusCameraOn(Vector2 mapPosition, float height)
-    {
-        Vector3 ground = WorldOf(mapPosition);
-        Vector3 forward = cam.transform.forward;
-        float back = (height - ground.y) / -forward.y; // forward.y is negative (camera looks down)
-        cam.transform.position = ground - forward * back;
-    }
-
-    private void CameraControls()
-    {
-        if (Keyboard.current != null && Keyboard.current.homeKey.wasPressedThisFrame)
-            FocusCameraOn(campaign.PartyPosition, StartCameraHeight);
-        if (Mouse.current == null)
-            return;
-        Transform t = cam.transform;
-
-        float scroll = Mouse.current.scroll.ReadValue().y;
-        if (Mathf.Abs(scroll) > 0.01f)
-        {
-            Vector3 desired = t.position + t.forward * Mathf.Sign(scroll) * ZoomStep;
-            if (desired.y >= MinCameraHeight && desired.y <= MaxCameraHeight)
-                t.position = desired;
-        }
-
-        if (Mouse.current.rightButton.isPressed)
-        {
-            Vector2 delta = Mouse.current.delta.ReadValue();
-            Vector3 planarForward = Vector3.ProjectOnPlane(t.forward, Vector3.up).normalized;
-            float scale = PanSpeed * (t.position.y / 30f);
-            Vector3 move = (-t.right * delta.x - planarForward * delta.y) * scale;
-            move.y = 0f;
-            t.position += move;
-            ClampCameraToTable();
-        }
-    }
-
-    // Keep the point under the centre of the map camera on the generated table.
-    // This prevents right-dragging into empty space and Home provides an explicit
-    // recovery route back to the warband after exploring the map.
-    private void ClampCameraToTable()
-    {
-        Vector3 forward = cam.transform.forward;
-        float distance = cam.transform.position.y / Mathf.Max(-forward.y, 0.01f);
-        Vector3 center = cam.transform.position + forward * distance;
-        center.x = Mathf.Clamp(center.x, -MapCameraLimitX, MapCameraLimitX);
-        center.z = Mathf.Clamp(center.z, MapCameraLimitZMin, MapCameraLimitZMax);
-        cam.transform.position = center - forward * distance;
-    }
 
     // Clicking selects a march destination (or launches training directly); the
     // player confirms travel with the march button after reviewing the target.

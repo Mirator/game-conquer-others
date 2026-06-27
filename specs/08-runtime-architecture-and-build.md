@@ -35,6 +35,7 @@ listener. Each mode's camera carries the single active `AudioListener`.
 | `CampaignSaveService` | PlayerPrefs campaign save/load/delete (save v5). |
 | `CampaignMapController` | Builds and runs the campaign map view, camera, and UI. |
 | `CampaignMapView` | Pure, unit-tested map-HUD helpers (map→table placement, threat/eta display strings, recruit-gate reasons) used by `CampaignMapController`. |
+| `CampaignMapCamera` | Map camera framing and input (zoom, right-drag pan clamped to the table, Home recentre), extracted from `CampaignMapController`; its focus/clamp math is pure and unit-tested. |
 | `AIProfile` | Archetype behavior presets layered on a fighter's unit stats and weapon. |
 | `AIDecisions` | Pure, unit-tested AI offense choices (feint/recovery-punish/random attack line) driven by a seeded RNG; `AIFighter` delegates to it. |
 | `DeterministicRng` | Seedable xorshift PRNG so AI decisions are reproducible (tests, replays) instead of using the global `UnityEngine.Random`. |
