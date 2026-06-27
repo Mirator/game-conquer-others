@@ -3,8 +3,9 @@
 ## Battlefields
 
 The campaign uses four runtime-generated biomes, each dressed by the kind of
-encounter being fought. `BattleBootstrap` builds in layers: a shared biome
-(ground, scatter, containment boundary) plus a kind-specific structure layer.
+encounter being fought. `ArenaBuilder` (driven by `BattleBootstrap`) builds in
+layers: a shared biome (ground, scatter, containment boundary) plus a
+kind-specific structure layer.
 All battlefield dimensions derive from a single source, `ArenaMetrics` — playable
 footprint (`HalfWidth`×`HalfDepth` = 26×30), ground plane (`GroundSize` = 68),
 boundary (`WallOffset` = 33), team spawn lanes, and retreat edges — so the arena
@@ -107,7 +108,7 @@ spreads hours across days for variety rather than a smooth cycle.
   (`PresentationCatalog.RandomTree/RandomRock/RandomClutter`) rather than flat-tinted
   primitives. `AuthoredVisual` keeps each model's imported materials; tinting is
   reserved for team heraldry (e.g. defender banners).
-- The ground is an undulating terrain mesh (`BattleBootstrap.BuildTerrainMesh`):
+- The ground is an undulating terrain mesh (`ArenaBuilder.BuildTerrainMesh`):
   flat across the playable footprint so combat/spawns/formations are unchanged, then
   rolling into hills toward the rim and horizon. It is surfaced with a tiling,
   runtime-generated seamless noise texture **and matching normal map**
