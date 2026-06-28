@@ -20,6 +20,8 @@ public sealed class CampaignMapController : MonoBehaviour
     private TextMesh mapTooltip;
     private GameObject partyMarker;
     private TextMesh partyCountLabel;
+    private PresentationCatalog catalogCache;
+    private PresentationCatalog Catalog => catalogCache != null ? catalogCache : catalogCache = PresentationCatalog.Load();
     private Canvas campaignCanvas;
     private Text campaignSummary;
     private Text reportText;
@@ -186,19 +188,40 @@ public sealed class CampaignMapController : MonoBehaviour
         }
     }
 
-    // A small captain-style soldier (body, head, crest). The player wears a gold
-    // crest; clickable figures get a root collider so the band can be selected.
+    // A warband figure on the map: the authored captain model for the player band and
+    // the enemy model for hostile bands, both idling via their own animator. Falls back
+    // to a primitive captain-style soldier (body, head, crest) when no model is wired.
+    // Clickable figures get a root collider so the band can be selected; the fighter's
+    // own mesh colliders are stripped so only the root box receives the click.
     private GameObject BuildPartyFigure(string name, Color color, bool captainCrest, bool clickable)
     {
         GameObject root = new GameObject(name);
         root.transform.SetParent(transform);
-        MakePart(root.transform, "Body", PrimitiveType.Capsule,
-            new Vector3(0f, 0.7f, 0f), new Vector3(0.5f, 0.55f, 0.5f), color);
-        MakePart(root.transform, "Head", PrimitiveType.Sphere,
-            new Vector3(0f, 1.28f, 0f), Vector3.one * 0.32f, new Color(0.72f, 0.5f, 0.32f));
-        MakePart(root.transform, "Crest", PrimitiveType.Cube,
-            new Vector3(0f, 1.5f, 0f), new Vector3(0.1f, 0.2f, 0.36f),
-            captainCrest ? new Color(0.96f, 0.84f, 0.26f) : color);
+        PresentationCatalog catalog = Catalog;
+        GameObject prefab = catalog != null
+            ? captainCrest ? catalog.captainPrefab
+                : catalog.enemyPrefab != null ? catalog.enemyPrefab : catalog.militiaPrefab
+            : null;
+        if (prefab != null)
+        {
+            GameObject figure = Instantiate(prefab, root.transform);
+            figure.name = "Figure";
+            figure.transform.localPosition = Vector3.zero;
+            figure.transform.localScale = Vector3.one * 0.95f;
+            foreach (Collider collider in figure.GetComponentsInChildren<Collider>())
+                Destroy(collider);
+            figure.GetComponentInChildren<FighterView>(true)?.ApplyTeam(captainCrest ? Team.Allies : Team.Enemies);
+        }
+        else
+        {
+            MakePart(root.transform, "Body", PrimitiveType.Capsule,
+                new Vector3(0f, 0.7f, 0f), new Vector3(0.5f, 0.55f, 0.5f), color);
+            MakePart(root.transform, "Head", PrimitiveType.Sphere,
+                new Vector3(0f, 1.28f, 0f), Vector3.one * 0.32f, new Color(0.72f, 0.5f, 0.32f));
+            MakePart(root.transform, "Crest", PrimitiveType.Cube,
+                new Vector3(0f, 1.5f, 0f), new Vector3(0.1f, 0.2f, 0.36f),
+                captainCrest ? new Color(0.96f, 0.84f, 0.26f) : color);
+        }
         if (clickable)
         {
             BoxCollider collider = root.AddComponent<BoxCollider>();
@@ -275,12 +298,13 @@ public sealed class CampaignMapController : MonoBehaviour
             : t.Arena == ArenaType.Marsh ? new Vector3(0.55f, 0.08f, 0.55f)
             : t.Arena == ArenaType.Highlands ? new Vector3(0.38f, 0.85f, 0.38f) : new Vector3(0.45f, 0.45f, 0.45f);
         marker.GetComponent<Renderer>().sharedMaterial = RuntimeAssets.Material(ArenaColor(t.Arena));
+        PresentationCatalog presentation = Catalog;
         GameObject landmarkPrefab = t.Arena switch
         {
-            ArenaType.Forest => PresentationCatalog.Load()?.commonTree,
-            ArenaType.Marsh => PresentationCatalog.Load()?.deadTree,
-            ArenaType.Highlands => PresentationCatalog.Load()?.rock,
-            _ => PresentationCatalog.Load()?.villageArch
+            ArenaType.Forest => presentation?.commonTree,
+            ArenaType.Marsh => presentation?.deadTree,
+            ArenaType.Highlands => presentation?.rock,
+            _ => presentation?.villageArch
         };
         if (landmarkPrefab != null)
         {
@@ -306,7 +330,6 @@ public sealed class CampaignMapController : MonoBehaviour
                 renderer.SetPropertyBlock(landmarkProperties);
             }
         }
-        PresentationCatalog presentation = PresentationCatalog.Load();
         GameObject bannerPrefab = presentation != null ? presentation.banner : null;
         if (bannerPrefab != null)
         {

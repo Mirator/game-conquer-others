@@ -13,6 +13,17 @@ public sealed class PresentationCatalog : ScriptableObject
     public GameObject enemyPrefab;
     public GameObject swordPrefab;
     public GameObject shieldPrefab;
+    public GameObject bowPrefab;
+    public GameObject arrowPrefab;
+
+    [Header("Buildings")]
+    // Authored settlement structures for the campaign diorama; MapDioramaBuilder
+    // falls back to primitive blocks when a slot is null.
+    public GameObject houseSmall;
+    public GameObject houseLarge;
+    public GameObject townHall;
+    public GameObject castleKeep;
+    public GameObject castleTower;
 
     [Header("Arenas")]
     public ArenaThemeDefinition courtyard;
@@ -77,6 +88,9 @@ public sealed class PresentationCatalog : ScriptableObject
     public GameObject RandomClutter() => Pick(groundClutter);
     public GameObject RandomBarrenClutter() => Pick(barrenClutter);
     public GameObject RandomTallGrass() => Pick(tallGrass);
+    // Houses come in two silhouettes; callers pick by settlement size and fall back
+    // to whichever single slot is populated.
+    public GameObject House(bool large) => (large ? houseLarge : houseSmall) ?? houseSmall ?? houseLarge;
 
     private static GameObject Pick(GameObject[] pool)
         => pool != null && pool.Length > 0 ? pool[Random.Range(0, pool.Length)] : null;

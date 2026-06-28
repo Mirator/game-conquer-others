@@ -167,10 +167,15 @@ public sealed class MapDioramaBuilder
             BuildCastle(center, bannerColor);
         else if (territory.Settlement == SettlementType.Town)
         {
-            CreatePrimitive("Town Hall", PrimitiveType.Cube, center + Vector3.up * 1.25f,
-                new Vector3(1.8f, 2.5f, 1.5f), new Color(0.42f, 0.36f, 0.27f));
-            CreatePrimitive("Town Hall Roof", PrimitiveType.Cylinder, center + Vector3.up * 2.7f,
-                new Vector3(2.1f, 0.45f, 2.1f), new Color(0.36f, 0.16f, 0.07f));
+            if (presentation?.townHall != null)
+                CreatePrefab(presentation.townHall, "Town Hall", center, Vector3.one, 0f);
+            else
+            {
+                CreatePrimitive("Town Hall", PrimitiveType.Cube, center + Vector3.up * 1.25f,
+                    new Vector3(1.8f, 2.5f, 1.5f), new Color(0.42f, 0.36f, 0.27f));
+                CreatePrimitive("Town Hall Roof", PrimitiveType.Cylinder, center + Vector3.up * 2.7f,
+                    new Vector3(2.1f, 0.45f, 2.1f), new Color(0.36f, 0.16f, 0.07f));
+            }
         }
         else if (presentation?.villageWagon != null)
             CreatePrefab(presentation.villageWagon, "Village Wagon", center + new Vector3(1.7f, 0f, -1.4f), Vector3.one * 0.75f, random.Next(0, 360));
@@ -185,7 +190,14 @@ public sealed class MapDioramaBuilder
 
     private void BuildHouse(Vector3 position, int index, SettlementType settlement)
     {
-        float scale = settlement == SettlementType.Town ? 0.9f : 0.7f;
+        bool large = settlement == SettlementType.Town;
+        GameObject prefab = presentation?.House(large);
+        if (prefab != null)
+        {
+            CreatePrefab(prefab, "Settlement House", position, Vector3.one, index * 37f);
+            return;
+        }
+        float scale = large ? 0.9f : 0.7f;
         CreatePrimitive("Settlement House", PrimitiveType.Cube, position + Vector3.up * (0.65f * scale),
             new Vector3(1.2f, 1.3f, 1.05f) * scale, new Color(0.46f, 0.36f, 0.24f));
         GameObject roof = CreatePrimitive("Settlement Roof", PrimitiveType.Cube, position + Vector3.up * (1.42f * scale),
@@ -195,17 +207,27 @@ public sealed class MapDioramaBuilder
 
     private void BuildCastle(Vector3 center, Color bannerColor)
     {
-        CreatePrimitive("Castle Keep", PrimitiveType.Cube, center + Vector3.up * 2f,
-            new Vector3(2.7f, 4f, 2.5f), new Color(0.34f, 0.35f, 0.33f));
+        bool authoredKeep = presentation?.castleKeep != null;
+        if (authoredKeep)
+            CreatePrefab(presentation.castleKeep, "Castle Keep", center, Vector3.one, 0f);
+        else
+            CreatePrimitive("Castle Keep", PrimitiveType.Cube, center + Vector3.up * 2f,
+                new Vector3(2.7f, 4f, 2.5f), new Color(0.34f, 0.35f, 0.33f));
         for (int i = 0; i < 4; i++)
         {
             float x = i < 2 ? -2.1f : 2.1f;
             float z = i % 2 == 0 ? -1.8f : 1.8f;
-            CreatePrimitive("Castle Tower", PrimitiveType.Cylinder, center + new Vector3(x, 1.6f, z),
-                new Vector3(1.05f, 3.2f, 1.05f), new Color(0.36f, 0.37f, 0.35f));
+            if (presentation?.castleTower != null)
+                CreatePrefab(presentation.castleTower, "Castle Tower", center + new Vector3(x, 0f, z), Vector3.one, 0f);
+            else
+                CreatePrimitive("Castle Tower", PrimitiveType.Cylinder, center + new Vector3(x, 1.6f, z),
+                    new Vector3(1.05f, 3.2f, 1.05f), new Color(0.36f, 0.37f, 0.35f));
         }
-        CreatePrimitive("Castle Gate", PrimitiveType.Cube, center + new Vector3(0f, 1f, -2.3f),
-            new Vector3(1.5f, 2f, 0.3f), new Color(0.25f, 0.13f, 0.05f));
+        // The authored keep ships with its own door; only add the primitive gate for the
+        // primitive keep.
+        if (!authoredKeep)
+            CreatePrimitive("Castle Gate", PrimitiveType.Cube, center + new Vector3(0f, 1f, -2.3f),
+                new Vector3(1.5f, 2f, 0.3f), new Color(0.25f, 0.13f, 0.05f));
         CreatePrimitive("Castle Standard", PrimitiveType.Cube, center + new Vector3(0f, 4.5f, 0f),
             new Vector3(0.15f, 3.2f, 0.15f), new Color(0.24f, 0.15f, 0.07f));
         CreatePrimitive("Castle Flag", PrimitiveType.Cube, center + new Vector3(0.5f, 5.5f, 0f),

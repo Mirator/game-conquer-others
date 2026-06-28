@@ -99,8 +99,10 @@ both slots are cleared only when neither parses (or on defeat).
   adjacent holds without becoming collision geometry.
 - Settlements have readable silhouettes by size: villages are clusters of homes,
   towns add a hall and denser buildings, and castles add a keep, towers, gate, and
-  standard. Decoration never catches map clicks; the table, hold nodes, parties,
-  and Training Arena remain the only interactive map geometry.
+  standard. Houses, hall, keep, and towers use authored models composed from the
+  Medieval Village MegaKit (primitive blocks remain the fallback). Decoration never
+  catches map clicks; the table, hold nodes, parties, and Training Arena remain the
+  only interactive map geometry.
 - The map is roughly twice as large per axis, viewed through a zoom/pan camera
   over the miniature world.
 - Hold nodes are colored by owner (blue player / red enemy), labelled with the
@@ -108,8 +110,9 @@ both slots are cleared only when neither parses (or on defeat).
   holds you can march on, blue your own), and all enemy holds pulse. The selected
   destination glows gold with a dotted route drawn from the warband to it.
   Adjacency edges are drawn between nodes.
-- The player party and the bandit parties are captain-style soldier figures with
-  floating unit-count labels above them.
+- The player party and the bandit parties are authored soldier models (the player's
+  captain model and the enemy model, idling via their own animator) with floating
+  unit-count labels above them; a primitive captain-style figure is the fallback.
 - Hovering a hold, party, or the Training Arena adds a gold emphasis and a compact
   world-space tooltip. Holds also show their settlement tier and garrison; a small
   HUD legend explains blue ownership, red ownership, and gold special/selected sites.
