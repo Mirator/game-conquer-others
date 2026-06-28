@@ -4,8 +4,13 @@
 
 Conquer Others is a third-person medieval battle game built in **Unity 6000.3.16f1**
 (Unity 6.3 LTS) with URP and C#.
-There are **no prefabs and no manual scene wiring** — every GameObject, mesh,
-material, and UI element is generated at runtime from primitives.
+There is **no manual scene wiring** — every GameObject, mesh, material, and UI
+element is assembled at runtime. The project began fully primitive-generated, and
+that procedural rig still backs collision and serves as a fallback; most visuals
+(fighters, weapons, props, trees, settlement buildings, map figures) now resolve to
+curated authored models through `PresentationCatalog` (a `Resources` ScriptableObject
+populated by the editor-only [PresentationAssetBuilder.cs](Assets/Editor/PresentationAssetBuilder.cs)),
+falling back to primitives whenever a catalog slot is empty. See [specs/16](specs/16-presentation-overhaul.md).
 On top of the moment-to-moment battle loop sits a **campaign meta-loop**: a
 free-roam Mount & Blade-style overworld where the player marches a warband party,
 hunts roaming bandit parties, and assaults enemy-held holds — with an economy,

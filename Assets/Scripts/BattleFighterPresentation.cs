@@ -194,6 +194,29 @@ public sealed class BattleFighterPresentation
             new Vector3(0.09f, 0.018f, 0.14f), teamColor);
         CreatePart("Held Arrow Fletching V", PrimitiveType.Cube, arrowPivot, new Vector3(0f, 0f, -0.04f),
             new Vector3(0.018f, 0.09f, 0.14f), teamColor);
+        // Authored bow/arrow replace the primitive rig when wired (same pattern as the
+        // sword/shield above): hide the primitive parts and mount the model on the pivot.
+        // The animated string transforms are kept (now invisible) so the draw update never
+        // null-refs. NOTE: model rotation/scale are first-cut and may want a visual nudge.
+        if (catalog != null && catalog.bowPrefab != null)
+        {
+            foreach (Renderer part in bowPivot.GetComponentsInChildren<Renderer>())
+                if (!part.transform.IsChildOf(arrowPivot))
+                    part.enabled = false;
+            GameObject bow = Object.Instantiate(catalog.bowPrefab, bowPivot);
+            bow.name = "Authored Bow";
+            bow.transform.localPosition = Vector3.zero;
+            bow.transform.localRotation = Quaternion.Euler(0f, 90f, 0f);
+        }
+        if (catalog != null && catalog.arrowPrefab != null)
+        {
+            foreach (Renderer part in arrowPivot.GetComponentsInChildren<Renderer>())
+                part.enabled = false;
+            GameObject heldArrow = Object.Instantiate(catalog.arrowPrefab, arrowPivot);
+            heldArrow.name = "Authored Held Arrow";
+            heldArrow.transform.localPosition = new Vector3(0f, 0f, 0.55f);
+            heldArrow.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+        }
 
         swordPivot.gameObject.SetActive(weapon != WeaponType.Bow);
         shieldPivot.gameObject.SetActive(weapon == WeaponType.SwordAndShield);

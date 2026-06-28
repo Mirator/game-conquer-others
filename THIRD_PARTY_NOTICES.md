@@ -17,7 +17,8 @@ listed below.
 | Quaternius | Modular Character Outfits - Fantasy | https://quaternius.com/packs/modularcharacteroutfitsfantasy.html | Male Peasant and Male Ranger FBX outfits with required textures |
 | Quaternius | Universal Animation Libraries 1/2 | https://quaternius.com/packs/universalanimationlibrary.html | Eight extracted runtime animation clips: idle, walk, formation walk, jog, attack, block, hit, and death |
 | Quaternius | Fantasy Props MegaKit | https://quaternius.com/packs/fantasypropsmegakit.html | Sword, shield, banner, barrel, crate, and weapon stand |
-| Quaternius | Medieval Village MegaKit | https://quaternius.com/packs/medievalvillagemegakit.html | Wall, arch, wagon, crate, fence, and tower roof |
+| Quaternius | Medieval Village MegaKit | https://quaternius.com/packs/medievalvillagemegakit.html | Wall, arch, wagon, crate, fence, tower roof, and the round-tile roof pieces composed into settlement houses/hall/castle |
+| Quaternius | Medieval Weapons Pack | https://quaternius.com/packs/medievalweapons.html | Wooden bow and arrow FBXs |
 | Quaternius | Stylized Nature MegaKit | https://quaternius.com/packs/stylizednaturemegakit.html | Tree/pine/dead-tree/rock variants, bushes, grass tufts, ferns, flowers, mushrooms, pebbles, and the kit bark/leaf/grass/rock textures |
 
 ## Approved Future Intake Sources

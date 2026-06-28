@@ -147,8 +147,12 @@ public sealed class TitleBackdrop : MonoBehaviour
 
     private void BuildCamp(PresentationCatalog catalog)
     {
-        CreatePrimitive("Title Ground", PrimitiveType.Cube, new Vector3(2.5f, -0.4f, 5.5f), new Vector3(38f, 0.8f, 34f),
-            new Color(0.13f, 0.16f, 0.10f));
+        GameObject ground = CreatePrimitive("Title Ground", PrimitiveType.Cube, new Vector3(2.5f, -0.4f, 5.5f),
+            new Vector3(38f, 0.8f, 34f), new Color(0.13f, 0.16f, 0.10f));
+        // Swap the flat fill for the same speckled ground texture the arenas use so the
+        // camp floor reads as trodden earth rather than a painted slab.
+        ground.GetComponent<Renderer>().sharedMaterial = RuntimeAssets.GroundMaterial(
+            new Color(0.17f, 0.20f, 0.12f), new Color(0.10f, 0.13f, 0.08f), 7f);
         CreatePrimitive("Title Road", PrimitiveType.Cube, new Vector3(3.7f, 0.015f, 5.6f), new Vector3(5.8f, 0.035f, 25f),
             new Color(0.24f, 0.16f, 0.08f));
         CreatePrimitive("Title Ridge", PrimitiveType.Cube, new Vector3(8.5f, 1.3f, 16f), new Vector3(17f, 2.6f, 3f),
@@ -214,7 +218,7 @@ public sealed class TitleBackdrop : MonoBehaviour
         return instance.transform;
     }
 
-    private void CreatePrimitive(string name, PrimitiveType type, Vector3 position, Vector3 scale, Color color)
+    private GameObject CreatePrimitive(string name, PrimitiveType type, Vector3 position, Vector3 scale, Color color)
     {
         GameObject primitive = GameObject.CreatePrimitive(type);
         primitive.name = name;
@@ -223,6 +227,7 @@ public sealed class TitleBackdrop : MonoBehaviour
         primitive.transform.localScale = scale;
         primitive.GetComponent<Renderer>().sharedMaterial = RuntimeAssets.Material(color);
         RemovePhysics(primitive);
+        return primitive;
     }
 
     private static void RemovePhysics(GameObject instance)

@@ -12,6 +12,13 @@ public static class PresentationAssetBuilder
     private const string PresentationPath = ResourcesPath + "/Presentation";
     private const string AnimationPath = PresentationPath + "/Animations";
     private const string CatalogPath = ResourcesPath + "/PresentationCatalog.asset";
+    private const string BuildingsPath = PresentationPath + "/Buildings";
+    private const string WeaponsModelPath = "Assets/ThirdParty/Quaternius/Weapons/";
+    private const string VillageModelPath = "Assets/ThirdParty/Quaternius/MedievalVillage/";
+    private const string WeaponsZip = "AssetDownloads/Quaternius/Medieval Weapons Pack by @Quaternius.zip";
+    private const string WeaponsZipRoot = "Medieval Weapons Pack by @Quaternius/FBX/";
+    private const string VillageZip = "AssetDownloads/Quaternius/Medieval Village MegaKit[Standard].zip";
+    private const string VillageZipRoot = "Medieval Village MegaKit[Standard]/FBX/";
     private static string ProjectRoot => Directory.GetParent(Application.dataPath).FullName;
 
     private static readonly AnimationSourceDefinition[] AnimationSources =
@@ -84,6 +91,10 @@ public static class PresentationAssetBuilder
             FighterVariant.Enemy, controller);
         catalog.swordPrefab = LoadModel("Assets/ThirdParty/Quaternius/FantasyProps/Sword_Bronze.fbx");
         catalog.shieldPrefab = LoadModel("Assets/ThirdParty/Quaternius/FantasyProps/Shield_Wooden.fbx");
+        // Bow/arrow ship in the Medieval Weapons Pack (vertex-coloured FBX, no external
+        // textures — same as the existing props); extracted on demand from the download.
+        catalog.bowPrefab = EnsureExtractedModel(WeaponsModelPath + "Bow_Wooden.fbx", WeaponsZip, WeaponsZipRoot + "Bow_Wooden.fbx");
+        catalog.arrowPrefab = EnsureExtractedModel(WeaponsModelPath + "Arrow.fbx", WeaponsZip, WeaponsZipRoot + "Arrow.fbx");
         catalog.villageWall = LoadModel("Assets/ThirdParty/Quaternius/MedievalVillage/Wall_UnevenBrick_Straight.fbx");
         catalog.villageArch = LoadModel("Assets/ThirdParty/Quaternius/MedievalVillage/Wall_Arch.fbx");
         catalog.villageWagon = LoadModel("Assets/ThirdParty/Quaternius/MedievalVillage/Prop_Wagon.fbx");
@@ -112,6 +123,18 @@ public static class PresentationAssetBuilder
             "Pebble_Round_1", "Pebble_Round_3", "Bush_Common_Flowers");
         catalog.barrenClutter = LoadModels(nature, "Pebble_Round_1", "Pebble_Round_3", "Mushroom_Common");
         catalog.tallGrass = LoadModels(nature, "Grass_Common_Tall", "Grass_Wispy_Tall", "Fern_1");
+
+        // Campaign settlement structures, composed from Medieval Village MegaKit pieces
+        // (extracted on demand). The existing villageWall/villageTowerRoof are reused as
+        // the wall face and tower cap. MapDioramaBuilder falls back to primitive blocks
+        // whenever a slot stays null, so missing downloads never break the diorama.
+        GameObject houseRoof = EnsureExtractedModel(VillageModelPath + "Roof_RoundTiles_4x6.fbx", VillageZip, VillageZipRoot + "Roof_RoundTiles_4x6.fbx");
+        GameObject hallRoof = EnsureExtractedModel(VillageModelPath + "Roof_RoundTiles_6x8.fbx", VillageZip, VillageZipRoot + "Roof_RoundTiles_6x8.fbx");
+        catalog.houseSmall = EnsureBuildingPrefab("HouseSmall", catalog.villageWall, houseRoof, new Vector3(1.6f, 1.4f, 1.4f), 1);
+        catalog.houseLarge = EnsureBuildingPrefab("HouseLarge", catalog.villageWall, houseRoof, new Vector3(2.0f, 1.8f, 1.7f), 1);
+        catalog.townHall = EnsureBuildingPrefab("TownHall", catalog.villageWall, hallRoof, new Vector3(2.6f, 2.6f, 2.2f), 2);
+        catalog.castleKeep = EnsureBuildingPrefab("CastleKeep", catalog.villageWall, hallRoof, new Vector3(3.0f, 4.2f, 2.8f), 3);
+        catalog.castleTower = EnsureTowerPrefab("CastleTower", catalog.villageWall, catalog.villageTowerRoof, new Vector2(0.95f, 3.4f));
 
         EditorUtility.SetDirty(catalog);
         AssetDatabase.SaveAssets();
@@ -186,6 +209,146 @@ public static class PresentationAssetBuilder
         }
         return models.ToArray();
     }
+
+    // Loads a model, extracting its FBX from the (gitignored) download zip on first use
+    // if it isn't already in the project. Quaternius "Standard" FBX carry vertex colours,
+    // so no companion textures are needed. Returns null (caller falls back) if the zip is
+    // absent — e.g. a checkout without the downloads.
+    private static GameObject EnsureExtractedModel(string assetPath, string zipPath, string zipEntry)
+    {
+        string assetFile = ProjectFile(assetPath);
+        if (!File.Exists(assetFile))
+        {
+            string zipFile = ProjectFile(zipPath);
+            if (!File.Exists(zipFile))
+            {
+                Debug.LogWarning($"Missing download '{zipPath}'; cannot extract '{assetPath}'. Using primitive fallback.");
+                return null;
+            }
+            Directory.CreateDirectory(Path.GetDirectoryName(assetFile));
+            ExtractZipEntry(zipFile, zipEntry, assetFile);
+            AssetDatabase.ImportAsset(assetPath, ImportAssetOptions.ForceSynchronousImport);
+        }
+        return LoadModel(assetPath);
+    }
+
+    // World-space AABB of an already-placed instance, expressed in `reference` space.
+    // Uses MeshFilter.sharedMesh.bounds corners (not Renderer.bounds, which reads stale
+    // immediately after InstantiatePrefab during an editor batch) so measurements are
+    // reliable mid-composition.
+    private static Bounds MeasureBounds(GameObject instance, Transform reference)
+    {
+        Bounds bounds = default;
+        bool found = false;
+        foreach (MeshFilter mf in instance.GetComponentsInChildren<MeshFilter>())
+        {
+            if (mf.sharedMesh == null)
+                continue;
+            Bounds lb = mf.sharedMesh.bounds;
+            Transform tr = mf.transform;
+            for (int i = 0; i < 8; i++)
+            {
+                Vector3 corner = lb.center + Vector3.Scale(lb.extents,
+                    new Vector3((i & 1) == 0 ? 1 : -1, (i & 2) == 0 ? 1 : -1, (i & 4) == 0 ? 1 : -1));
+                Vector3 w = reference.InverseTransformPoint(tr.TransformPoint(corner));
+                if (!found) { bounds = new Bounds(w, Vector3.zero); found = true; }
+                else bounds.Encapsulate(w);
+            }
+        }
+        return found ? bounds : new Bounds(Vector3.zero, Vector3.one);
+    }
+
+    // Target world thickness of a composed wall panel (the wall mesh is a thin slab; this is
+    // how thick it reads after scaling, in diorama units).
+    private const float WallThickness = 0.16f;
+
+    // Raw mesh size of a wall piece (model space, x=width, y=thickness, z=height). Read from
+    // the mesh rather than an instance so the prefab's internal axis-conversion rotation does
+    // not reshuffle the axes.
+    private static Vector3 WallMeshSize(GameObject wall)
+    {
+        MeshFilter mf = wall.GetComponentInChildren<MeshFilter>(true);
+        return mf != null && mf.sharedMesh != null ? mf.sharedMesh.bounds.size : new Vector3(0.02f, 0.004f, 0.031f);
+    }
+
+    // Composes an enclosed building from modular kit pieces: four upright wall faces per
+    // floor topped with a tiled gable roof, saved under Resources so MapDioramaBuilder can
+    // instantiate it. The Quaternius wall ships lying flat (height along local Z) and at
+    // ~1x import scale, while roofs import at ~100x — so walls are stood upright with a
+    // per-axis scale and the roof is scaled by a *relative multiplier* (preserving its
+    // peak). size = (width, height, depth). Returns null when a piece is unavailable.
+    private static GameObject EnsureBuildingPrefab(string name, GameObject wall, GameObject roof,
+        Vector3 size, int floors, float roofOverhang = 1.06f)
+    {
+        if (wall == null)
+            return null;
+        Directory.CreateDirectory(BuildingsPath);
+        string prefabPath = $"{BuildingsPath}/{name}.prefab";
+        float w = size.x, h = size.y, d = size.z;
+
+        GameObject root = new(name);
+
+        // Wall natural dimensions from the raw mesh (x=width, y=thickness, z=height). We read
+        // the mesh directly rather than an instance AABB: the prefab carries an internal
+        // axis-conversion rotation that would otherwise swap the height/thickness axes. AddWall
+        // applies the target dimensions as an absolute local scale, then stands the panel up.
+        Vector3 nat = WallMeshSize(wall);
+        float natW = Mathf.Max(1e-4f, nat.x), natT = Mathf.Max(1e-4f, nat.y), natH = Mathf.Max(1e-4f, nat.z);
+        float thickScale = WallThickness / natT;
+        float floorH = h / Mathf.Max(1, floors);
+
+        for (int floor = 0; floor < floors; floor++)
+        {
+            float baseY = floor * floorH;
+            AddWall(root.transform, wall, 0f,   new Vector3(0f, baseY, -d * 0.5f), w / natW, thickScale, floorH / natH);
+            AddWall(root.transform, wall, 180f, new Vector3(0f, baseY,  d * 0.5f), w / natW, thickScale, floorH / natH);
+            AddWall(root.transform, wall, 90f,  new Vector3(-w * 0.5f, baseY, 0f), d / natW, thickScale, floorH / natH);
+            AddWall(root.transform, wall, 270f, new Vector3( w * 0.5f, baseY, 0f), d / natW, thickScale, floorH / natH);
+        }
+
+        if (roof != null)
+            AddRoof(root.transform, roof, w, d, h, roofOverhang);
+
+        PrefabUtility.SaveAsPrefabAsset(root, prefabPath);
+        UnityEngine.Object.DestroyImmediate(root);
+        return AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+    }
+
+    // Stands one wall panel upright (Euler 90 about X) then yaws it to face outward, scales
+    // it per local axis (x=width, y=thickness, z=height), and seats its base at the floor Y.
+    private static void AddWall(Transform parent, GameObject wall, float yaw, Vector3 facePosition,
+        float widthScale, float thickScale, float heightScale)
+    {
+        GameObject go = (GameObject)PrefabUtility.InstantiatePrefab(wall);
+        go.name = "Wall";
+        go.transform.SetParent(parent, false);
+        go.transform.localRotation = Quaternion.Euler(0f, yaw, 0f) * Quaternion.Euler(90f, 0f, 0f);
+        go.transform.localScale = new Vector3(widthScale, thickScale, heightScale);
+        go.transform.localPosition = facePosition;
+        Bounds b = MeasureBounds(go, parent);
+        go.transform.localPosition += new Vector3(0f, facePosition.y - b.min.y, 0f);
+    }
+
+    // Caps a footprint with a tiled roof, scaled by a uniform relative multiplier (so the
+    // roof's natural peak is preserved) and seated on top of the walls at height `topY`.
+    private static void AddRoof(Transform parent, GameObject roof, float width, float depth, float topY, float overhang)
+    {
+        GameObject r = (GameObject)PrefabUtility.InstantiatePrefab(roof);
+        r.name = "Roof";
+        r.transform.SetParent(parent, false);
+        Bounds natural = MeasureBounds(r, parent);
+        float s = width * overhang / Mathf.Max(1e-4f, natural.size.x);
+        r.transform.localScale *= s;
+        Bounds b = MeasureBounds(r, parent);
+        // Sink the roof a touch into the wall tops so no seam shows at the eave line.
+        r.transform.localPosition += new Vector3(-b.center.x, topY - b.min.y - 0.05f, -b.center.z);
+    }
+
+    // A square corner tower is just a single-floor building with a square footprint and the
+    // kit's tower roof (which overhangs more). Used four times per castle by MapDioramaBuilder.
+    // size = (footprint, height).
+    private static GameObject EnsureTowerPrefab(string name, GameObject wall, GameObject roof, Vector2 size)
+        => EnsureBuildingPrefab(name, wall, roof, new Vector3(size.x, size.y, size.x), 1, 1.25f);
 
     // Quaternius nature ships base/normal textures in the kit's Textures folder.
     // We extract them beside the FBX and let the importer (material-description +

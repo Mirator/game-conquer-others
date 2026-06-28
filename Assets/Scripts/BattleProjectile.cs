@@ -4,6 +4,10 @@ using UnityEngine;
 // fighter or the ground, and reports the impact before despawning.
 public sealed class BattleProjectile : MonoBehaviour
 {
+    // Catalog is immutable at runtime, so resolve it once instead of on every spawned arrow.
+    private static PresentationCatalog catalogCache;
+    private static PresentationCatalog Catalog => catalogCache != null ? catalogCache : catalogCache = PresentationCatalog.Load();
+
     private BattleManager battle;
     private BattleFighter attacker;
     private Vector3 velocity;
@@ -88,6 +92,21 @@ public sealed class BattleProjectile : MonoBehaviour
 
     private void BuildArrow()
     {
+        // Use the authored arrow model when wired; otherwise fall back to the primitive
+        // shaft/tip/fletching rig below. Model orientation is a first cut (length along
+        // +Z, the flight axis) and may want a visual nudge.
+        PresentationCatalog catalog = Catalog;
+        if (catalog != null && catalog.arrowPrefab != null)
+        {
+            GameObject model = Instantiate(catalog.arrowPrefab, transform);
+            model.name = "Arrow Model";
+            model.transform.localPosition = Vector3.forward * 0.42f;
+            model.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+            foreach (Collider collider in model.GetComponentsInChildren<Collider>())
+                Destroy(collider);
+            return;
+        }
+
         GameObject shaft = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
         shaft.name = "Arrow Shaft";
         shaft.transform.SetParent(transform, false);

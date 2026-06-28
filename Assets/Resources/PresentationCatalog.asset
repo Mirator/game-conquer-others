@@ -19,6 +19,13 @@ MonoBehaviour:
   enemyPrefab: {fileID: 5078809434778322938, guid: 46545d4035be79846bb3715f77ef1005, type: 3}
   swordPrefab: {fileID: 919132149155446097, guid: 95efa015042a83d439df9cc5d2687fb6, type: 3}
   shieldPrefab: {fileID: 919132149155446097, guid: ed50fb3f9d1e4624096fb202e3f179bf, type: 3}
+  bowPrefab: {fileID: 919132149155446097, guid: 254f6a6a35d8bca4c95fb13ba226a95a, type: 3}
+  arrowPrefab: {fileID: 919132149155446097, guid: 4080a469a2d791e4b87c1ec14940810e, type: 3}
+  houseSmall: {fileID: 3943774984481556519, guid: f28e2d2d5ccb8964e90adc565084f1be, type: 3}
+  houseLarge: {fileID: 6551477357343658063, guid: b9b86e7d2c3922a4d94c66826938152e, type: 3}
+  townHall: {fileID: 4721124841528299180, guid: bca9cfe053773e241acf76a5c01cd6d4, type: 3}
+  castleKeep: {fileID: 565420872156991191, guid: ba4eae50105302542ac0a7dd3a3170f0, type: 3}
+  castleTower: {fileID: 2496310878154105800, guid: 05d8fea9d3b3d2943b649e6dbc7014e9, type: 3}
   courtyard: {fileID: 11400000, guid: b1ab9cbb7fade4944a6b0c3bf917e4de, type: 2}
   forest: {fileID: 11400000, guid: 6265f56f9e1b8044d8d29a0d5d51c105, type: 2}
   marsh: {fileID: 11400000, guid: b357608089b821f41bbea13b6d4adda9, type: 2}
