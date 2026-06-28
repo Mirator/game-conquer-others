@@ -139,3 +139,7 @@ $RECYCLE.BIN/
 /[Aa]ssets/[Rr]esources/PerformanceTestRunInfo.json.meta
 /[Aa]ssets/[Rr]esources/PerformanceTestRunSettings.json
 /[Aa]ssets/[Rr]esources/PerformanceTestRunSettings.json.meta
+
+# Editor/MCP screenshot captures
+/[Aa]ssets/[Ss]creenshots/
+/[Aa]ssets/[Ss]creenshots.meta

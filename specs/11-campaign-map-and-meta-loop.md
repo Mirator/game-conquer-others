@@ -93,14 +93,30 @@ both slots are cleared only when neither parses (or on defeat).
 ## Presentation
 
 - The map is runtime-generated as a low-poly 3D diorama, reusing shared
-  materials, curated props, and primitive dressing. Every territory gets a
-  deterministic regional district: forest groves, marsh pools/reeds, highland
-  ridges/boulders, or courtyard roads/fences. Roads and roadside stones connect
-  adjacent holds without becoming collision geometry.
+  materials, curated props, and primitive dressing. It sits on a mottled
+  parchment war-table surface framed by a raised timber rim, so the regional
+  districts read as terrain laid over a map rather than floating in a void.
+  Every territory gets a deterministic regional district: forest groves, marsh
+  pools/reeds, highland ridges/boulders, or courtyard roads/fences. Roads and
+  roadside stones connect adjacent holds without becoming collision geometry.
+- The ground is a procedurally height-mapped, flat-shaded terrain mesh draped in
+  the parchment material: gentle rolling relief that stays calm in the central
+  basin and rises into hills toward the table edges, so the map reads as sculpted
+  land rather than a flat board. The terrain is forced level over a pad around
+  every hold and the Training Arena, and along every road corridor, so
+  settlements, markers, and roads never float over or sink into a slope; a
+  MeshCollider on it catches map clicks. Scattered woods and the occasional pond
+  dress the open ground (seated on the terrain surface, kept clear of holds and
+  roads) — relief comes from the ground itself, not from prop hills. District
+  dressing (e.g. highland boulders) is biased behind the settlement, away from the
+  fixed southward-looking camera, so a hold's buildings are never occluded.
 - Settlements have readable silhouettes by size: villages are clusters of homes,
   towns add a hall and denser buildings, and castles add a keep, towers, gate, and
   standard. Houses, hall, keep, and towers use authored models composed from the
-  Medieval Village MegaKit (primitive blocks remain the fallback). Decoration never
+  Medieval Village MegaKit (primitive blocks remain the fallback), tinted to warm
+  timber and stone tones on the map so they read as buildings rather than
+  blown-out white blocks; forest trees are likewise tinted to map greens.
+  Decoration never
   catches map clicks; the table, hold nodes, parties, and Training Arena remain the
   only interactive map geometry.
 - The map is roughly twice as large per axis, viewed through a zoom/pan camera

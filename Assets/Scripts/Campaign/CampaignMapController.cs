@@ -944,12 +944,14 @@ public sealed class CampaignMapController : MonoBehaviour
         float day = Mathf.Clamp01(daySin * 0.5f + 0.5f);               // 0 night .. 1 midday
         float golden = 1f - Mathf.Abs(daySin);                         // 1 at dawn/dusk
 
-        mapSun.transform.rotation = Quaternion.Euler(daySin * 50f + 8f, -30f + (t - 0.5f) * 50f, 0f);
-        mapSun.color = Color.Lerp(new Color(1f, 0.96f, 0.9f), new Color(1f, 0.55f, 0.3f), golden)
-            * new Color(1f, 0.95f, 0.85f);
-        mapSun.intensity = 1.1f * Mathf.Lerp(0.08f, 1f, day);
+        mapSun.transform.rotation = Quaternion.Euler(daySin * 50f + 22f, -30f + (t - 0.5f) * 50f, 0f);
+        // Golden at dawn/dusk but never muddy-orange, so the parchment and terrain keep
+        // their colour; a brighter midday key with a cool-neutral ambient gives the
+        // diorama real contrast instead of the former flat warm haze.
+        mapSun.color = Color.Lerp(new Color(1f, 0.97f, 0.92f), new Color(1f, 0.74f, 0.5f), golden);
+        mapSun.intensity = 1.35f * Mathf.Lerp(0.12f, 1f, day);
 
-        RenderSettings.ambientLight = new Color(0.35f, 0.37f, 0.4f) * Mathf.Lerp(0.4f, 1f, day);
+        RenderSettings.ambientLight = Color.Lerp(new Color(0.15f, 0.17f, 0.22f), new Color(0.47f, 0.48f, 0.52f), day);
         RenderSettings.fog = day < 0.5f;
         RenderSettings.fogMode = FogMode.ExponentialSquared;
         RenderSettings.fogColor = Color.Lerp(new Color(0.04f, 0.05f, 0.08f), new Color(0.34f, 0.36f, 0.4f), day);

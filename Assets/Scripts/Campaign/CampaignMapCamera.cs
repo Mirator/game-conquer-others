@@ -11,8 +11,9 @@ public sealed class CampaignMapCamera
     private const float MaxCameraHeight = 78f;
     private const float ZoomStep = 6f;
     private const float PanSpeed = 0.05f;
-    // Zoomed in on the warband at campaign start, not the whole map.
-    public const float StartCameraHeight = 22f;
+    // Zoomed in on the warband at campaign start, not the whole map — but far enough
+    // back to read the home hold and the roads leading out of it.
+    public const float StartCameraHeight = 30f;
     private const float MapCameraLimitX = 40f;
     private const float MapCameraLimitZMin = -31f;
     private const float MapCameraLimitZMax = 35f;
