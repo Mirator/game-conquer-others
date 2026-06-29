@@ -81,6 +81,13 @@ public sealed class BattleFighterPresentation
             authoredView = authored.GetComponentInChildren<FighterView>(true);
             hasAuthoredModel = true;
             authoredView?.ApplyTeam(team);
+            // Quaternius peasant bodies ship without a head, so FighterView attaches a
+            // bare skin sphere — which reads as a featureless ball. Cap non-hooded
+            // fighters with a steel skullcap so they look like helmeted soldiers. The
+            // player (and other hooded models) keep their hood, so they are skipped to
+            // avoid a helmet poking through the cowl.
+            if (!isPlayerFighter)
+                authoredView?.AddHelmet(metal, rankColor);
         }
         // The procedural primitive body is only the fallback look. When an authored
         // model drives the visuals these 13 cosmetic meshes were created and then
@@ -138,6 +145,9 @@ public sealed class BattleFighterPresentation
             // Quaternius props embed a 100x FBX scale; multiply it rather than
             // overwriting so the blade keeps real-world size.
             sword.transform.localScale *= weapon == WeaponType.TwoHandedSword ? 1.3f : 1.0f;
+            // The Quaternius blade ships with a flat white, untextured FBX material, so
+            // it reads as a glowing white shard. Repaint every slot to steel.
+            RuntimeAssets.TintModel(sword, metal);
         }
         // The swing trail is a close-up flourish that is invisible amid a 120-fighter
         // melee but costs dynamic trail-mesh generation per emitting blade. Build it
@@ -170,6 +180,10 @@ public sealed class BattleFighterPresentation
             shield.transform.localPosition = Vector3.zero;
             shield.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
             shield.transform.localScale *= 0.7f;
+            // Same white-FBX-material problem as the sword: the shield otherwise renders
+            // as a near-white glassy disc. Paint it in the team colour so it reads as a
+            // solid shield and reinforces team identity in the melee.
+            RuntimeAssets.TintModel(shield, teamColor);
         }
 
         bowPivot = NewPivot("Bow Pivot", leftArm, new Vector3(0f, -0.48f, 0.18f));

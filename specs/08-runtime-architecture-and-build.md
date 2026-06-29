@@ -76,6 +76,9 @@ listener. Each mode's camera carries the single active `AudioListener`.
 - Generated materials and procedural audio clips are cached and shared across
   map and battle rebuilds.
 - The project supports an active render pipeline or built-in renderer fallback.
+  No render-pipeline asset is currently assigned (Graphics and Quality both empty),
+  so the **built-in renderer is the active path**: `GraphicsSettings.currentRenderPipeline`
+  is null and `RuntimeAssets.FindLitShader` resolves generated materials to `Standard`.
 - Four shaders are always included for standalone procedural material
   reliability: Standard, Legacy Shaders/Diffuse, Sprites/Default, and
   Skybox/Procedural (the last for the procedural skybox).

@@ -68,6 +68,41 @@ public sealed class FighterView : MonoBehaviour
         head.GetComponent<Renderer>().sharedMaterial = RuntimeAssets.Material(new Color(0.78f, 0.6f, 0.47f));
     }
 
+    // The bare skin head (above) reads as a featureless ball on the headless peasant
+    // bodies. Cap non-hooded fighters with a steel skullcap and a thin rank-coloured
+    // crest — the same silhouette the primitive fallback rig builds — so they read as
+    // helmeted soldiers. Sized close to the scalp so it sits under any cowl if added.
+    public void AddHelmet(Color metal, Color crest)
+    {
+        if (animator == null || !animator.isHuman)
+            return;
+        Transform headBone = animator.GetBoneTransform(HumanBodyBones.Head);
+        if (headBone == null)
+            return;
+        for (int i = headBone.childCount - 1; i >= 0; i--)
+            if (headBone.GetChild(i).name == "Generated Helmet")
+                Destroy(headBone.GetChild(i).gameObject);
+
+        GameObject helmet = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        helmet.name = "Generated Helmet";
+        Destroy(helmet.GetComponent<Collider>());
+        helmet.transform.SetParent(headBone, false);
+        // Sit on the crown, slightly back, covering top/back/sides while leaving the
+        // lower front (the face) of the skin head visible.
+        helmet.transform.localPosition = new Vector3(0f, 0.135f, -0.01f);
+        helmet.transform.localRotation = Quaternion.identity;
+        helmet.transform.localScale = new Vector3(0.185f, 0.155f, 0.205f);
+        helmet.GetComponent<Renderer>().sharedMaterial = RuntimeAssets.Material(metal, 0.35f, 0.5f);
+
+        GameObject ridge = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        ridge.name = "Generated Helmet";
+        Destroy(ridge.GetComponent<Collider>());
+        ridge.transform.SetParent(helmet.transform, false);
+        ridge.transform.localPosition = new Vector3(0f, 0.55f, 0f);
+        ridge.transform.localScale = new Vector3(0.18f, 0.5f, 0.9f);
+        ridge.GetComponent<Renderer>().sharedMaterial = RuntimeAssets.Material(crest);
+    }
+
     // The authored prefab can lose its serialized controller reference when the
     // catalog is rebuilt; guarantee playback by binding it from Resources here.
     private void EnsureAnimatorController()

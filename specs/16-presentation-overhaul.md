@@ -41,6 +41,9 @@ and sonify that state but must not alter it.
   serialized controller reference is lost during a catalog rebuild.
 - Sword, shield, and bow attach to the validated right/left hand bones. Weapon
   prefabs keep their native Quaternius FBX scale (multiplied, not overwritten).
+- The authored sword and shield FBXs ship with flat, untextured white materials,
+  so they are repainted on instantiation (`RuntimeAssets.TintModel`) — the blade to
+  steel, the shield to the team colour — instead of reading as glowing white discs.
 - The bow, the held arrow, and the flying arrow projectile use authored Medieval
   Weapons Pack models; the primitive cylinder/cube weapon rig remains as the
   fallback when the catalog slot is empty.
@@ -50,8 +53,11 @@ and sonify that state but must not alter it.
   `Resources/Presentation/Buildings`; the diorama falls back to primitive blocks
   when a slot is null.
 - Quaternius outfit FBXs ship without a base head mesh, so a simple skin-toned
-  head is generated at runtime and bound to the Head bone. The procedural
-  primitive rig remains only as a fallback when a catalog reference is missing.
+  head is generated at runtime and bound to the Head bone. Non-hooded fighters
+  additionally receive a steel skullcap + rank-coloured crest (`FighterView.AddHelmet`)
+  so a bare head never reads as a featureless ball; the hooded player keeps its cowl
+  and is skipped. The procedural primitive rig remains only as a fallback when a
+  catalog reference is missing.
 
 ## Post-Processing And Lighting
 
@@ -59,7 +65,11 @@ and sonify that state but must not alter it.
   `VolumeProfile` — ACES tonemapping, bloom, a light colour grade, and a vignette —
   and `renderPostProcessing` is enabled on the battle, title, and campaign-map
   cameras. SSAO is a URP renderer feature (already on `PC_Renderer`) and activates
-  once post-processing is enabled.
+  once post-processing is enabled. **Both the Volume stack and SSAO require an
+  assigned URP asset; under the built-in renderer that currently ships (see
+  [specs/08](08-runtime-architecture-and-build.md)) they are inert, and the battle
+  look comes from lighting, fog, and the procedural skybox.** The code builds the
+  stack unconditionally so it lights up automatically if a URP asset is assigned.
 - Battle ambient uses `AmbientMode.Trilight` (sky/equator/ground bands) plus a cool
   shadowless fill light opposite the sun. Shadow distance is set from the quality
   tier to cover the larger field.
