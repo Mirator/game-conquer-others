@@ -3,7 +3,12 @@
 ## Overview
 
 Conquer Others is a third-person medieval battle game built in **Unity 6000.3.16f1**
-(Unity 6.3 LTS) with URP and C#.
+(Unity 6.3 LTS) in C#, rendering through Unity's **built-in pipeline**. The URP
+package is installed and the runtime is written to drive either pipeline (materials
+resolve through a shader fallback — see `FindLitShader` in [RuntimeAssets.cs](Assets/Scripts/RuntimeAssets.cs)),
+but **no render-pipeline asset is assigned** in Graphics or Quality settings, so the
+built-in renderer is active and runtime-generated materials use the `Standard` shader.
+Material work must therefore target `Standard`, not `Universal Render Pipeline/Lit`.
 There is **no manual scene wiring** — every GameObject, mesh, material, and UI
 element is assembled at runtime. The project began fully primitive-generated, and
 that procedural rig still backs collision and serves as a fallback; most visuals
