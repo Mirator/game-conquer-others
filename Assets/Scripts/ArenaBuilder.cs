@@ -623,19 +623,13 @@ public sealed class ArenaBuilder : MonoBehaviour
         // Models keep their own imported (textured) materials; tint only when a
         // heraldry/team colour is explicitly requested (e.g. defender banners).
         if (tintOverride.HasValue)
-            TintVisual(visual, tintOverride.Value);
+            RuntimeAssets.TintModel(visual, tintOverride.Value);
         // Dense/distant scatter skips the shadow pass — its shadows add little but cost
         // a lot at hundreds of instances; structures and hero trees keep theirs.
         if (!castShadows)
             foreach (Renderer renderer in visual.GetComponentsInChildren<Renderer>())
                 renderer.shadowCastingMode = ShadowCastingMode.Off;
         return visual;
-    }
-
-    private static void TintVisual(GameObject visual, Color tint)
-    {
-        foreach (Renderer renderer in visual.GetComponentsInChildren<Renderer>())
-            renderer.sharedMaterial = RuntimeAssets.Material(tint);
     }
 
     private void AddSway(GameObject visual, float amplitudeDegrees, float frequency)

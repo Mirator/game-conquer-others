@@ -89,6 +89,22 @@ public static class RuntimeAssets
         return material;
     }
 
+    // Repaints every renderer of an instantiated authored model with one flat tint,
+    // filling all material slots — not just slot 0. Authored models often carry several
+    // slots per renderer (a tree's trunk + foliage, a banner's pole + cloth); leaving the
+    // extra slots on their built-in source shaders renders them magenta under URP.
+    public static void TintModel(GameObject root, Color tint)
+    {
+        Material tinted = Material(tint);
+        foreach (Renderer renderer in root.GetComponentsInChildren<Renderer>())
+        {
+            Material[] slots = renderer.sharedMaterials;
+            for (int i = 0; i < slots.Length; i++)
+                slots[i] = tinted;
+            renderer.sharedMaterials = slots;
+        }
+    }
+
     // A tiling, mottled ground material backed by a runtime-generated seamless noise
     // texture, so the large ground plane reads as textured terrain rather than a flat
     // colour. Cached for the app lifetime (the texture is generated once per palette).
