@@ -127,8 +127,10 @@ both slots are cleared only when neither parses (or on defeat).
   destination glows gold with a dotted route drawn from the warband to it.
   Adjacency edges are drawn between nodes.
 - The player party and the bandit parties are authored soldier models (the player's
-  captain model and the enemy model, idling via their own animator) with floating
-  unit-count labels above them; a primitive captain-style figure is the fallback.
+  captain model and the enemy model), scaled up so they read against the steep
+  overhead camera, with floating unit-count labels above them; a primitive
+  captain-style figure is the fallback. Each figure idles via its own animator when
+  halted and, while its band moves, turns to face its heading and plays a walk clip.
 - Hovering a hold, party, or the Training Arena adds a gold emphasis and a compact
   world-space tooltip. Holds also show their settlement tier and garrison; a small
   HUD legend explains blue ownership, red ownership, and gold special/selected sites.
