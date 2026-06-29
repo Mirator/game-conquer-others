@@ -20,6 +20,8 @@ public sealed class CampaignMapController : MonoBehaviour
     private TextMesh mapTooltip;
     private GameObject partyMarker;
     private TextMesh partyCountLabel;
+    private FighterView partyFighterView;
+    private Vector3 partyLastWorld;
     private PresentationCatalog catalogCache;
     private PresentationCatalog Catalog => catalogCache != null ? catalogCache : catalogCache = PresentationCatalog.Load();
     private Canvas campaignCanvas;
@@ -100,6 +102,8 @@ public sealed class CampaignMapController : MonoBehaviour
         public EnemyParty Party;
         public Transform Marker;
         public Renderer Renderer;
+        public FighterView Fighter;
+        public Vector3 LastWorld;
     }
 
     private struct NodeView
@@ -177,6 +181,8 @@ public sealed class CampaignMapController : MonoBehaviour
     {
         partyMarker = BuildPartyFigure("Player Party", new Color(0.2f, 0.55f, 1f), true, false);
         partyMarker.transform.position = WorldOf(campaign.PartyPosition);
+        partyLastWorld = partyMarker.transform.position;
+        partyFighterView = partyMarker.GetComponentInChildren<FighterView>(true);
         partyCountLabel = AddCountLabel(partyMarker.transform, sim.PlayerStrength);
 
         foreach (EnemyParty party in campaign.Parties)
@@ -184,7 +190,14 @@ public sealed class CampaignMapController : MonoBehaviour
             GameObject figure = BuildPartyFigure($"Party {party.Name}", new Color(0.85f, 0.2f, 0.12f), false, true);
             figure.transform.position = WorldOf(party.Position);
             AddCountLabel(figure.transform, party.Strength);
-            partyViews.Add(new PartyView { Party = party, Marker = figure.transform, Renderer = figure.GetComponentInChildren<Renderer>() });
+            partyViews.Add(new PartyView
+            {
+                Party = party,
+                Marker = figure.transform,
+                Renderer = figure.GetComponentInChildren<Renderer>(),
+                Fighter = figure.GetComponentInChildren<FighterView>(true),
+                LastWorld = figure.transform.position,
+            });
         }
     }
 
@@ -197,6 +210,10 @@ public sealed class CampaignMapController : MonoBehaviour
     {
         GameObject root = new GameObject(name);
         root.transform.SetParent(transform);
+        // Bands are viewed from a steep overhead camera 14-78m up, so a 1.8m model
+        // reads as a speck. Scale the whole figure (mesh, label, click box) up so the
+        // warband is legible at the default zoom.
+        root.transform.localScale = Vector3.one * 1.8f;
         PresentationCatalog catalog = Catalog;
         GameObject prefab = catalog != null
             ? captainCrest ? catalog.captainPrefab
@@ -690,10 +707,38 @@ public sealed class CampaignMapController : MonoBehaviour
     private void UpdateMarkers()
     {
         if (partyMarker != null)
-            partyMarker.transform.position = WorldOf(campaign.PartyPosition);
-        foreach (PartyView view in partyViews)
-            if (view.Marker != null)
-                view.Marker.position = WorldOf(view.Party.Position);
+            DriveMarker(partyMarker.transform, partyFighterView, WorldOf(campaign.PartyPosition), ref partyLastWorld);
+        for (int i = 0; i < partyViews.Count; i++)
+        {
+            PartyView view = partyViews[i];
+            if (view.Marker == null)
+                continue;
+            DriveMarker(view.Marker, view.Fighter, WorldOf(view.Party.Position), ref view.LastWorld);
+            partyViews[i] = view;
+        }
+    }
+
+    // Snaps a band figure to its new map world position, then turns the figure to
+    // face the way it is heading and plays a walk/idle clip based on how far it
+    // moved this frame. The figure (not the root) is rotated so the floating count
+    // label keeps facing the camera. Stationary bands settle back to Idle.
+    private static void DriveMarker(Transform marker, FighterView fighter, Vector3 target, ref Vector3 last)
+    {
+        marker.position = target;
+        Vector3 delta = target - last;
+        delta.y = 0f;
+        last = target;
+        bool moving = delta.sqrMagnitude > 1e-6f;
+        if (fighter != null)
+        {
+            if (moving)
+            {
+                Quaternion facing = Quaternion.LookRotation(delta.normalized, Vector3.up);
+                fighter.transform.rotation = Quaternion.Slerp(fighter.transform.rotation, facing, 0.25f);
+            }
+            // 0.3 lands in the Walk band of FighterView.UpdateState (Idle < 0.05 < Walk).
+            fighter.UpdateState(moving ? 0.3f : 0f, false, CombatPhase.Idle, 0f, true);
+        }
     }
 
     private void PulseNodes()
