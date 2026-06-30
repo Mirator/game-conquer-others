@@ -81,13 +81,13 @@ public sealed class BattleFighterPresentation
             authoredView = authored.GetComponentInChildren<FighterView>(true);
             hasAuthoredModel = true;
             authoredView?.ApplyTeam(team);
-            // Quaternius peasant bodies ship without a head, so FighterView attaches a
-            // bare skin sphere — which reads as a featureless ball. Cap non-hooded
-            // fighters with a steel skullcap so they look like helmeted soldiers. The
-            // player (and other hooded models) keep their hood, so they are skipped to
-            // avoid a helmet poking through the cowl.
-            if (!isPlayerFighter)
-                authoredView?.AddHelmet(metal, rankColor);
+            // The player goes bare-headed so their face reads as the hero; the ranger
+            // body's hood would otherwise hide the authored head. Other ranger-based
+            // units (enemy captains, veterans, guards) keep their hood.
+            if (isPlayerFighter)
+                foreach (Renderer renderer in authored.GetComponentsInChildren<Renderer>(true))
+                    if (renderer.name.Contains("Head_Hood"))
+                        renderer.enabled = false;
         }
         // The procedural primitive body is only the fallback look. When an authored
         // model drives the visuals these 13 cosmetic meshes were created and then

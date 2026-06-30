@@ -52,12 +52,19 @@ and sonify that state but must not alter it.
   pieces (walls + roof + door) and saved as prefabs under
   `Resources/Presentation/Buildings`; the diorama falls back to primitive blocks
   when a slot is null.
-- Quaternius outfit FBXs ship without a base head mesh, so a simple skin-toned
-  head is generated at runtime and bound to the Head bone. Non-hooded fighters
-  additionally receive a steel skullcap + rank-coloured crest (`FighterView.AddHelmet`)
-  so a bare head never reads as a featureless ball; the hooded player keeps its cowl
-  and is skipped. The procedural primitive rig remains only as a fallback when a
-  catalog reference is missing.
+- Quaternius outfit FBXs ship without a base head mesh (the head is meant to come
+  from the Universal Base Character kit). A real head — skin, eyes and brows carved
+  out of `Superhero_Male_FullBody` (vertices weighted to the Head/neck bones) and
+  baked into Head-bone-local space by `PresentationAssetBuilder.EnsureFighterHead` —
+  is stored on the catalog as mesh + material references and mounted on the Head bone
+  at runtime by `FighterView.CreateHead`. Because it is baked rigid to the Head bone
+  it follows head animation, and it fits both bare-headed (peasant) and hooded
+  (ranger) bodies. The player's ranger hood (`Male_Ranger_Head_Hood`) is disabled at
+  spawn so the hero's face reads clearly; other ranger-based units (enemy captains,
+  veterans, guards) keep theirs. The head is referenced as meshes/materials rather
+  than a prefab because baking mesh references into a prefab during the builder pass
+  serialized as null. A skin-toned primitive sphere remains the fallback when the
+  base character is not imported.
 
 ## Post-Processing And Lighting
 

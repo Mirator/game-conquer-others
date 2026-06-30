@@ -15,6 +15,17 @@ public sealed class PresentationCatalog : ScriptableObject
     public GameObject shieldPrefab;
     public GameObject bowPrefab;
     public GameObject arrowPrefab;
+    // A real head (skin + eyes + brows) carved from the Universal Base Character and
+    // baked into Head-bone space; FighterView assembles these onto the headless outfit
+    // bodies in place of the primitive sphere. Stored as mesh+material refs (not a
+    // prefab) so they serialize reliably from the editor builder. Null skin mesh falls
+    // back to the generated sphere head.
+    public Mesh headSkinMesh;
+    public Material headSkinMaterial;
+    public Mesh headEyesMesh;
+    public Material headEyesMaterial;
+    public Mesh headBrowsMesh;
+    public Material headBrowsMaterial;
 
     [Header("Buildings")]
     // Authored settlement structures for the campaign diorama; MapDioramaBuilder

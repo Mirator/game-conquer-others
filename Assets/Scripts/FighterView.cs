@@ -58,6 +58,20 @@ public sealed class FighterView : MonoBehaviour
         for (int i = headBone.childCount - 1; i >= 0; i--)
             if (headBone.GetChild(i).name == "Generated Head")
                 Destroy(headBone.GetChild(i).gameObject);
+        // Prefer the authored head (skin + eyes + brows) carved from the Universal Base
+        // Character and baked into Head-bone space by PresentationAssetBuilder. The
+        // sub-meshes mount rigidly on the animated Head bone and follow it. Fall back to
+        // a skin-toned sphere when the catalog has no head so a fighter is never headless.
+        PresentationCatalog catalog = PresentationCatalog.Load();
+        if (catalog != null && catalog.headSkinMesh != null)
+        {
+            GameObject authoredHead = new GameObject("Generated Head");
+            authoredHead.transform.SetParent(headBone, false);
+            AddHeadPart(authoredHead.transform, "Head Skin", catalog.headSkinMesh, catalog.headSkinMaterial);
+            AddHeadPart(authoredHead.transform, "Eyes", catalog.headEyesMesh, catalog.headEyesMaterial);
+            AddHeadPart(authoredHead.transform, "Brows", catalog.headBrowsMesh, catalog.headBrowsMaterial);
+            return;
+        }
         GameObject head = GameObject.CreatePrimitive(PrimitiveType.Sphere);
         head.name = "Generated Head";
         Destroy(head.GetComponent<Collider>());
@@ -68,39 +82,16 @@ public sealed class FighterView : MonoBehaviour
         head.GetComponent<Renderer>().sharedMaterial = RuntimeAssets.Material(new Color(0.78f, 0.6f, 0.47f));
     }
 
-    // The bare skin head (above) reads as a featureless ball on the headless peasant
-    // bodies. Cap non-hooded fighters with a steel skullcap and a thin rank-coloured
-    // crest — the same silhouette the primitive fallback rig builds — so they read as
-    // helmeted soldiers. Sized close to the scalp so it sits under any cowl if added.
-    public void AddHelmet(Color metal, Color crest)
+    // Mounts one baked head sub-mesh (skin/eyes/brows) on the head root. The meshes are
+    // already in Head-bone-local space, so identity local transform aligns them.
+    private static void AddHeadPart(Transform parent, string name, Mesh mesh, Material material)
     {
-        if (animator == null || !animator.isHuman)
+        if (mesh == null)
             return;
-        Transform headBone = animator.GetBoneTransform(HumanBodyBones.Head);
-        if (headBone == null)
-            return;
-        for (int i = headBone.childCount - 1; i >= 0; i--)
-            if (headBone.GetChild(i).name == "Generated Helmet")
-                Destroy(headBone.GetChild(i).gameObject);
-
-        GameObject helmet = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-        helmet.name = "Generated Helmet";
-        Destroy(helmet.GetComponent<Collider>());
-        helmet.transform.SetParent(headBone, false);
-        // Sit on the crown, slightly back, covering top/back/sides while leaving the
-        // lower front (the face) of the skin head visible.
-        helmet.transform.localPosition = new Vector3(0f, 0.135f, -0.01f);
-        helmet.transform.localRotation = Quaternion.identity;
-        helmet.transform.localScale = new Vector3(0.185f, 0.155f, 0.205f);
-        helmet.GetComponent<Renderer>().sharedMaterial = RuntimeAssets.Material(metal, 0.35f, 0.5f);
-
-        GameObject ridge = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        ridge.name = "Generated Helmet";
-        Destroy(ridge.GetComponent<Collider>());
-        ridge.transform.SetParent(helmet.transform, false);
-        ridge.transform.localPosition = new Vector3(0f, 0.55f, 0f);
-        ridge.transform.localScale = new Vector3(0.18f, 0.5f, 0.9f);
-        ridge.GetComponent<Renderer>().sharedMaterial = RuntimeAssets.Material(crest);
+        GameObject part = new(name);
+        part.transform.SetParent(parent, false);
+        part.AddComponent<MeshFilter>().sharedMesh = mesh;
+        part.AddComponent<MeshRenderer>().sharedMaterial = material;
     }
 
     // The authored prefab can lose its serialized controller reference when the

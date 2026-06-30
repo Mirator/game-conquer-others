@@ -79,6 +79,7 @@ public static class PresentationAssetBuilder
         catalog.buttonBorder = LoadSprite("Assets/ThirdParty/Kenney/FantasyUI/panel-border-010.png");
         EnsureHumanoidImporters();
         RuntimeAnimatorController controller = EnsureFighterController();
+        EnsureFighterHead(catalog);
         catalog.captainPrefab = EnsureFighterPrefab("Captain", "Assets/ThirdParty/Quaternius/Characters/Male_Ranger.fbx",
             FighterVariant.Captain, controller);
         catalog.militiaPrefab = EnsureFighterPrefab("Militia", "Assets/ThirdParty/Quaternius/Characters/Male_Peasant.fbx",
@@ -427,6 +428,158 @@ public static class PresentationAssetBuilder
         PrefabUtility.SaveAsPrefabAsset(root, prefabPath);
         UnityEngine.Object.DestroyImmediate(root);
         return AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+    }
+
+    private const string CharactersPath = "Assets/ThirdParty/Quaternius/Characters/";
+    private const string BaseCharacterModel = CharactersPath + "Superhero_Male_FullBody.fbx";
+
+    // Quaternius modular outfits (Male_Peasant) ship without a head — the head is meant
+    // to come from the Universal Base Character. We carve a head-only mesh out of the
+    // base body (verts weighted to the Head/neck bones), bake it into Head-bone-local
+    // space so it can mount rigidly on the animated Head bone, and pair it with the
+    // separate Eyes/Eyebrows meshes. The result is saved as a prefab the runtime mounts
+    // in place of the primitive sphere. Returns null (→ sphere fallback) if the base
+    // character or its textures are not imported.
+    private static void EnsureFighterHead(PresentationCatalog catalog)
+    {
+        GameObject baseModel = LoadModel(BaseCharacterModel);
+        if (baseModel == null)
+            return;
+        GameObject inst = (GameObject)PrefabUtility.InstantiatePrefab(baseModel);
+        try
+        {
+            SkinnedMeshRenderer body = null, eyes = null, brow = null;
+            foreach (SkinnedMeshRenderer smr in inst.GetComponentsInChildren<SkinnedMeshRenderer>())
+            {
+                if (smr.name == "SuperHero_Male") body = smr;
+                else if (smr.name == "Eyes") eyes = smr;
+                else if (smr.name == "Eyebrows") brow = smr;
+            }
+            if (body == null)
+                return;
+            // Save the carved meshes as assets, then reference them (plus the textured
+            // materials) directly from the catalog. Referencing mesh assets from the
+            // ScriptableObject is reliable, whereas baking them into a prefab during this
+            // same builder pass serialized null MeshFilter references.
+            SaveMesh(BuildHeadMesh(body, true), "FighterHeadSkin");
+            if (eyes != null) SaveMesh(BuildHeadMesh(eyes, false), "FighterHeadEyes");
+            if (brow != null) SaveMesh(BuildHeadMesh(brow, false), "FighterHeadBrows");
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+            catalog.headSkinMesh = AssetDatabase.LoadAssetAtPath<Mesh>(PresentationPath + "/FighterHeadSkin.asset");
+            catalog.headEyesMesh = AssetDatabase.LoadAssetAtPath<Mesh>(PresentationPath + "/FighterHeadEyes.asset");
+            catalog.headBrowsMesh = AssetDatabase.LoadAssetAtPath<Mesh>(PresentationPath + "/FighterHeadBrows.asset");
+            catalog.headSkinMaterial = EnsureHeadMaterial("FighterHeadSkin", "T_Superhero_Male_Dark.png", "T_Superhero_Male_Normal.png", 0.15f);
+            catalog.headEyesMaterial = EnsureHeadMaterial("FighterHeadEyes", "T_Eye_Brown.png", null, 0.3f);
+            catalog.headBrowsMaterial = EnsureHeadMaterial("FighterHeadBrows", "T_Hair_1_BaseColor.png", null, 0.1f);
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(inst);
+        }
+    }
+
+    // Carves a sub-mesh out of a skinned base-character mesh and rebases its vertices
+    // into the Head bone's local space (via the bind pose) so a plain MeshRenderer
+    // parented to the animated Head bone reproduces the bind-pose head and follows it.
+    // headOnly keeps only vertices predominantly weighted to Head/neck (the skin body
+    // mesh); for the already-head-local Eyes/Eyebrows meshes it keeps everything.
+    private static Mesh BuildHeadMesh(SkinnedMeshRenderer smr, bool headOnly)
+    {
+        Transform[] bones = smr.bones;
+        int headIdx = -1, neckIdx = -1;
+        for (int i = 0; i < bones.Length; i++)
+        {
+            string n = bones[i].name.ToLower();
+            if (n == "head") headIdx = i;
+            else if (n == "neck_01") neckIdx = i;
+        }
+        Mesh src = smr.sharedMesh;
+        BoneWeight[] bw = src.boneWeights;
+        Vector3[] vs = src.vertices;
+        Vector3[] ns = src.normals;
+        Vector2[] uv = src.uv;
+        Matrix4x4 toHead = src.bindposes[headIdx];
+
+        int count = vs.Length;
+        bool[] keep = new bool[count];
+        int[] map = new int[count];
+        int kept = 0;
+        for (int i = 0; i < count; i++)
+        {
+            bool k = !headOnly || WeightOf(bw[i], headIdx) + (neckIdx >= 0 ? WeightOf(bw[i], neckIdx) : 0f) >= 0.5f;
+            if (k) { keep[i] = true; map[i] = kept++; }
+        }
+        List<Vector3> nv = new(); List<Vector3> nn = new(); List<Vector2> nu = new();
+        for (int i = 0; i < count; i++)
+            if (keep[i])
+            {
+                nv.Add(toHead.MultiplyPoint3x4(vs[i]));
+                nn.Add(toHead.MultiplyVector(ns[i]).normalized);
+                nu.Add(i < uv.Length ? uv[i] : Vector2.zero);
+            }
+        int[] tri = src.triangles;
+        List<int> nt = new();
+        for (int i = 0; i < tri.Length; i += 3)
+            if (keep[tri[i]] && keep[tri[i + 1]] && keep[tri[i + 2]])
+            {
+                nt.Add(map[tri[i]]); nt.Add(map[tri[i + 1]]); nt.Add(map[tri[i + 2]]);
+            }
+        Mesh mesh = new() { name = "FighterHead" };
+        mesh.SetVertices(nv);
+        mesh.SetNormals(nn);
+        mesh.SetUVs(0, nu);
+        mesh.SetTriangles(nt, 0);
+        mesh.RecalculateBounds();
+        return mesh;
+    }
+
+    private static float WeightOf(BoneWeight w, int idx)
+    {
+        float t = 0f;
+        if (w.boneIndex0 == idx) t += w.weight0;
+        if (w.boneIndex1 == idx) t += w.weight1;
+        if (w.boneIndex2 == idx) t += w.weight2;
+        if (w.boneIndex3 == idx) t += w.weight3;
+        return t;
+    }
+
+    private static void SaveMesh(Mesh mesh, string name)
+    {
+        string path = $"{PresentationPath}/{name}.asset";
+        AssetDatabase.DeleteAsset(path);
+        AssetDatabase.CreateAsset(mesh, path);
+    }
+
+    private static Material EnsureHeadMaterial(string name, string baseTexture, string normalTexture, float glossiness)
+    {
+        string path = $"{PresentationPath}/{name}.mat";
+        Material mat = AssetDatabase.LoadAssetAtPath<Material>(path);
+        if (mat == null)
+        {
+            mat = new Material(Shader.Find("Standard"));
+            AssetDatabase.CreateAsset(mat, path);
+        }
+        mat.mainTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(CharactersPath + baseTexture);
+        mat.SetFloat("_Glossiness", glossiness);
+        mat.SetFloat("_Metallic", 0f);
+        if (normalTexture != null)
+        {
+            string normalPath = CharactersPath + normalTexture;
+            if (AssetImporter.GetAtPath(normalPath) is TextureImporter ti && ti.textureType != TextureImporterType.NormalMap)
+            {
+                ti.textureType = TextureImporterType.NormalMap;
+                ti.SaveAndReimport();
+            }
+            Texture2D normal = AssetDatabase.LoadAssetAtPath<Texture2D>(normalPath);
+            if (normal != null)
+            {
+                mat.EnableKeyword("_NORMALMAP");
+                mat.SetTexture("_BumpMap", normal);
+            }
+        }
+        EditorUtility.SetDirty(mat);
+        return mat;
     }
 
     private static void EnsureHumanoidImporters()

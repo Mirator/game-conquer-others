@@ -21,6 +21,12 @@ MonoBehaviour:
   shieldPrefab: {fileID: 919132149155446097, guid: ed50fb3f9d1e4624096fb202e3f179bf, type: 3}
   bowPrefab: {fileID: 919132149155446097, guid: 254f6a6a35d8bca4c95fb13ba226a95a, type: 3}
   arrowPrefab: {fileID: 919132149155446097, guid: 4080a469a2d791e4b87c1ec14940810e, type: 3}
+  headSkinMesh: {fileID: 4300000, guid: ea3aea55dbb481841b901045d56dc520, type: 2}
+  headSkinMaterial: {fileID: 2100000, guid: ad34ac2e3b2cbbc48957eeed0e943d56, type: 2}
+  headEyesMesh: {fileID: 4300000, guid: c7d8d22960d40c140ac4f7d3c102ccce, type: 2}
+  headEyesMaterial: {fileID: 2100000, guid: 22cd5de615946c04a9dd3858635bdd00, type: 2}
+  headBrowsMesh: {fileID: 4300000, guid: 3fc342d84d92f34459f1ad897976a5f8, type: 2}
+  headBrowsMaterial: {fileID: 2100000, guid: 46a3dfc416c846d439ebdd3e356c0236, type: 2}
   houseSmall: {fileID: 3943774984481556519, guid: f28e2d2d5ccb8964e90adc565084f1be, type: 3}
   houseLarge: {fileID: 6551477357343658063, guid: b9b86e7d2c3922a4d94c66826938152e, type: 3}
   townHall: {fileID: 4721124841528299180, guid: bca9cfe053773e241acf76a5c01cd6d4, type: 3}
