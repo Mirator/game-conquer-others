@@ -48,11 +48,25 @@ public static class PresentationAssetBuilder
 
     static PresentationAssetBuilder()
     {
-        EditorApplication.delayCall += EnsureCatalog;
+        // On domain reload, only regenerate when something is actually missing or
+        // invalid. Rebuilding unconditionally re-minted the controller, building
+        // prefabs, and head assets with fresh fileIDs on every reload (constant git
+        // churn) and risked leaving the animator controller with zero layers when an
+        // asset import raced. The menu item still forces a full rebuild on demand.
+        EditorApplication.delayCall += EnsureCatalogValid;
+    }
+
+    // Auto entry (domain reload): rebuild only when the catalog or its generated assets
+    // are absent or invalid — self-healing. A valid catalog is left completely
+    // untouched, so no asset is re-serialized and nothing shows up as modified in git.
+    public static void EnsureCatalogValid()
+    {
+        if (!CatalogIsValid())
+            RebuildCatalog();
     }
 
     [MenuItem("Conquer Others/Presentation/Rebuild Catalog")]
-    public static void EnsureCatalog()
+    public static void RebuildCatalog()
     {
         Directory.CreateDirectory(ResourcesPath);
         PresentationCatalog catalog = AssetDatabase.LoadAssetAtPath<PresentationCatalog>(CatalogPath);
@@ -150,6 +164,47 @@ public static class PresentationAssetBuilder
             || catalog.footsteps.Length == 0 || catalog.ui.Length == 0)
             throw new System.InvalidOperationException("Presentation catalog is incomplete.");
         Debug.Log("Presentation catalog validation passed.");
+    }
+
+    // True when the catalog and its always-generated assets already exist and are
+    // usable, letting the domain-reload auto-rebuild be skipped. Gates only the
+    // essentials that are unconditionally generated (themes, fighter prefabs,
+    // buildings, core SFX/UI) plus a structurally sound animator controller.
+    // Download-dependent slots (bow/arrow, nature variant pools) are deliberately not
+    // gated, so a missing optional download never forces a perpetual rebuild.
+    private static bool CatalogIsValid()
+    {
+        PresentationCatalog catalog = AssetDatabase.LoadAssetAtPath<PresentationCatalog>(CatalogPath);
+        if (catalog == null)
+            return false;
+        bool refs = catalog.courtyard != null && catalog.forest != null && catalog.marsh != null
+            && catalog.highlands != null && catalog.captainPrefab != null && catalog.militiaPrefab != null
+            && catalog.veteranPrefab != null && catalog.guardPrefab != null && catalog.enemyPrefab != null
+            && catalog.swordPrefab != null && catalog.shieldPrefab != null && catalog.houseSmall != null
+            && catalog.houseLarge != null && catalog.townHall != null && catalog.castleKeep != null
+            && catalog.castleTower != null && catalog.panelBorder != null && catalog.buttonBorder != null;
+        bool sfx = catalog.swings != null && catalog.swings.Length > 0 && catalog.blocks != null
+            && catalog.blocks.Length > 0 && catalog.footsteps != null && catalog.footsteps.Length > 0
+            && catalog.ui != null && catalog.ui.Length > 0;
+        return refs && sfx && ControllerHasExpectedStates();
+    }
+
+    // The generated Fighter.controller must have a base layer carrying every state the
+    // runtime cross-fades to. A zero-layer or state-missing controller (which a raced
+    // import can leave behind) counts as invalid, so the next reload regenerates it.
+    private static bool ControllerHasExpectedStates()
+    {
+        AnimatorController controller = AssetDatabase.LoadAssetAtPath<AnimatorController>(
+            PresentationPath + "/Fighter.controller");
+        if (controller == null || controller.layers.Length == 0)
+            return false;
+        HashSet<string> states = new();
+        foreach (ChildAnimatorState child in controller.layers[0].stateMachine.states)
+            states.Add(child.state.name);
+        foreach (AnimationClipSpec spec in FighterAnimationSpecs)
+            if (!states.Contains(spec.StateName))
+                return false;
+        return states.Contains("DeathMirror");
     }
 
     private static ArenaThemeDefinition EnsureTheme(string name, ArenaType arena, Color sun, Color ambient,

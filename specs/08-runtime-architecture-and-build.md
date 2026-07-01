@@ -85,10 +85,17 @@ listener. Each mode's camera carries the single active `AudioListener`.
 - The runtime assembly references the URP runtime assemblies
   (`Unity.RenderPipelines.Core.Runtime`, `Unity.RenderPipelines.Universal.Runtime`)
   so it can build the post-processing Volume stack at runtime.
-- `PresentationAssetBuilder` wires biome scatter model pools and imports the curated
-  MegaKit nature FBXs + textures (normal-mapped, material-description) so scatter is
-  textured; re-run via `Conquer Others > Presentation > Rebuild Catalog` after asset
-  changes.
+- `PresentationAssetBuilder` (editor-only) composes the curated catalog: the fighter
+  animator controller, fighter/head/building prefabs, arena themes, biome scatter
+  model pools, and imported MegaKit nature FBXs + textures (normal-mapped,
+  material-description).
+- On domain reload the builder **only regenerates when the catalog or its generated
+  assets are missing or invalid** (`EnsureCatalogValid` → `CatalogIsValid`), so a
+  valid catalog is left untouched — no asset is re-serialized. This keeps the
+  generated `Fighter.controller`, building prefabs, and head assets out of `git`
+  status on every reload, and self-heals a controller that a raced import left with
+  no layers/states. Force a full rebuild after asset or spec-list changes via
+  `Conquer Others > Presentation > Rebuild Catalog`.
 
 ## Build
 
