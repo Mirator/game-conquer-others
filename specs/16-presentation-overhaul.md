@@ -129,7 +129,9 @@ and sonify that state but must not alter it.
   `battleMusic`, or a synthesized `ProceduralMusic` theme as fallback. The
   overworld map has its own looping theme (`mapMusic` or synth fallback). The
   martial beds duck out on victory so the fanfare stands clear. All music tracks
-  the `musicVolume` setting live.
+  the `musicVolume` setting live. Curated CC0 music is optional: the editor builder
+  auto-wires `Battle`/`Overworld`/`Victory` clips dropped into
+  `Assets/ThirdParty/OpenGameArt/Music/` into the catalog, else the synth themes play.
 - Signature combat cues prefer curated CC0 clips — blade clashes for
   perfect-block and counter, cloth for heavy swings, catalog impacts for arrows —
   with synth fallbacks. Spatial SFX play through a pooled set of 16 voices.

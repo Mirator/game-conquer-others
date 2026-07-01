@@ -171,6 +171,10 @@ Recorded CC0 clip sets are used where curated assets exist:
   clip, or the catalog-wide `battleMusic`, or a synthesized modal theme
   (`ProceduralMusic.BattleTheme`) when neither is curated. On victory the martial
   beds (music and drums) fade out so the fanfare rings clear; the ambient wind stays.
+- Curated CC0 music clips are optional and auto-wired by the editor builder: files
+  named `Battle`/`Overworld`/`Victory` dropped into `Assets/ThirdParty/OpenGameArt/Music/`
+  populate the catalog's `battleMusic`/`mapMusic`/`victoryMusic` on rebuild; absent,
+  the synthesized themes play.
 - The campaign overworld plays its own looping theme (`CampaignMapController`):
   the curated `mapMusic` clip or a synthesized `ProceduralMusic.OverworldTheme`
   fallback, scaling with music volume.

@@ -13,6 +13,10 @@ public static class PresentationAssetBuilder
     private const string AnimationPath = PresentationPath + "/Animations";
     private const string CatalogPath = ResourcesPath + "/PresentationCatalog.asset";
     private const string BuildingsPath = PresentationPath + "/Buildings";
+    // Optional curated CC0 music drop-in folder. Files named Battle.*, Overworld.*,
+    // and Victory.* here are auto-wired into the catalog; absent, the synthesized
+    // ProceduralMusic themes play instead.
+    private const string MusicPath = "Assets/ThirdParty/OpenGameArt/Music";
     private const string WeaponsModelPath = "Assets/ThirdParty/Quaternius/Weapons/";
     private const string VillageModelPath = "Assets/ThirdParty/Quaternius/MedievalVillage/";
     private const string WeaponsZip = "AssetDownloads/Quaternius/Medieval Weapons Pack by @Quaternius.zip";
@@ -89,6 +93,11 @@ public static class PresentationAssetBuilder
         catalog.blocks = LoadClips("metal");
         catalog.footsteps = LoadClips("footstep");
         catalog.ui = LoadClips("click");
+        // Curated CC0 music is optional: when present it replaces the synthesized
+        // ProceduralMusic fallback (drop files into MusicPath and re-run this rebuild).
+        catalog.battleMusic = LoadMusic("Battle");
+        catalog.mapMusic = LoadMusic("Overworld");
+        catalog.victoryMusic = LoadMusic("Victory");
         catalog.panelBorder = LoadSprite("Assets/ThirdParty/Kenney/FantasyUI/panel-border-024.png");
         catalog.buttonBorder = LoadSprite("Assets/ThirdParty/Kenney/FantasyUI/panel-border-010.png");
         EnsureHumanoidImporters();
@@ -224,6 +233,21 @@ public static class PresentationAssetBuilder
         theme.fogDensity = density;
         EditorUtility.SetDirty(theme);
         return theme;
+    }
+
+    // Finds an optional curated music clip by exact base name in the drop-in folder.
+    // Returns null when the folder or file is absent, leaving the synth fallback active.
+    private static AudioClip LoadMusic(string baseName)
+    {
+        if (!Directory.Exists(MusicPath))
+            return null;
+        foreach (string guid in AssetDatabase.FindAssets($"t:AudioClip {baseName}", new[] { MusicPath }))
+        {
+            AudioClip clip = AssetDatabase.LoadAssetAtPath<AudioClip>(AssetDatabase.GUIDToAssetPath(guid));
+            if (clip != null && clip.name == baseName)
+                return clip;
+        }
+        return null;
     }
 
     private static AudioClip[] LoadClips(string contains)

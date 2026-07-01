@@ -90,9 +90,9 @@ MonoBehaviour:
   campFence: {fileID: 919132149155446097, guid: f54c97d588632324c8b147b74214e86d, type: 3}
   panelBorder: {fileID: 21300000, guid: 2ed30cb3fd7b3c247b516f5312174731, type: 3}
   buttonBorder: {fileID: 21300000, guid: e78f9dcae071b9245ae4458737842000, type: 3}
-  mapMusic: {fileID: 0}
-  battleMusic: {fileID: 0}
-  victoryMusic: {fileID: 0}
+  mapMusic: {fileID: 8300000, guid: f930618dee6eb97428575eb774c55556, type: 3}
+  battleMusic: {fileID: 8300000, guid: fa11e390b883a324899703058736be71, type: 3}
+  victoryMusic: {fileID: 8300000, guid: 3d3ee080003983e43944083936e9c2b7, type: 3}
   defeatMusic: {fileID: 0}
   swings:
   - {fileID: 8300000, guid: 466bde37a3d6b0d4ea96875a1bd5e4ad, type: 3}

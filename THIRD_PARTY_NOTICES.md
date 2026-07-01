@@ -20,6 +20,9 @@ listed below.
 | Quaternius | Medieval Village MegaKit | https://quaternius.com/packs/medievalvillagemegakit.html | Wall, arch, wagon, crate, fence, tower roof, and the round-tile roof pieces composed into settlement houses/hall/castle |
 | Quaternius | Medieval Weapons Pack | https://quaternius.com/packs/medievalweapons.html | Wooden bow and arrow FBXs |
 | Quaternius | Stylized Nature MegaKit | https://quaternius.com/packs/stylizednaturemegakit.html | Tree/pine/dead-tree/rock variants, bushes, grass tufts, ferns, flowers, mushrooms, pebbles, and the kit bark/leaf/grass/rock textures |
+| OpenGameArt (RandomMind) | Medieval: Battle | https://opengameart.org/content/medieval-battle | Battle music loop (`Battle.mp3`) |
+| OpenGameArt (cynicmusic) | Town Theme RPG | https://opengameart.org/content/town-theme-rpg | Overworld/map theme (`Overworld.mp3`) |
+| OpenGameArt (cynicmusic) | Victory Theme for RPG | https://opengameart.org/content/victory-theme-for-rpg | Victory theme (`Victory.mp3`) |
 
 ## Approved Future Intake Sources
 
@@ -29,5 +32,9 @@ subset and retains procedural fallbacks until authored prefabs are validated:
 
 - Additional Quaternius models not listed in the curated subset:
   https://quaternius.com/
-- OpenGameArt CC0 fantasy music and sounds:
+- More OpenGameArt CC0 fantasy music and sounds:
   https://opengameart.org/content/cc0-fantasy-music-sounds
+
+Additional curated CC0 music drops into `Assets/ThirdParty/OpenGameArt/Music/`
+as `Battle`/`Overworld`/`Victory` and auto-wires on the next
+`Conquer Others > Presentation > Rebuild Catalog`.
