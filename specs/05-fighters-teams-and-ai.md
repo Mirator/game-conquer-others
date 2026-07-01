@@ -103,6 +103,13 @@ top of the tier's own stat scale.
 | Archer | Bow | Ranged skirmisher: never melee-guards, falls back early. | 0.9 | 1.0 |
 | Captain | Sword & Shield | Elite duelist and morale anchor: skilled defense, tricky offense, holds long. Reads as elite via a 1.18x model and a bright gold crest. | 1.45 | 1.25 |
 
+Each archetype also gets a distinct look so it reads at a glance in the melee (a
+silhouette scale, trim colour, headgear, and shield size — see `StyleFor` in
+[BattleFighterPresentation.cs](../Assets/Scripts/BattleFighterPresentation.cs) and
+[16](16-presentation-overhaul.md)): the bulky bare-headed blood-trimmed Berserker,
+the sturdy big-shield steel-trimmed Shieldbearer, the lean green-trimmed Archer,
+and the tall gold-crested Captain.
+
 An `AIProfile` carries aggression (plus per-fighter jitter), a range scale,
 guard chance, block-correctness against the player and against AI, feint chance,
 recovery-punish chance, retreat bravery, a late-guard-read chance

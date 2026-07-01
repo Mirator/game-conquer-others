@@ -51,6 +51,44 @@ public sealed class BattleFighterPresentation
     private float hitRollTarget;
     private float previousStaggerTimer;
 
+    // A per-archetype look so units read at a glance: a silhouette scale, an accent
+    // colour (helmet ridge, bow grip; and the primitive-fallback trim), whether the
+    // fighter goes bare-headed, and a shield-size multiplier.
+    private readonly struct ArchetypeStyle
+    {
+        public readonly Vector3 Scale;
+        public readonly Color Accent;
+        public readonly bool BareHeaded;
+        public readonly float ShieldScale;
+        public ArchetypeStyle(Vector3 scale, Color accent, bool bareHeaded, float shieldScale)
+        {
+            Scale = scale;
+            Accent = accent;
+            BareHeaded = bareHeaded;
+            ShieldScale = shieldScale;
+        }
+    }
+
+    private static ArchetypeStyle StyleFor(Archetype archetype, UnitType unitType, Color leather)
+    {
+        // Plain soldiers keep the per-tier accent (Guard gold, Veteran silver, else
+        // leather); each combat archetype overrides it with its own identity.
+        Color tierAccent = unitType == UnitType.Guard ? new Color(0.92f, 0.72f, 0.18f)
+            : unitType == UnitType.Veteran ? new Color(0.62f, 0.66f, 0.68f) : leather;
+        return archetype switch
+        {
+            // Elite: tallest silhouette, bright gold crest.
+            Archetype.Captain => new ArchetypeStyle(Vector3.one * 1.18f, new Color(0.96f, 0.84f, 0.26f), false, 1f),
+            // Bulky and bare-headed, blood-red trim — the reckless brawler.
+            Archetype.Berserker => new ArchetypeStyle(new Vector3(1.09f, 1.05f, 1.09f), new Color(0.74f, 0.16f, 0.12f), true, 0.9f),
+            // Lean, hooded, forest-green trim — the skirmisher.
+            Archetype.Archer => new ArchetypeStyle(new Vector3(0.96f, 1f, 0.96f), new Color(0.28f, 0.5f, 0.22f), false, 1f),
+            // Sturdy stance and an oversized shield, steel trim — the wall.
+            Archetype.Shieldbearer => new ArchetypeStyle(new Vector3(1.06f, 1.02f, 1.06f), new Color(0.6f, 0.64f, 0.7f), false, 1.24f),
+            _ => new ArchetypeStyle(Vector3.one, tierAccent, false, 1f)
+        };
+    }
+
     public BattleFighterPresentation(Transform fighterTransform, Team team, UnitType unitType, WeaponType fighterWeapon,
         Archetype archetype = Archetype.Soldier)
     {
@@ -61,15 +99,13 @@ public sealed class BattleFighterPresentation
         Color cloth = team == Team.Allies ? new Color(0.08f, 0.17f, 0.32f) : new Color(0.32f, 0.07f, 0.05f);
         Color metal = new Color(0.55f, 0.6f, 0.65f);
         Color leather = new Color(0.2f, 0.1f, 0.04f);
-        // Captains wear a bright crest so they read as the elite target.
-        Color rankColor = archetype == Archetype.Captain ? new Color(0.96f, 0.84f, 0.26f)
-            : unitType == UnitType.Guard ? new Color(0.92f, 0.72f, 0.18f)
-            : unitType == UnitType.Veteran ? new Color(0.62f, 0.66f, 0.68f) : leather;
+        // Distinct silhouette, accent, headgear, and shield size per archetype.
+        ArchetypeStyle style = StyleFor(archetype, unitType, leather);
+        Color rankColor = style.Accent;
         modelRoot = new GameObject("Animated Model").transform;
         modelRoot.SetParent(fighter, false);
-        // A larger silhouette marks the captain without touching the collider.
-        if (archetype == Archetype.Captain)
-            modelRoot.localScale = Vector3.one * 1.18f;
+        // Silhouette scale marks the archetype without touching the collider.
+        modelRoot.localScale = style.Scale;
         PresentationCatalog catalog = PresentationCatalog.Load();
         GameObject authoredPrefab = UseAuthoredFighterBodies && catalog != null
             ? catalog.Fighter(unitType, team, isPlayerFighter) : null;
@@ -82,9 +118,10 @@ public sealed class BattleFighterPresentation
             hasAuthoredModel = true;
             authoredView?.ApplyTeam(team);
             // The player goes bare-headed so their face reads as the hero; the ranger
-            // body's hood would otherwise hide the authored head. Other ranger-based
-            // units (enemy captains, veterans, guards) keep their hood.
-            if (isPlayerFighter)
+            // body's hood would otherwise hide the authored head. Berserkers also fight
+            // bare-headed. Other ranger-based units (captains, veterans, guards, archers)
+            // keep their hood.
+            if (isPlayerFighter || style.BareHeaded)
                 foreach (Renderer renderer in authored.GetComponentsInChildren<Renderer>(true))
                     if (renderer.name.Contains("Head_Hood"))
                         renderer.enabled = false;
@@ -101,9 +138,14 @@ public sealed class BattleFighterPresentation
             CreatePart("Chest Plate", PrimitiveType.Cube, modelRoot, new Vector3(0f, 1.2f, 0.25f), new Vector3(0.42f, 0.5f, 0.08f), teamColor);
             CreatePart("Back Heraldry", PrimitiveType.Cube, modelRoot, new Vector3(0f, 1.22f, -0.255f), new Vector3(0.24f, 0.5f, 0.055f), teamColor);
             CreatePart("Head", PrimitiveType.Sphere, modelRoot, new Vector3(0f, 1.76f, 0f), Vector3.one * 0.32f, new Color(0.72f, 0.5f, 0.32f));
-            CreatePart("Helmet", PrimitiveType.Sphere, modelRoot, new Vector3(0f, 1.86f, 0f), new Vector3(0.38f, 0.22f, 0.38f), metal);
-            CreatePart("Helmet Ridge", PrimitiveType.Cube, modelRoot, new Vector3(0f, 1.98f, 0f),
-                unitType == UnitType.Guard ? new Vector3(0.13f, 0.25f, 0.48f) : new Vector3(0.08f, 0.16f, 0.44f), rankColor);
+            // Berserkers fight bare-headed; everyone else wears a helmet with an
+            // accent-coloured ridge that carries their archetype/tier identity.
+            if (!style.BareHeaded)
+            {
+                CreatePart("Helmet", PrimitiveType.Sphere, modelRoot, new Vector3(0f, 1.86f, 0f), new Vector3(0.38f, 0.22f, 0.38f), metal);
+                CreatePart("Helmet Ridge", PrimitiveType.Cube, modelRoot, new Vector3(0f, 1.98f, 0f),
+                    unitType == UnitType.Guard ? new Vector3(0.13f, 0.25f, 0.48f) : new Vector3(0.08f, 0.16f, 0.44f), rankColor);
+            }
             CreatePart("Belt", PrimitiveType.Cube, modelRoot, new Vector3(0f, 0.88f, 0f), new Vector3(0.58f, 0.09f, 0.44f), leather);
         }
 
@@ -169,6 +211,8 @@ public sealed class BattleFighterPresentation
         }
 
         shieldPivot = NewPivot("Shield Pivot", leftArm, new Vector3(-0.04f, -0.38f, 0.3f));
+        // Shieldbearers carry an oversized shield; berserkers a slightly smaller one.
+        shieldPivot.localScale = Vector3.one * style.ShieldScale;
         CreatePart("Shield", PrimitiveType.Cylinder, shieldPivot, Vector3.zero, new Vector3(0.54f, 0.1f, 0.66f), teamColor, new Vector3(90f, 0f, 0f));
         CreatePart("Shield Boss", PrimitiveType.Sphere, shieldPivot, new Vector3(0f, 0f, -0.08f), Vector3.one * 0.22f, metal);
         if (catalog != null && catalog.shieldPrefab != null)

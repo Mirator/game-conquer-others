@@ -31,6 +31,12 @@ and sonify that state but must not alter it.
   generated fighter prefabs, even when they share an underlying Quaternius
   outfit mesh. Captains read as elite through a 1.18x silhouette and a bright
   gold crest.
+- Each combat archetype is given its own silhouette and trim at build time
+  (`BattleFighterPresentation.StyleFor`) so it reads at a glance on both the
+  authored and primitive paths: Berserkers are bulkier, bare-headed, and
+  blood-red-trimmed with a smaller shield; Shieldbearers are sturdier with an
+  oversized shield and steel trim; Archers are leaner with green trim; plain
+  Soldiers keep the per-tier accent (Guard gold, Veteran silver).
 - Runtime must not attach unbound rank accent geometry to authored animated
   fighters; any added geometry (weapons, head) must attach to validated bones or
   sockets so it follows the animation.
