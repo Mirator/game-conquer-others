@@ -6,6 +6,7 @@ public sealed class BattleEffects : MonoBehaviour
     private const int SpatialVoices = 16;
     private const float AmbienceBaseVolume = 0.11f;
     private const float DrumBaseVolume = 0.12f;
+    private const float MusicBaseVolume = 0.13f;
 
     private readonly List<ParticleSystem> particlePool = new();
     private readonly List<ParticleSystem> dustPool = new();
@@ -18,8 +19,13 @@ public sealed class BattleEffects : MonoBehaviour
     private AudioSource uiSource;
     private AudioSource ambienceSource;
     private AudioSource drumSource;
+    private AudioSource musicSource;
     private AudioSource weatherSource;
     private float weatherBaseVolume;
+    // Fades the martial beds (music + drums) to silence when the fight ends so the
+    // victory fanfare rings out; the environmental wind bed keeps playing.
+    private float musicDuck = 1f;
+    private float musicDuckTarget = 1f;
     private AudioClip hitClip;
     private AudioClip blockClip;
     private AudioClip perfectBlockClip;
@@ -53,6 +59,15 @@ public sealed class BattleEffects : MonoBehaviour
         drumSource.volume = DrumBaseVolume * MusicVolume;
         drumSource.Play();
 
+        // A melodic battle bed on top of the drums. Starts on the synthesized theme;
+        // Initialize(arena) swaps in a curated clip when the catalog provides one.
+        musicSource = gameObject.AddComponent<AudioSource>();
+        musicSource.clip = RuntimeAssets.Audio("Battle Theme", ProceduralMusic.BattleTheme);
+        musicSource.loop = true;
+        musicSource.spatialBlend = 0f;
+        musicSource.volume = MusicBaseVolume * MusicVolume;
+        musicSource.Play();
+
         hitClip = RandomClip(catalog != null ? catalog.impacts : null) ?? Tone("Hit", 115f, 0.12f, true);
         blockClip = RandomClip(catalog != null ? catalog.blocks : null) ?? Tone("Block", 620f, 0.13f, true);
         // Signature cues prefer curated CC0 clips from Resources, falling back to
@@ -76,15 +91,19 @@ public sealed class BattleEffects : MonoBehaviour
             spatialPool.Add(CreateSpatialVoice(i));
     }
 
-    // The looping ambience and drum bed are the closest thing to music, so the
-    // music-volume setting scales them live (it can change from the pause menu).
+    // The music, drum, and ambience beds all track the music-volume setting live
+    // (it can change from the pause menu). The martial beds (music + drums) also
+    // fade out on victory via musicDuck; the environmental beds do not.
     private void Update()
     {
+        musicDuck = Mathf.MoveTowards(musicDuck, musicDuckTarget, Time.unscaledDeltaTime / 1.2f);
         float music = MusicVolume;
         if (ambienceSource != null)
             ambienceSource.volume = AmbienceBaseVolume * music;
         if (drumSource != null)
-            drumSource.volume = DrumBaseVolume * music;
+            drumSource.volume = DrumBaseVolume * music * musicDuck;
+        if (musicSource != null)
+            musicSource.volume = MusicBaseVolume * music * musicDuck;
         foreach ((AudioSource source, float baseVolume) in ambientEmitters)
             if (source != null)
                 source.volume = baseVolume * music;
@@ -95,15 +114,23 @@ public sealed class BattleEffects : MonoBehaviour
     private static float MusicVolume => SettingsService.Current != null ? SettingsService.Current.musicVolume : 1f;
     private static float EffectsVolume => SettingsService.Current != null ? SettingsService.Current.effectsVolume : 1f;
 
-    // Swaps in the arena's ambient bed if the theme provides one (else the
-    // synthesized wind from Awake stays). Called once per battle build.
+    // Swaps in the arena's curated ambient and music beds if the theme provides them
+    // (else the synthesized wind and battle theme from Awake stay). A per-arena music
+    // clip wins over the catalog-wide battle track. Called once per battle build.
     public void Initialize(ArenaType arena)
     {
-        AudioClip themed = catalog != null ? catalog.Theme(arena)?.ambience : null;
-        if (themed != null && ambienceSource != null)
+        ArenaThemeDefinition theme = catalog != null ? catalog.Theme(arena) : null;
+        if (theme?.ambience != null && ambienceSource != null)
         {
-            ambienceSource.clip = themed;
+            ambienceSource.clip = theme.ambience;
             ambienceSource.Play();
+        }
+        AudioClip music = theme != null && theme.music != null ? theme.music
+            : catalog != null ? catalog.battleMusic : null;
+        if (music != null && musicSource != null)
+        {
+            musicSource.clip = music;
+            musicSource.Play();
         }
     }
 
@@ -190,8 +217,11 @@ public sealed class BattleEffects : MonoBehaviour
 
     public void PlayVictory()
     {
+        musicDuckTarget = 0f; // fade the martial beds so the fanfare rings out
         uiSource.pitch = 1f;
         uiSource.PlayOneShot(victoryClip, 0.7f);
+        if (catalog != null && catalog.victoryMusic != null)
+            uiSource.PlayOneShot(catalog.victoryMusic, 0.7f * MusicVolume);
     }
 
     // A heavier blood burst punctuating a lethal blow; the killing hit's own

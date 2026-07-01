@@ -84,6 +84,24 @@ public sealed class PresentationValidationTests
         }
     }
 
+    // Curated music clips (battleMusic/mapMusic/victoryMusic, ArenaThemeDefinition.music)
+    // ship empty, so the audible music layer resolves through the synthesized fallback.
+    // Guard that both themes generate real, in-range, mono audio rather than silence.
+    [Test]
+    public void ProceduralMusic_GeneratesAudibleInRangeThemes()
+    {
+        foreach (AudioClip clip in new[] { ProceduralMusic.BattleTheme(), ProceduralMusic.OverworldTheme() })
+        {
+            Assert.That(clip, Is.Not.Null);
+            Assert.That(clip.channels, Is.EqualTo(1));
+            Assert.That(clip.samples, Is.GreaterThan(0));
+            float[] data = new float[clip.samples * clip.channels];
+            clip.GetData(data, 0);
+            Assert.That(data.Any(sample => Mathf.Abs(sample) > 0.001f), Is.True, "theme should contain audio, not silence.");
+            Assert.That(data.All(sample => sample >= -1f && sample <= 1f), Is.True, "samples must stay within [-1, 1].");
+        }
+    }
+
     [Test]
     public void Settings_RoundTripThroughPlayerPrefs()
     {

@@ -119,6 +119,11 @@ and sonify that state but must not alter it.
 - A per-arena ambient bed (`ArenaThemeDefinition.ambience`, swapped in by
   `BattleEffects.Initialize`) plays under the distant-drum bed, both scaled by
   music volume.
+- A music bed plays over the drums: the arena theme's `music`, the catalog-wide
+  `battleMusic`, or a synthesized `ProceduralMusic` theme as fallback. The
+  overworld map has its own looping theme (`mapMusic` or synth fallback). The
+  martial beds duck out on victory so the fanfare stands clear. All music tracks
+  the `musicVolume` setting live.
 - Signature combat cues prefer curated CC0 clips — blade clashes for
   perfect-block and counter, cloth for heavy swings, catalog impacts for arrows —
   with synth fallbacks. Spatial SFX play through a pooled set of 16 voices.

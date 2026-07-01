@@ -167,6 +167,13 @@ Recorded CC0 clip sets are used where curated assets exist:
 - A per-arena ambient bed, swapped in by `BattleEffects.Initialize(arena)` from
   the arena theme's `ambience` clip, falling back to synthesized wind when none
   is set. The ambient bed and a distant-drum bed both scale with music volume.
+- A looping battle-music bed on top of the drums: a per-arena `ArenaThemeDefinition.music`
+  clip, or the catalog-wide `battleMusic`, or a synthesized modal theme
+  (`ProceduralMusic.BattleTheme`) when neither is curated. On victory the martial
+  beds (music and drums) fade out so the fanfare rings clear; the ambient wind stays.
+- The campaign overworld plays its own looping theme (`CampaignMapController`):
+  the curated `mapMusic` clip or a synthesized `ProceduralMusic.OverworldTheme`
+  fallback, scaling with music volume.
 - Positional 3D ambient emitters placed per biome (`BattleEffects.AddBirdsong/
   AddMarshChorus/AddWindGust`) give the field spatial life — synthesized birdsong in
   wooded arenas, a frog/insect chorus near the marsh, gusting wind in the highlands.

@@ -15,6 +15,9 @@ public sealed class CampaignMapController : MonoBehaviour
     private Camera cam;
     private CampaignMapCamera cameraRig;
     private Light mapSun;
+    private AudioSource mapMusicSource;
+    private const float MapMusicBaseVolume = 0.11f;
+    private static float MusicVolume => SettingsService.Current != null ? SettingsService.Current.musicVolume : 1f;
     private GameObject trainingNode;
     private Renderer trainingRenderer;
     private TextMesh mapTooltip;
@@ -166,6 +169,24 @@ public sealed class CampaignMapController : MonoBehaviour
         BuildTrainingNode();
         BuildPartyMarkers();
         BuildMapTooltip();
+        BuildMapMusic();
+    }
+
+    // A gentle overworld theme. Starts on the synthesized bed and prefers the
+    // curated map track when the catalog provides one. The source lives under the
+    // map root, so it stops automatically when the map is torn down for a battle.
+    private void BuildMapMusic()
+    {
+        GameObject go = new GameObject("Map Music");
+        go.transform.SetParent(transform);
+        mapMusicSource = go.AddComponent<AudioSource>();
+        mapMusicSource.clip = Catalog != null && Catalog.mapMusic != null
+            ? Catalog.mapMusic
+            : RuntimeAssets.Audio("Overworld Theme", ProceduralMusic.OverworldTheme);
+        mapMusicSource.loop = true;
+        mapMusicSource.spatialBlend = 0f;
+        mapMusicSource.volume = MapMusicBaseVolume * MusicVolume;
+        mapMusicSource.Play();
     }
 
     // Map placement, display strings, and the recruit-gate reason live in the pure,
@@ -473,6 +494,11 @@ public sealed class CampaignMapController : MonoBehaviour
     {
         if (campaign == null || cam == null)
             return;
+
+        // Track the music-volume setting live; updated before the pause gate below so
+        // the pause-menu slider takes effect immediately.
+        if (mapMusicSource != null)
+            mapMusicSource.volume = MapMusicBaseVolume * MusicVolume;
 
         // Escape (or the MENU button) opens the pause menu — the way to reach
         // settings, return to title, or quit from the map. While paused the map
