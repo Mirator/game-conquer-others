@@ -69,10 +69,10 @@
 
 | Mode | Distance | Field of View |
 |---|---:|---:|
-| Normal | 5.95 | 59 |
-| Sprinting | 6.6 | 64 |
-| Blocking | 5.45 | 56 |
-| Bow aiming | 5.15 | 51 |
+| Normal | 7.05 | 57 |
+| Sprinting | 7.4 | 63 |
+| Blocking | 6.2 | 55 |
+| Bow aiming | 5.6 | 50 |
 
 ## Campaign Map Camera
 

@@ -102,7 +102,9 @@ cleared first when no editor is open.
 
 Deterministic PlayMode tests cover directional combat diagnostics, perfect
 blocks and counters, attack-permission limits, engagement-slot distribution,
-separation steering, and battle-result lifecycle behavior.
+separation steering, battle-result lifecycle behavior, the campaign-map diorama
+build, and camera combat-feedback (the FOV punch is suppressed under reduced
+motion).
 
 Deterministic EditMode tests in `Assets/Tests/EditMode/`
 (`CampaignAndCombatTests.cs` and `OverworldSimulationTests.cs`) cover a fresh

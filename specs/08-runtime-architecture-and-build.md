@@ -57,6 +57,7 @@ listener. Each mode's camera carries the single active `AudioListener`.
 | `AIFighter` | Targeting, movement, attacks, and blocks. |
 | `ThirdPersonCamera` | Orbit, collision, framing, FOV, and shake. |
 | `BattleEffects` | Procedural audio and impact sparks. |
+| `ProceduralMusic` | Synthesizes seamless-looping fallback battle and overworld music themes when no curated music clip is catalogued. |
 | `RuntimeAssets` | Caches and shares generated materials and procedural audio clips. |
 | `ArenaMetrics` | Single source of battlefield dimensions (footprint, ground, walls, spawn lanes, retreat edges). |
 | `GraphicsQuality` | Maps the active quality level to coarse tiers for scaling presentation. |
