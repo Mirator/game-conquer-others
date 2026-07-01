@@ -55,7 +55,12 @@
   (`PlaySweep`) before easing into the follow camera; the first click skips it, and it
   is skipped entirely under reduced motion.
 - Movement adds subtle bob and sway.
-- Impacts and dodges may add short camera shake.
+- Impacts and dodges may add short camera shake. Heavy, player-local events also
+  add a punchier `AddImpulse` response: a brief zoom-in (FOV punch) and a
+  directional camera kick along the blow — strongest on the player's killing blow
+  and on taking an unblocked hit, crisper on a perfect block or counter. The punch
+  and kick are scaled by the camera-shake setting and dropped entirely under
+  reduced motion (the base follow camera and stance FOV still track normally).
 - Mouse look pauses while either combat mouse button is held, so direction
   gestures do not rotate the camera. Bow aiming is the exception: mouse look
   remains active while the bow is drawn.

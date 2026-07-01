@@ -196,7 +196,9 @@ public sealed class BattleEffects : MonoBehaviour
         PlaySpatial(whiffClip, position + Vector3.up, player ? 0.38f : 0.12f, player ? 0.9f : Random.Range(0.75f, 0.9f), 9f);
     }
 
-    public void PlayImpact(Vector3 position, bool blocked, bool perfectBlock, bool counterStrike)
+    // blowDirection points from attacker to victim; the spark burst flies that way
+    // for a landed hit, and back off the guard (toward the attacker) for a block.
+    public void PlayImpact(Vector3 position, bool blocked, bool perfectBlock, bool counterStrike, Vector3 blowDirection = default)
     {
         AudioClip clip = perfectBlock ? perfectBlockClip : counterStrike ? counterClip : blocked ? blockClip : hitClip;
         PlaySpatial(clip, position + Vector3.up * 1.2f, perfectBlock ? 1f : blocked ? 0.9f : 0.82f,
@@ -204,7 +206,8 @@ public sealed class BattleEffects : MonoBehaviour
         Color color = perfectBlock ? new Color(0.7f, 0.95f, 1f)
             : counterStrike ? new Color(1f, 0.82f, 0.18f)
             : blocked ? new Color(1f, 0.78f, 0.25f) : new Color(0.85f, 0.12f, 0.05f);
-        SpawnSparks(position + Vector3.up * 1.2f, color, perfectBlock ? 18 : counterStrike ? 14 : blocked ? 10 : 10);
+        Vector3 spray = blocked ? -blowDirection : blowDirection;
+        SpawnSparks(position + Vector3.up * 1.2f, color, perfectBlock ? 18 : counterStrike ? 14 : blocked ? 10 : 10, spray);
     }
 
     public void PlayArrowImpact(Vector3 position, bool fighterHit)
@@ -225,11 +228,13 @@ public sealed class BattleEffects : MonoBehaviour
     }
 
     // A heavier blood burst punctuating a lethal blow; the killing hit's own
-    // impact sound already plays through PlayImpact.
-    public void PlayKill(Vector3 position)
+    // impact sound already plays through PlayImpact. blowDirection sprays the blood
+    // along the strike so the finisher reads directionally, distinct from the
+    // ground splat decal the battle manager lays down.
+    public void PlayKill(Vector3 position, Vector3 blowDirection = default)
     {
-        SpawnSparks(position + Vector3.up * 1.1f, new Color(0.5f, 0.02f, 0.01f), 22);
-        SpawnSparks(position + Vector3.up * 0.7f, new Color(0.4f, 0.03f, 0.02f), 12);
+        SpawnSparks(position + Vector3.up * 1.1f, new Color(0.5f, 0.02f, 0.01f), 22, blowDirection);
+        SpawnSparks(position + Vector3.up * 0.7f, new Color(0.4f, 0.03f, 0.02f), 12, blowDirection);
         PlayDust(position, 7);
     }
 
@@ -271,11 +276,15 @@ public sealed class BattleEffects : MonoBehaviour
         return source;
     }
 
-    private void SpawnSparks(Vector3 position, Color color, int count)
+    private void SpawnSparks(Vector3 position, Color color, int count, Vector3 direction = default)
     {
         ParticleSystem particles = particlePool[particleCursor];
         particleCursor = (particleCursor + 1) % particlePool.Count;
         particles.transform.position = position;
+        // The cone emitter fires along its local +Z; aim it down the blow (or up when
+        // no direction is given, e.g. arrow hits and guard breaks).
+        Vector3 aim = direction.sqrMagnitude > 1e-4f ? direction.normalized : Vector3.up;
+        particles.transform.rotation = Quaternion.LookRotation(aim);
         ParticleSystem.MainModule main = particles.main;
         main.startColor = color;
         particles.Emit(count);
@@ -309,9 +318,12 @@ public sealed class BattleEffects : MonoBehaviour
         main.maxParticles = 48;
         ParticleSystem.EmissionModule emission = particles.emission;
         emission.enabled = false;
+        // A cone (rather than a sphere) so the burst throws along the blow direction
+        // set by SpawnSparks; a wide angle keeps it reading as a splash, not a jet.
         ParticleSystem.ShapeModule shape = particles.shape;
-        shape.shapeType = ParticleSystemShapeType.Sphere;
-        shape.radius = 0.16f;
+        shape.shapeType = ParticleSystemShapeType.Cone;
+        shape.angle = 32f;
+        shape.radius = 0.08f;
         ParticleSystemRenderer renderer = particles.GetComponent<ParticleSystemRenderer>();
         renderer.sharedMaterial = RuntimeAssets.SoftParticleMaterial(); // soft round sparks, not hard squares
         return particles;

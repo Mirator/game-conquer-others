@@ -83,7 +83,11 @@ Implementation status: P0, P1, P2, P3, and the P4 feedback-clarity pass are deli
    nearby important strike. Distant AI impacts should not shake the camera.
 
 Delivered: landed player hits apply damage-scaled hit-stop, and a lethal blow
-adds a meaty finisher pause, a blood burst, and a camera kick.
+adds a meaty finisher pause, a blood burst, and a camera kick. Player-local
+impacts also drive a camera FOV punch and a directional kick (via
+`ThirdPersonCamera.AddImpulse`), scaled to the event and suppressed under reduced
+motion. Impact and blood-spray particles are thrown along the blow direction so a
+hit reads directionally.
 
 ### P2 - Control Group Combat
 

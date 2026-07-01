@@ -20,6 +20,12 @@ public sealed class ThirdPersonCamera : MonoBehaviour
     private float yaw;
     private float pitch = 12f;
     private float shake;
+    // Transient, event-scaled combat feedback layered on top of the follow camera:
+    // a brief zoom-in (fovPunch) and a directional shove (kick), both easing to rest.
+    private float fovBase = 57f;
+    private float fovPunch;
+    private float kick;
+    private Vector3 kickDir = Vector3.down;
     private float movementAmount;
     private float stride;
     private int cameraCollisionMask = ~0;
@@ -50,6 +56,8 @@ public sealed class ThirdPersonCamera : MonoBehaviour
         player = followTarget.GetComponent<PlayerFighter>();
         yaw = followTarget.eulerAngles.y;
         attachedCamera = GetComponent<Camera>();
+        if (attachedCamera != null)
+            fovBase = attachedCamera.fieldOfView;
         previousTargetPosition = followTarget.position;
         smoothPosition = transform.position;
         cameraCollisionMask = ~LayerMask.GetMask("Ignore Raycast");
@@ -58,6 +66,21 @@ public sealed class ThirdPersonCamera : MonoBehaviour
     public void AddShake(float amount)
     {
         shake = Mathf.Max(shake, amount);
+    }
+
+    // A punchier response to a heavy, local combat event: a brief zoom-in
+    // (fovPunchAmount, in degrees) plus an optional directional shove of the camera
+    // (kickAmount, in metres, along worldDirection). Both ease back to rest and are
+    // scaled by the camera-shake setting and zeroed under reduced motion.
+    public void AddImpulse(float fovPunchAmount, float kickAmount = 0f, Vector3 worldDirection = default)
+    {
+        fovPunch = Mathf.Max(fovPunch, fovPunchAmount);
+        if (kickAmount > kick)
+        {
+            kick = kickAmount;
+            if (worldDirection != default)
+                kickDir = worldDirection.normalized;
+        }
     }
 
     private void UpdateSweep()
@@ -128,9 +151,14 @@ public sealed class ThirdPersonCamera : MonoBehaviour
 
         smoothPosition = Vector3.Lerp(smoothPosition, wanted, 18f * Time.deltaTime);
         shake = Mathf.MoveTowards(shake, 0f, 3.8f * Time.unscaledDeltaTime);
+        kick = Mathf.MoveTowards(kick, 0f, 9f * Time.unscaledDeltaTime);
+        fovPunch = Mathf.MoveTowards(fovPunch, 0f, 55f * Time.unscaledDeltaTime);
         float shakeScale = SettingsService.Current != null ? SettingsService.Current.cameraShake : 1f;
+        // Reduced motion drops the punchy additive feedback entirely; the base
+        // follow camera and stance-driven FOV still track normally.
+        float impulseScale = SettingsService.Current != null && SettingsService.Current.reduceMotion ? 0f : shakeScale;
         Vector3 shakeOffset = Random.insideUnitSphere * shake * shakeScale;
-        transform.position = smoothPosition + shakeOffset;
+        transform.position = smoothPosition + shakeOffset + kickDir * (kick * impulseScale);
 
         Vector3 lookTarget = focus + forward * 4f + Vector3.up * (blocking ? 0.12f : 0.05f);
         Quaternion lookRotation = Quaternion.LookRotation(lookTarget - transform.position);
@@ -139,7 +167,9 @@ public sealed class ThirdPersonCamera : MonoBehaviour
         if (attachedCamera != null)
         {
             float targetFov = rangedAim ? 50f : sprinting ? 63f : blocking ? 55f : 57f;
-            attachedCamera.fieldOfView = Mathf.Lerp(attachedCamera.fieldOfView, targetFov, 6f * Time.deltaTime);
+            fovBase = Mathf.Lerp(fovBase, targetFov, 6f * Time.deltaTime);
+            // The punch zooms in (lower FOV) over the stance-driven base, then eases out.
+            attachedCamera.fieldOfView = Mathf.Max(1f, fovBase - fovPunch * impulseScale);
         }
     }
 }

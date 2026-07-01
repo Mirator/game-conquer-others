@@ -102,6 +102,7 @@ public sealed class PlayerFighter : BattleFighter
             dodgeCooldown = 0.6f;
             SetBlock(false, selectedDirection);
             cameraRig.AddShake(0.055f);
+            cameraRig.AddImpulse(1.2f, 0.18f, dodgeDirection); // a quick shove in the dodge direction
         }
 
         if (dodgeTimer > 0f)

@@ -348,14 +348,20 @@ public sealed class BattleManager : MonoBehaviour
     {
         if (victim == null)
             return;
-        effects?.PlayKill(victim.transform.position);
+        Vector3 blow = attacker != null ? victim.transform.position - attacker.transform.position : Vector3.zero;
+        effects?.PlayKill(victim.transform.position, blow);
         decals?.AddBlood(victim.transform.position, Random.Range(1.6f, 2.6f));
         if (Random.value < 0.4f)
             decals?.AddDebris(victim.transform.position + Random.insideUnitSphere * 0.7f);
         if (attacker != null && attacker.IsPlayer)
             attacker.ApplyHitStop(0.16f);
         if (victim.IsPlayer || (attacker != null && attacker.IsPlayer))
+        {
             cameraRig?.AddShake(victim.IsPlayer ? 0.24f : 0.17f);
+            // A weighty finisher zoom on the player's killing blow; a harder shove
+            // (and slightly smaller zoom) when it is the player who falls.
+            cameraRig?.AddImpulse(victim.IsPlayer ? 5f : 6f, victim.IsPlayer ? 0.3f : 0f, blow);
+        }
     }
 
     public BattleFighter FindProjectileTarget(BattleFighter attacker, Vector3 start, Vector3 end, float radius)
@@ -371,17 +377,30 @@ public sealed class BattleManager : MonoBehaviour
 
     public void ReportImpact(BattleFighter target, BattleFighter attacker, bool blocked, bool perfectBlock, bool counterStrike, float appliedDamage = 0f, bool guardBroken = false)
     {
-        effects?.PlayImpact(target.transform.position, blocked, perfectBlock, counterStrike);
+        Vector3 blow = attacker != null ? target.transform.position - attacker.transform.position : Vector3.zero;
+        effects?.PlayImpact(target.transform.position, blocked, perfectBlock, counterStrike, blow);
         bool playerInvolved = target.IsPlayer || attacker != null && attacker.IsPlayer;
         if (playerInvolved)
+        {
             cameraRig?.AddShake(perfectBlock ? 0.13f : counterStrike ? 0.095f : target.IsPlayer ? 0.11f : blocked ? 0.065f : 0.045f);
+            // A crisp zoom-in punctuates the beat — sharp on a perfect block or counter,
+            // heaviest when the player takes an unblocked blow (which also shoves the
+            // view along the strike). Landing a hit on an AI gives a lighter kick.
+            float fovPunch = perfectBlock ? 3.5f : counterStrike ? 3f
+                : target.IsPlayer ? (blocked ? 1.6f : 4.5f) : 2.4f;
+            float kick = target.IsPlayer && !blocked && !perfectBlock ? 0.22f : 0f;
+            cameraRig?.AddImpulse(fovPunch, kick, blow);
+        }
         // A shattered guard reads as its own beat: a heavier shatter cue on top of
         // the landed-hit impact, plus an amber jolt if it was the player's guard.
         if (guardBroken)
         {
             effects?.PlayGuardBreak(target.transform.position);
             if (playerInvolved)
+            {
                 cameraRig?.AddShake(0.08f);
+                cameraRig?.AddImpulse(1.8f);
+            }
         }
         if (perfectBlock)
         {
