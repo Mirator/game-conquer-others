@@ -130,7 +130,10 @@ public sealed class FighterView : MonoBehaviour
     public void UpdateState(float movement, bool blocking, CombatPhase phase, float staggerTimer, bool alive,
         CombatDirection attackDirection = CombatDirection.Right, bool formation = false)
     {
-        if (animator == null || animator.runtimeAnimatorController == null)
+        // A controller that is assigned but has no base layer (e.g. mid-rebuild in the
+        // editor) would make every CrossFade log "Invalid Layer Index" / "State could
+        // not be found". Bail quietly so the fighter holds its current pose instead.
+        if (animator == null || animator.runtimeAnimatorController == null || animator.layerCount == 0)
             return;
         if (!alive)
         {
@@ -138,9 +141,9 @@ public sealed class FighterView : MonoBehaviour
             // deaths desync; later frames must not re-trigger it.
             if (currentState == "Death" || currentState == "DeathMirror")
                 return;
-            currentState = hasDeathMirror && UnityEngine.Random.value < 0.5f ? "DeathMirror" : "Death";
+            string death = hasDeathMirror && UnityEngine.Random.value < 0.5f ? "DeathMirror" : "Death";
             animator.speed = UnityEngine.Random.Range(0.85f, 1.15f);
-            animator.CrossFade(currentState, 0.12f);
+            CrossFadeSafe(death, 0.12f);
             return;
         }
         if (animator.speed != 1f)
@@ -152,8 +155,17 @@ public sealed class FighterView : MonoBehaviour
             : movement > 0.05f ? formation ? "FormationWalk" : "Walk" : "Idle";
         if (state == currentState)
             return;
+        CrossFadeSafe(state, state == "Hit" ? 0.05f : 0.12f);
+    }
+
+    // Cross-fades only to a state that actually exists on the base layer, and records
+    // it as current only on success — guarding against a transiently broken controller.
+    private void CrossFadeSafe(string state, float duration)
+    {
+        if (!animator.HasState(0, Animator.StringToHash(state)))
+            return;
         currentState = state;
-        animator.CrossFade(state, state == "Hit" ? 0.05f : 0.12f);
+        animator.CrossFade(state, duration);
     }
 
     // progress is the 0..1 progress WITHIN the current phase (not a global swing).

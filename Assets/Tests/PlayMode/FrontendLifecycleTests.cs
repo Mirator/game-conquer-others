@@ -49,9 +49,11 @@ public sealed class FrontendLifecycleTests
                 districts++;
         Assert.That(districts, Is.EqualTo(director.Campaign.Territories.Count));
 
-        GameObject table = GameObject.Find("Map Table");
-        Assert.That(table, Is.Not.Null);
-        Assert.That(table.GetComponent<Collider>(), Is.Not.Null, "The table remains the ground-click target.");
+        // The rolling terrain mesh carries the diorama's only collider and is the
+        // ground-click target; every decorative primitive has its collider stripped.
+        GameObject terrain = GameObject.Find("Campaign Terrain");
+        Assert.That(terrain, Is.Not.Null);
+        Assert.That(terrain.GetComponent<Collider>(), Is.Not.Null, "The terrain remains the ground-click target.");
         Assert.That(diorama.GetComponentsInChildren<Collider>(), Has.Length.EqualTo(1),
             "Diorama dressing must not intercept clicks intended for holds, parties, or ground.");
 
