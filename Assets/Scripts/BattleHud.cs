@@ -24,6 +24,7 @@ public sealed class BattleHud : MonoBehaviour
     private Text stateTitle;
     private Text stateBody;
     private Text reticle;
+    private Text captainMarker;
     private Button stateButton;
     private Text stateButtonLabel;
     private Image impactFlash;
@@ -66,6 +67,15 @@ public sealed class BattleHud : MonoBehaviour
             new Vector2(0.24f, 0.82f), new Vector2(0.76f, 0.92f), Vector2.zero, Vector2.zero, MedievalUi.Gold);
         reticle = MedievalUi.Label(fighting, "Reticle", "+", 36, TextAnchor.MiddleCenter,
             new Vector2(0.485f, 0.47f), new Vector2(0.515f, 0.53f), Vector2.zero, Vector2.zero);
+
+        // A world-tracking marker over the enemy captain so the primary kill target
+        // stays findable in a melee. Centre-anchored so RefreshFight can drive its
+        // anchoredPosition; clamps to the panel edge (with a direction hint) when the
+        // captain is off-screen or behind the camera.
+        captainMarker = MedievalUi.Label(fighting, "Enemy Captain Marker", "ENEMY CAPTAIN", 18,
+            TextAnchor.MiddleCenter, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
+            new Vector2(-100f, -16f), new Vector2(100f, 16f), new Color(1f, 0.5f, 0.4f));
+        captainMarker.raycastTarget = false;
         impactFlash = MedievalUi.Panel(fighting, "Impact Flash", Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero,
             Color.clear).GetComponent<Image>();
         impactFlash.raycastTarget = false;
@@ -175,11 +185,81 @@ public sealed class BattleHud : MonoBehaviour
             "1 FOLLOW   2 HOLD   3 CHARGE   4 ADVANCE\n" +
             "F FORMATION    H HOLD FIRE";
         AnimateMessage();
-        reticle.text = battle.Player != null && battle.Player.IsRanged
-            ? battle.Player.IsChargingAttack ? (battle.Player.BowPrecisionReady ? "STEADY" : "DRAW") : "+"
-            : battle.Player != null && battle.Player.IsCounterReady ? "COUNTER" : "+";
+        UpdateReticle();
+        UpdateCaptainMarker();
         Color flash = battle.ImpactFlashColor;
         impactFlash.color = new Color(flash.r, flash.g, flash.b, battle.ImpactFlash);
+    }
+
+    // The reticle doubles as the primary-threat cue: a counter opportunity (cyan)
+    // takes precedence, then an incoming enemy wind-up aimed at the player (amber
+    // "GUARD"), otherwise the neutral cross. Ranged aiming shows its own draw states.
+    private void UpdateReticle()
+    {
+        if (battle.Player == null)
+        {
+            reticle.text = "+";
+            reticle.color = MedievalUi.Bone;
+            return;
+        }
+        if (battle.Player.IsRanged)
+        {
+            reticle.text = battle.Player.IsChargingAttack ? (battle.Player.BowPrecisionReady ? "STEADY" : "DRAW") : "+";
+            reticle.color = MedievalUi.Bone;
+        }
+        else if (battle.Player.IsCounterReady)
+        {
+            reticle.text = "COUNTER";
+            reticle.color = new Color(0.4f, 0.9f, 1f);
+        }
+        else if (battle.FindIncomingThreat(battle.Player) != null)
+        {
+            reticle.text = "! GUARD";
+            reticle.color = new Color(1f, 0.5f, 0.4f);
+        }
+        else
+        {
+            reticle.text = "+";
+            reticle.color = MedievalUi.Bone;
+        }
+    }
+
+    // Tracks the enemy captain: projects its head to screen space, placing the label
+    // over it, or clamped to the panel edge with a direction hint when it is off-screen
+    // or behind the camera.
+    private void UpdateCaptainMarker()
+    {
+        BattleFighter captain = battle.EnemyCaptain();
+        Camera cam = battle.BattleCamera;
+        if (captain == null || cam == null)
+        {
+            captainMarker.enabled = false;
+            return;
+        }
+        captainMarker.enabled = true;
+
+        Vector2 half = fighting.rect.size * 0.5f;
+        Vector2 limit = half - new Vector2(80f, 24f);
+        Vector3 screen = cam.WorldToScreenPoint(captain.transform.position + Vector3.up * 2.1f);
+        bool behind = screen.z <= 0f;
+        if (behind) // mirror behind-camera positions so the edge hint points the right way
+            screen = new Vector3(Screen.width - screen.x, 0f, 0f);
+        RectTransformUtility.ScreenPointToLocalPointInRectangle(fighting, screen, null, out Vector2 local);
+
+        bool offScreen = behind || Mathf.Abs(local.x) > limit.x || Mathf.Abs(local.y) > limit.y;
+        string prefix = "", suffix = "";
+        if (offScreen)
+        {
+            local.x = Mathf.Clamp(local.x, -limit.x, limit.x);
+            local.y = Mathf.Clamp(local.y, -limit.y, limit.y);
+            // A single edge hint pointing the way to turn; horizontal edges win over vertical.
+            if (local.x <= -limit.x + 1f) prefix = "< ";
+            else if (local.x >= limit.x - 1f) suffix = " >";
+            else if (local.y >= limit.y - 1f) suffix = " ^";
+            else suffix = " v";
+        }
+        captainMarker.rectTransform.anchoredPosition = local;
+        captainMarker.text = $"{prefix}ENEMY CAPTAIN{suffix}";
     }
 
     private void RefreshState()

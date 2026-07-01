@@ -23,6 +23,8 @@ public sealed class BattleManager : MonoBehaviour
     public bool AllyHoldFire => commands != null && commands.AllyHoldFire;
     public float FormationSpeedScale => commands?.FormationSpeedScale ?? FormationBalance.SpeedScale(FormationShape.Line);
     public PlayerFighter Player { get; private set; }
+    // The battle camera (for the HUD to project world markers to screen space).
+    public Camera BattleCamera => cameraRig != null ? cameraRig.GetComponent<Camera>() : null;
     public int AlliesAlive => CountAlive(Team.Allies);
     public int EnemiesAlive => CountAlive(Team.Enemies);
     public string DebugAISummary => tactics?.DebugSummary ?? "";
@@ -233,6 +235,16 @@ public sealed class BattleManager : MonoBehaviour
 
     public BattleFighter SelectTacticalTarget(AIFighter seeker, BattleFighter current)
         => tactics?.SelectTarget(seeker, current);
+
+    // The living enemy captain, if any — the HUD marks it as the primary kill target
+    // so it stays findable in a melee.
+    public BattleFighter EnemyCaptain()
+    {
+        foreach (BattleFighter fighter in fighters)
+            if (fighter != null && fighter.IsAlive && fighter.Team == Team.Enemies && fighter.Archetype == Archetype.Captain)
+                return fighter;
+        return null;
+    }
 
     public BattleFighter FindIncomingThreat(BattleFighter defender)
     {

@@ -44,9 +44,13 @@ The ready screen communicates:
 - A single center `+` reticle:
   - It reads `DRAW` while a bow charges and `STEADY` once the bow shot is
     precise.
-  - It reads `COUNTER` while a perfect-block counter window is open.
-  - It shows no directional tick marks, no `AIM/ATTACK/BLOCK` direction label,
-    and no primary-threat incoming-direction cue.
+  - It reads `COUNTER` (cyan) while a perfect-block counter window is open.
+  - It reads `! GUARD` (amber) while an enemy is winding up an attack aimed at
+    the player — a non-directional threat-presence cue.
+  - It shows no directional tick marks and no `AIM/ATTACK/BLOCK` direction label.
+- A world-tracking `ENEMY CAPTAIN` marker over the living enemy captain so the
+  primary kill target stays findable; it clamps to the screen edge with a
+  direction hint (`<`/`>`/`^`/`v`) when the captain is off-screen or behind the camera.
 - Temporary battle and block messages that fade in with a brief scale punch and
   fade out at the end of their timer.
 - No directional text or telegraph bars are drawn above enemies.

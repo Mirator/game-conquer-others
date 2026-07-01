@@ -118,7 +118,10 @@ minimum fighter distance, close pairs, and invalid target assignments.
 
 Delivered with one primary-threat direction/progress cue, damage-gated health
 bars, allies avoiding the player's active opponent, longer blocked-attacker
-recovery, and a timed perfect-block/counter system.
+recovery, and a timed perfect-block/counter system. The centre reticle also
+surfaces a non-directional `! GUARD` warning while an enemy winds up an attack
+aimed at the player, and a screen-tracking `ENEMY CAPTAIN` marker keeps the
+primary kill target findable in a melee (see [07](07-ui-and-battle-lifecycle.md)).
 
 ### P4 - Feedback Clarity Pass
 
